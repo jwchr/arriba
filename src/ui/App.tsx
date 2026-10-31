@@ -82,10 +82,11 @@ export function App() {
       <header className="top">
         {screen.name !== 'home' ? (
           <button className="icon-btn" onClick={() => setScreen({ name: 'home' })} aria-label={t.back}>‹</button>
-        ) : <span className="wordmark" aria-label="Arriba">ARRIBA<span className="bang">!</span></span>}
+        ) : <span className="wordmark" role="img" aria-label="Arriba">ARRIBA<span className="bang" aria-hidden="true">!</span></span>}
         <button className="icon-btn" onClick={() => setScreen({ name: 'settings' })} aria-label={t.settings}>⚙</button>
       </header>
       {ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner}</div>}
+      <FeedStatus ctx={ctx} />
       <main>
         {screen.name === 'home' && (
           <Home ctx={ctx} favorites={favorites} count={settings.count} setFavorites={setFavorites} reversedIds={reversedIds} toggleReversed={toggleReversed}
@@ -114,6 +115,25 @@ export function App() {
 
 interface Ctx { ds: Dataset; tz: string; now: number; t: Strings; lang: Lang; stopName: (id: string) => string }
 
+/** Offline state and schedule validity, so a stale or expired feed is never mistaken for "no buses". */
+function FeedStatus({ ctx }: { ctx: Ctx }) {
+  const { ds, t, now, tz } = ctx;
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+  useEffect(() => {
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    addEventListener('online', up);
+    addEventListener('offline', down);
+    return () => { removeEventListener('online', up); removeEventListener('offline', down); };
+  }, []);
+  const validThrough = Object.values(ds.calendars).reduce((m, c) => [c.end, ...c.added].reduce((a, b) => (b > a ? b : a), m), '00000000');
+  const expired = localYmd(now, tz) > validThrough;
+  const fmtYmd = (d: string) => `${+d.slice(4, 6)}/${+d.slice(6, 8)}/${d.slice(0, 4)}`;
+  if (expired) return <p className="status-line" data-level="warn" role="alert">{t.feedExpired(fmtYmd(validThrough))}</p>;
+  if (!online) return <p className="status-line" data-level="warn" role="status">{t.offline(fmtYmd(ds.meta.builtAt.slice(0, 10).replaceAll('-', '')))}</p>;
+  return null;
+}
+
 function RouteBadge({ ds, routeId }: { ds: Dataset; routeId: string }) {
   const r = ds.routes.find((x) => x.id === routeId);
   return <span className="route-badge" data-express={r?.shortName.endsWith('T') ? 'true' : undefined}>{r?.shortName ?? '?'}</span>;
@@ -126,11 +146,11 @@ function arrivalAt(ds: Dataset, d: Departure, stopId: string): number | undefine
   return i > d.stopIndex ? tripStopTimes(ds, d)[i]?.at : undefined;
 }
 
-function legFor(ds: Dataset, f: Favorite, reversedView: boolean): Leg {
+function legFor(ds: Dataset, f: Favorite, reversedView: boolean): Leg | undefined {
   if (!reversedView) return { fromStopId: f.fromStopId, toStopId: f.toStopId, routeIds: f.routeIds };
   // Return trip: board where we got off; get off at the home stop or its twin across the street.
   const back = alightingStopFor(ds, f.toStopId, f.fromStopId, f.routeIds);
-  return { fromStopId: f.toStopId, toStopId: back?.id ?? f.fromStopId, routeIds: f.routeIds };
+  return back ? { fromStopId: f.toStopId, toStopId: back.id, routeIds: f.routeIds } : undefined;
 }
 
 function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed, onSearch, onAllDay, onDeparture }: {
@@ -177,8 +197,8 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
 }) {
   const { ds, t, tz, now, lang, stopName } = ctx;
   const leg = legFor(ds, fav, rev);
-  const deps = nextDepartures(ds, { stopId: leg.fromStopId, toStopId: leg.toStopId, routeIds: leg.routeIds }, now, count);
-  const title = `${stopName(leg.fromStopId)} → ${stopName(leg.toStopId)}`;
+  const deps = leg ? nextDepartures(ds, { stopId: leg.fromStopId, toStopId: leg.toStopId, routeIds: leg.routeIds }, now, count) : [];
+  const title = leg ? `${stopName(leg.fromStopId)} → ${stopName(leg.toStopId)}` : '';
   return (
     <article className="card fav" aria-label={fav.label}>
       <div className="row-between">
@@ -189,8 +209,8 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
         ) : <h2>{fav.label}</h2>}
         <button className="chip" aria-pressed={rev} onClick={onReverse}>⇄ {t.reverse}</button>
       </div>
-      {title !== fav.label && <p className="leg">{title}</p>}
-      {editing ? (
+      {leg && title !== fav.label && <p className="leg">{title}</p>}
+      {!leg && !editing ? <p className="warn" role="alert">{t.noReturnStop}</p> : editing ? (
         <div className="edit-row">
           <button onClick={() => onMove(-1)} disabled={first}>↑ {t.moveUp}</button>
           <button onClick={() => onMove(1)} disabled={last}>↓ {t.moveDown}</button>
@@ -198,7 +218,7 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
         </div>
       ) : (
         <>
-          {deps.length === 0 ? <p className="muted">{t.noMoreToday}</p> : (
+          {!leg ? null : deps.length === 0 ? <p className="muted">{t.noMoreToday}</p> : (
             <ul className="deps">
               {deps.map((d, i) => {
                 const arr = arrivalAt(ds, d, leg.toStopId);
@@ -220,7 +240,7 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
               })}
             </ul>
           )}
-          <button className="link" onClick={() => onAllDay(leg, title)}>{t.allDay} →</button>
+          {leg && <button className="link" onClick={() => onAllDay(leg, title)}>{t.allDay} →</button>}
         </>
       )}
     </article>
@@ -296,7 +316,7 @@ function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title
       <p className="leg">{title}</p>
       <div className="choice-list" role="tablist">
         {days.map((d, i) => (
-          <button key={d} role="tab" className="chip" aria-selected={d === date} aria-pressed={d === date} onClick={() => setDate(d)}
+          <button key={d} role="tab" className="chip" aria-selected={d === date} data-selected={d === date ? 'true' : undefined} onClick={() => setDate(d)}
             data-weekend={weekdayIndex(d) >= 5 ? 'true' : undefined}>{dayLabel(d, i)}</button>
         ))}
       </div>
@@ -315,7 +335,7 @@ function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title
           })}
         </tbody>
       </table>
-      {!list.length && <p className="muted">{t.noMoreToday}</p>}
+      {!list.length && <p className="muted">{t.noBusesThisDay}</p>}
     </section>
   );
 }
@@ -332,7 +352,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
     const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date(dep.departs));
     return Number(parts.find((p) => p.type === 'hour')?.value) * 60 + Number(parts.find((p) => p.type === 'minute')?.value);
   })();
-  const wd = weekdayIndex(localYmd(dep.departs, tz));
+  const wd = weekdayIndex(dep.serviceDate);
   const gate: GateAnswer | undefined = atPabt
     ? gateFor(dep.tripInstanceId, dep.pattern.id, localMin, wd === 5 ? 'saturday' : wd === 6 ? 'sunday' : 'weekday', [], ds.meta.demo ? demoUsualGates : [])
     : undefined;

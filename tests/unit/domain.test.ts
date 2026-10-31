@@ -28,6 +28,22 @@ describe('time', () => {
     expect(fmt(serviceTimeToInstant('20270314', 8 * 3600, TZ))).toBe('8:00 AM');
     expect(fmt(serviceTimeToInstant('20270314', 23 * 3600 + 30 * 60, TZ))).toBe('11:30 PM');
   });
+  // The GTFS spec measures times from noon minus 12 h, which shifts 00:00-02:59 by an hour on DST days.
+  // These tests pin that literal reading; M2 must check how NJ Transit actually encodes those trips.
+  it('spring-forward: 00:30 on Mar 14 2027 is 11:30 PM on Mar 13 and is not lost', () => {
+    const t = serviceTimeToInstant('20270314', 30 * 60, TZ);
+    expect([localYmd(t, TZ), fmt(t)]).toEqual(['20270313', '11:30 PM']);
+    const one: typeof ds = { ...ds, trips: [{ id: 'N', patternId: 'L0', serviceId: 'ALL', times: [1800, 2160, 2640, 3240, 5100] }],
+      calendars: { ALL: { days: [true, true, true, true, true, true, true], start: '20270301', end: '20270331', added: [], removed: [] } } };
+    const on = (d: string) => departuresOn(one, { stopId: 'D1', date: d }).map((x) => `${x.serviceDate} ${fmt(x.departs)}`);
+    expect(on('20270313')).toEqual(['20270313 12:30 AM', '20270314 11:30 PM']);
+    expect(on('20270314')).toEqual([]); // that day's 00:30 trip already ran the evening before
+  });
+  it('fall-back: 00:30 and 01:30 on Nov 1 2026 both read 1:30 AM (once EDT, once EST)', () => {
+    const a = serviceTimeToInstant('20261101', 30 * 60, TZ);
+    const b = serviceTimeToInstant('20261101', 90 * 60, TZ);
+    expect([fmt(a), fmt(b), (b - a) / 60000]).toEqual(['1:30 AM', '1:30 AM', 60]);
+  });
   it('formats Spanish with a 12-hour clock', () => {
     expect(formatTime12(serviceTimeToInstant('20261104', 7 * 3600 + 5 * 60, TZ), TZ, 'es')).toMatch(/^7:05 a\.? ?m\.?$/i);
   });

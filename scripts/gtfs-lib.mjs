@@ -30,6 +30,31 @@ export function parseCsv(text) {
   return body.map((r) => Object.fromEntries(keys.map((k, i) => [k, (r[i] ?? '').trim()])));
 }
 
+/**
+ * Keep only lines whose `column` value is in `keep`, before full parsing. stop_times.txt is the
+ * largest file (millions of rows); filtering first keeps memory to the corridor's share.
+ * Lines containing quotes fall back to the full parser for that line.
+ */
+export function filterCsvByColumn(text, column, keep) {
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  const nl = text.indexOf('\n');
+  const header = (nl < 0 ? text : text.slice(0, nl)).replace(/\r$/, '');
+  const idx = header.split(',').map((h) => h.trim().replace(/^"|"$/g, '')).indexOf(column);
+  if (idx < 0) throw new Error(`column ${column} not found`);
+  const out = [header];
+  let start = nl + 1;
+  while (nl >= 0 && start < text.length) {
+    let end = text.indexOf('\n', start);
+    if (end < 0) end = text.length;
+    const line = text.slice(start, end).replace(/\r$/, '');
+    start = end + 1;
+    if (!line) continue;
+    const value = line.includes('"') ? Object.values(parseCsv(`${header}\n${line}`)[0] ?? {})[idx] : line.split(',')[idx];
+    if (keep.has((value ?? '').trim())) out.push(line);
+  }
+  return out.join('\n');
+}
+
 export function parseGtfsTime(s) {
   if (!s) return undefined;
   const [h, m, sec] = s.split(':').map(Number);
@@ -70,8 +95,8 @@ export function buildDataset(files, { routeShortNames, feedVersion = 'unknown', 
   const tripIds = new Set(trips.map((t) => t.trip_id));
 
   const byTrip = new Map();
-  for (const st of need('stop_times.txt')) {
-    if (!tripIds.has(st.trip_id)) continue;
+  if (files['stop_times.txt'] === undefined) throw new Error('missing stop_times.txt');
+  for (const st of parseCsv(filterCsvByColumn(files['stop_times.txt'], 'trip_id', tripIds))) {
     let a = byTrip.get(st.trip_id);
     if (!a) byTrip.set(st.trip_id, (a = []));
     a.push(st);

@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain ESM script without type declarations
-import { buildDataset, interpolate, parseCsv } from '../../scripts/gtfs-lib.mjs';
+import { buildDataset, filterCsvByColumn, interpolate, parseCsv } from '../../scripts/gtfs-lib.mjs';
 import { departuresOn } from '../../src/domain/schedule';
 import { formatTime12 } from '../../src/domain/time';
 import type { Dataset } from '../../src/domain/types';
@@ -16,6 +16,11 @@ describe('GTFS build', () => {
   it('parses quoted CSV with BOM, embedded commas and doubled quotes', () => {
     const rows = parseCsv('﻿a,b\r\n"x, y","say ""hi"""\r\n');
     expect(rows).toEqual([{ a: 'x, y', b: 'say "hi"' }]);
+  });
+
+  it('pre-filters big files by column, quoted lines included', () => {
+    const text = 'trip_id,stop_id\r\nA,1\r\nB,2\r\n"A",3\r\n';
+    expect(filterCsvByColumn(text, 'trip_id', new Set(['A']))).toBe('trip_id,stop_id\nA,1\n"A",3');
   });
 
   it('interpolates blank intermediate times', () => {

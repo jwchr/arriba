@@ -28,7 +28,9 @@ export function departuresOn(ds: Dataset, q: DepartureQuery): Departure[] {
   const patterns = new Map(ds.patterns.map((p) => [p.id, p]));
   const routes = new Map(ds.routes.map((r) => [r.id, r]));
   const out: Departure[] = [];
-  for (const serviceDate of [addDays(q.date, -1), q.date]) {
+  // Previous service day: trips past 24:00. Next service day: on a spring-forward date, GTFS times
+  // before 01:00 fall on the evening before (noon-minus-12h rule), so they belong to q.date.
+  for (const serviceDate of [addDays(q.date, -1), q.date, addDays(q.date, 1)]) {
     for (const trip of ds.trips) {
       if (!isServiceActive(ds.calendars[trip.serviceId], serviceDate)) continue;
       const pattern = patterns.get(trip.patternId);

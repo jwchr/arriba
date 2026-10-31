@@ -28,7 +28,9 @@ if (statSync(input).isDirectory()) {
 } else {
   const buf = readFileSync(input);
   digestSource = buf;
-  for (const [name, data] of Object.entries(unzipSync(new Uint8Array(buf)))) {
+  const needed = new Set(['agency.txt', 'routes.txt', 'stops.txt', 'trips.txt', 'stop_times.txt', 'calendar.txt', 'calendar_dates.txt']);
+  const picked = unzipSync(new Uint8Array(buf), { filter: (f) => needed.has(f.name.split('/').pop() ?? '') });
+  for (const [name, data] of Object.entries(picked)) {
     const base = name.split('/').pop();
     if (base && base.endsWith('.txt')) files[base] = strFromU8(data);
   }
