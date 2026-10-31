@@ -13,6 +13,11 @@ Updated 2026-10-31. Keep this short; replace stale lines rather than appending.
 - Live data (M0 spike, M3): needs NJ Transit developer credentials (BUSDATA and GTFS-BUS APIs) stored as secrets by the owner.
 - Not yet opened on Jeff's Galaxy S26 Ultra or Diego's phone.
 
+## Known gaps (from independent review, 2026-10-31)
+- DST: GTFS times 00:00-02:59 on DST dates follow the spec's noon-minus-12h rule literally; check how NJ Transit encodes them before real data ships (M2 gate).
+- Age of cached data shows only when the browser reports offline; flaky tunnel signal needs a fetch timeout and age line (M4).
+- `filterCsvByColumn` does not handle a quoted field containing a newline in stop_times (rare); add a warning.
+
 ## Next actions
 1. M0: record 72 h of vehicle positions, trip updates, alerts and DepartureVision for Port Authority and the boarding stop; one-page go/no-go.
 2. M2: build `corridor.json` from the real feed; compare 163/164/165/165T against published timetables (weekday, Saturday, Sunday, one holiday).

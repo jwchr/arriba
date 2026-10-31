@@ -129,8 +129,10 @@ function FeedStatus({ ctx }: { ctx: Ctx }) {
   const validThrough = Object.values(ds.calendars).reduce((m, c) => [c.end, ...c.added].reduce((a, b) => (b > a ? b : a), m), '00000000');
   const expired = localYmd(now, tz) > validThrough;
   const fmtYmd = (d: string) => `${+d.slice(4, 6)}/${+d.slice(6, 8)}/${d.slice(0, 4)}`;
+  const built = Date.parse(ds.meta.builtAt);
+  if (!Object.keys(ds.calendars).length) return null;
   if (expired) return <p className="status-line" data-level="warn" role="alert">{t.feedExpired(fmtYmd(validThrough))}</p>;
-  if (!online) return <p className="status-line" data-level="warn" role="status">{t.offline(fmtYmd(ds.meta.builtAt.slice(0, 10).replaceAll('-', '')))}</p>;
+  if (!online) return <p className="status-line" data-level="warn" role="status">{t.offline(fmtYmd(Number.isNaN(built) ? validThrough : localYmd(built, tz)))}</p>;
   return null;
 }
 
@@ -348,10 +350,8 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
   const alightIndex = dep.pattern.stopIds.indexOf(leg.toStopId);
   const boardStop = ds.stops.find((s) => s.id === dep.pattern.stopIds[dep.stopIndex]);
   const atPabt = boardStop?.terminal === 'PABT';
-  const localMin = (() => {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date(dep.departs));
-    return Number(parts.find((p) => p.type === 'hour')?.value) * 60 + Number(parts.find((p) => p.type === 'minute')?.value);
-  })();
+  // Usual-gate windows use service-day minutes (a 24:00 trip is 1440, not 0) and the service date's day type.
+  const localMin = Math.round((ds.trips.find((x) => x.id === dep.tripId)?.times[dep.stopIndex] ?? 0) / 60);
   const wd = weekdayIndex(dep.serviceDate);
   const gate: GateAnswer | undefined = atPabt
     ? gateFor(dep.tripInstanceId, dep.pattern.id, localMin, wd === 5 ? 'saturday' : wd === 6 ? 'sunday' : 'weekday', [], ds.meta.demo ? demoUsualGates : [])
