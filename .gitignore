@@ -1,0 +1,8 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+# Raw NJ Transit feed recordings and credentials never go in this public repo.
+recordings/
+.env*
+*.zip

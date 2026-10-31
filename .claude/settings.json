@@ -1,0 +1,17 @@
+{
+  "model": "opus",
+  "effortLevel": "high",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" || exit 0; echo 'Context was compacted. Read docs/HANDOFF.md and docs/V1_CONTRACT.md, check live repo state, then continue.'; git log --oneline -8 2>/dev/null; exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}

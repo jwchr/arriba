@@ -1,0 +1,186 @@
+import { describe, expect, it } from 'vitest';
+import { demoDataset as ds, demoUsualGates } from '../../src/data/demo';
+import { alightingStopFor, checkDirection, searchStops } from '../../src/domain/direction';
+import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, type Favorite } from '../../src/domain/favorites';
+import { gateChanged, gateFor, parseLaneGate } from '../../src/domain/gate';
+import { createLock, reduceLock, type VehicleObservation } from '../../src/domain/lock';
+import { departuresOn, isServiceActive, nextDepartures } from '../../src/domain/schedule';
+import { formatTime12, localYmd, parseGtfsTime, serviceTimeToInstant, tzOffsetMinutes, zonedWallTime } from '../../src/domain/time';
+
+const TZ = 'America/New_York';
+const fmt = (t: number) => formatTime12(t, TZ);
+
+describe('time', () => {
+  it('parses GTFS times past midnight', () => {
+    expect(parseGtfsTime('25:10:00')).toBe(25 * 3600 + 600);
+  });
+  it('maps 24:15 on a service date to 12:15 AM the next calendar day', () => {
+    const t = serviceTimeToInstant('20261104', 24 * 3600 + 15 * 60, TZ);
+    expect(localYmd(t, TZ)).toBe('20261105');
+    expect(fmt(t)).toBe('12:15 AM');
+  });
+  it('is correct across the fall-back DST day (Nov 1 2026)', () => {
+    // On a 25-hour day, 08:00 service time is still 8:00 AM local (noon-minus-12h rule).
+    expect(fmt(serviceTimeToInstant('20261101', 8 * 3600, TZ))).toBe('8:00 AM');
+    expect(tzOffsetMinutes(zonedWallTime(2026, 11, 1, 12, 0, TZ), TZ)).toBe(-300);
+  });
+  it('is correct across the spring-forward DST day (Mar 14 2027)', () => {
+    expect(fmt(serviceTimeToInstant('20270314', 8 * 3600, TZ))).toBe('8:00 AM');
+    expect(fmt(serviceTimeToInstant('20270314', 23 * 3600 + 30 * 60, TZ))).toBe('11:30 PM');
+  });
+  it('formats Spanish with a 12-hour clock', () => {
+    expect(formatTime12(serviceTimeToInstant('20261104', 7 * 3600 + 5 * 60, TZ), TZ, 'es')).toMatch(/^7:05 a\.? ?m\.?$/i);
+  });
+});
+
+describe('calendar and departures', () => {
+  it('applies holiday removals and additions', () => {
+    expect(isServiceActive(ds.calendars.WKDY, '20261126')).toBe(false);
+    expect(isServiceActive(ds.calendars.SUN, '20261126')).toBe(true);
+    expect(isServiceActive(ds.calendars.WKDY, '20261125')).toBe(true);
+  });
+  it('lists the whole weekday at the boarding stop in time order, both routes', () => {
+    const list = departuresOn(ds, { stopId: 'D1', date: '20261104', directionId: 0 });
+    expect(list.length).toBe(38 + 1 + 10); // 38 locals + the 12:15 AM from the previous night + 10 expresses
+    expect(list.map((d) => d.departs)).toEqual([...list.map((d) => d.departs)].sort((a, b) => a - b));
+    expect(fmt(list[0]!.departs)).toBe('12:15 AM');
+    expect(list[0]!.serviceDate).toBe('20261103');
+    expect(new Set(list.map((d) => d.route.shortName))).toEqual(new Set(['165', '165T']));
+  });
+  it('never offers a departure from the last stop of a pattern', () => {
+    expect(departuresOn(ds, { stopId: 'PABT', date: '20261104', directionId: 0 })).toHaveLength(0);
+  });
+  it('filters to trips that actually reach the destination', () => {
+    const toD3 = departuresOn(ds, { stopId: 'D1', date: '20261104', toStopId: 'D3' });
+    expect(toD3.every((d) => d.route.shortName === '165')).toBe(true);
+  });
+  it('runs the Sunday schedule on the holiday', () => {
+    const list = departuresOn(ds, { stopId: 'D1', date: '20261126', directionId: 0 });
+    expect(list.every((d) => d.route.shortName === '165')).toBe(true);
+    // The Wednesday-night 12:15 AM trip belongs to the previous service day and still runs.
+    expect(list.slice(0, 2).map((d) => [fmt(d.departs), d.serviceDate])).toEqual([
+      ['12:15 AM', '20261125'],
+      ['7:00 AM', '20261126'],
+    ]);
+  });
+  it('rolls over to tomorrow for next departures late at night', () => {
+    const now = serviceTimeToInstant('20261104', 23 * 3600 + 45 * 60, TZ);
+    const next = nextDepartures(ds, { stopId: 'D1', directionId: 0 }, now, 3);
+    expect(next.map((d) => fmt(d.departs))).toEqual(['12:15 AM', '5:00 AM', '5:30 AM']);
+  });
+});
+
+describe('direction guard', () => {
+  it('accepts the correct side', () => {
+    expect(checkDirection(ds, 'D2', 'PABT')).toEqual({ ok: true });
+  });
+  it('sends a rider on the wrong side across the street', () => {
+    const r = checkDirection(ds, 'D2B', 'PABT');
+    expect(r.ok).toBe(false);
+    if (!r.ok && r.reason === 'wrong-side') {
+      expect(r.useStop.id).toBe('D2');
+      expect(r.distanceM).toBeLessThan(50);
+    } else throw new Error('expected wrong-side');
+  });
+  it('reverses a commute to the home stop\'s twin across the street', () => {
+    expect(alightingStopFor(ds, 'PABT', 'D2')?.id).toBe('D2B');
+    expect(alightingStopFor(ds, 'PABT', 'D1')?.id).toBe('D1');
+    expect(alightingStopFor(ds, 'D1', 'D4B')?.id).toBe('D4');
+    expect(alightingStopFor(ds, 'PABT', 'D3', ['R165T'])).toBeUndefined();
+  });
+  it('finds stops by name, accents ignored, and by exact code', () => {
+    expect(searchStops(ds, 'maple main').map((s) => s.id).sort()).toEqual(['D2', 'D2B']);
+    expect(searchStops(ds, '90003')[0]!.id).toBe('D3');
+    expect(searchStops(ds, 'Port Authórity')[0]!.id).toBe('PABT');
+  });
+});
+
+describe('favorites', () => {
+  const f = (id: string): Favorite => ({ id, label: id, fromStopId: 'D1', toStopId: 'PABT', routeIds: [] });
+  it('keeps the rider order and moves one step at a time', () => {
+    let list = [f('a'), f('b'), f('c')];
+    list = moveFavorite(list, 'c', -1);
+    expect(list.map((x) => x.id)).toEqual(['a', 'c', 'b']);
+    expect(moveFavorite(list, 'a', -1)).toBe(list);
+    list = renameFavorite(removeFavorite(list, 'b'), 'c', '  Work  ');
+    expect(list.map((x) => x.label)).toEqual(['a', 'Work']);
+    expect(addFavorite(list, f('a'))).toBe(list);
+  });
+  it('survives missing or broken storage', () => {
+    expect(loadFavorites(undefined)).toEqual([]);
+    expect(loadFavorites({ getItem: () => '{not json' })).toEqual([]);
+    expect(() => saveFavorites({ setItem: () => { throw new Error('quota'); } }, [f('a')])).not.toThrow();
+  });
+});
+
+describe('exact-bus lock', () => {
+  const obs = (over: Partial<VehicleObservation>): VehicleObservation => ({
+    tripInstanceId: 'T1@20261104', vehicleId: 'V1', observedAt: 1000, lat: 40.8, lon: -74, ...over,
+  });
+  it('starts scheduled-only and becomes tracked on the first matching vehicle', () => {
+    let l = createLock('T1@20261104', 0);
+    expect(l.status).toBe('scheduled_only');
+    l = reduceLock(l, { type: 'observation', obs: obs({ tripInstanceId: 'T2@20261104', vehicleId: 'V9' }) });
+    expect(l.status).toBe('scheduled_only');
+    l = reduceLock(l, { type: 'observation', obs: obs({}) });
+    expect(l).toMatchObject({ status: 'tracked', vehicleId: 'V1' });
+  });
+  it('goes stale, then vanished, and never calls a missing bus cancelled', () => {
+    let l = reduceLock(createLock('T1@20261104', 0), { type: 'observation', obs: obs({ observedAt: 0 }) });
+    l = reduceLock(l, { type: 'tick', now: 3 * 60_000 });
+    expect(l.status).toBe('stale');
+    l = reduceLock(l, { type: 'tick', now: 60 * 60_000 });
+    expect(l.status).toBe('vanished');
+    l = reduceLock(l, { type: 'observation', obs: obs({ observedAt: 61 * 60_000 }) });
+    expect(l.status).toBe('tracked');
+    l = reduceLock(l, { type: 'official_cancellation', tripInstanceId: 'T1@20261104' });
+    expect(l.status).toBe('cancelled');
+  });
+  it('holds a vehicle swap for confirmation instead of switching silently', () => {
+    let l = reduceLock(createLock('T1@20261104', 0), { type: 'observation', obs: obs({}) });
+    l = reduceLock(l, { type: 'observation', obs: obs({ vehicleId: 'V2', observedAt: 2000 }) });
+    expect(l).toMatchObject({ status: 'needs_confirmation', vehicleId: 'V1' });
+    // Further reports of the old bus do not clear the question.
+    l = reduceLock(l, { type: 'observation', obs: obs({ observedAt: 3000 }) });
+    expect(l.status).toBe('needs_confirmation');
+    expect(reduceLock(l, { type: 'confirm_pending' })).toMatchObject({ status: 'tracked', vehicleId: 'V2' });
+    expect(reduceLock(l, { type: 'reject_pending' })).toMatchObject({ status: 'stale', vehicleId: 'V1' });
+  });
+  it('holds when our bus reappears on a different trip', () => {
+    let l = reduceLock(createLock('T1@20261104', 0), { type: 'observation', obs: obs({}) });
+    l = reduceLock(l, { type: 'observation', obs: obs({ tripInstanceId: 'T7@20261104', observedAt: 5000 }) });
+    expect(l).toMatchObject({ status: 'needs_confirmation', tripInstanceId: 'T1@20261104' });
+  });
+  it('ignores out-of-order reports', () => {
+    let l = reduceLock(createLock('T1@20261104', 0), { type: 'observation', obs: obs({ observedAt: 5000, lat: 1 }) });
+    l = reduceLock(l, { type: 'observation', obs: obs({ observedAt: 4000, lat: 2 }) });
+    expect(l.last?.lat).toBe(1);
+  });
+});
+
+describe('gates', () => {
+  it('parses lane/gate strings and treats ".." as no gate', () => {
+    expect(parseLaneGate('214-3')).toEqual({ gate: '214', door: '3' });
+    expect(parseLaneGate('312')).toEqual({ gate: '312' });
+    expect(parseLaneGate('..')).toBeNull();
+    expect(parseLaneGate('')).toBeNull();
+  });
+  it('prefers the newest posting for the exact trip, then a well-supported usual gate, else unknown', () => {
+    const postings = [
+      { tripInstanceId: 'A@1', gate: '212', observedAt: 1, source: 'demo' as const },
+      { tripInstanceId: 'A@1', gate: '215', door: '1', observedAt: 2, source: 'demo' as const },
+      { tripInstanceId: 'B@1', gate: '999', observedAt: 3, source: 'demo' as const },
+    ];
+    expect(gateFor('A@1', 'L1', 600, 'weekday', postings, demoUsualGates)).toMatchObject({ status: 'posted', gate: '215', door: '1' });
+    expect(gateFor('C@1', 'L1', 600, 'weekday', postings, demoUsualGates)).toMatchObject({ status: 'usual', gate: '212' });
+    expect(gateFor('C@1', 'L1', 23 * 60, 'weekday', [], demoUsualGates)).toMatchObject({ status: 'usual', gate: '312' });
+    expect(gateFor('C@1', 'L1', 600, 'sunday', [], demoUsualGates)).toEqual({ status: 'unknown' }); // only 3 samples
+    expect(gateFor('C@1', 'L0', 600, 'weekday', [], demoUsualGates)).toEqual({ status: 'unknown' });
+  });
+  it('flags a change only for a new posting that differs', () => {
+    expect(gateChanged({ status: 'usual', gate: '212', samples: 9 }, { status: 'posted', gate: '214', observedAt: 1, source: 'demo' })).toBe(true);
+    expect(gateChanged({ status: 'usual', gate: '212', samples: 9 }, { status: 'posted', gate: '212', observedAt: 1, source: 'demo' })).toBe(false);
+    expect(gateChanged({ status: 'posted', gate: '212', door: '1', observedAt: 1, source: 'demo' }, { status: 'posted', gate: '212', door: '2', observedAt: 2, source: 'demo' })).toBe(true);
+    expect(gateChanged({ status: 'unknown' }, { status: 'posted', gate: '212', observedAt: 1, source: 'demo' })).toBe(false);
+  });
+});

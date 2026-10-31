@@ -1,0 +1,11 @@
+{
+  "name": "Arriba",
+  "short_name": "Arriba",
+  "description": "Independent North Jersey to Manhattan bus commuter app. Not affiliated with NJ Transit.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f7f4",
+  "theme_color": "#0b6b3a",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
