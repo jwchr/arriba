@@ -137,7 +137,7 @@ const es: Strings = {
   arrivesLabel: 'Llega',
   scheduledOnly: 'Solo horario',
   scheduledOnlyHelp: 'Aún no hay un autobús en vivo vinculado. El seguimiento en vivo llega con los datos de NJ Transit (etapa M3).',
-  estimatedNote: '~ Estimado por Arriba. NJ Transit no publica una hora para esta parada; se calcula con las horas de la parada anterior y la siguiente.',
+  estimatedNote: '~ Hora estimada por Arriba. NJ Transit no publica una hora para esta parada; se calcula con las horas de la parada anterior y la siguiente.',
   estimatedWord: 'estimada',
   noMoreToday: 'No hay más autobuses hoy.',
   noBusesThisDay: 'No hay autobuses este día.',
