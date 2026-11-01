@@ -16,3 +16,4 @@ Owner decisions D01-D29 live in master spec v1.3 (archive). Entries below are ne
 | D39 | 2026-10-31 | Interactive sessions build M0-M2; an unattended Arriba steward only after Life Dashboard #13 closes. | D15 |
 | D40 | 2026-10-31 | Canonical working documents are `docs/V1_CONTRACT.md` and the issue backlog; master spec v1.3 is the archive. | 20.4 rule 1 |
 | D41 | 2026-10-31 | Cloudflare Workers paid plan only if the free 10 ms CPU limit fails in the spike. GitHub Pages hosts the web app meanwhile. | 9.2 |
+| D42 | 2026-11-01 | Until the NJ Transit GTFS arrives, the app is populated from the owner-supplied printed route 165 timetable (typed in, clearly labeled, timepoints only). Printed gate rules are shown as "published" gates, never as this bus's posted gate. This is not M2 and starts no data collection. | D35 |

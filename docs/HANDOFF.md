@@ -1,6 +1,6 @@
 # Handoff: current state
 
-Updated 2026-11-01. Keep this short; replace stale lines rather than appending.
+Updated 2026-11-01 (route 165 printed timetable added). Keep this short; replace stale lines rather than appending.
 
 ## Built and tested
 - M1 prototype on invented demo data (`src/data/demo.ts`, DEMO banner): home with ordered saved commutes and one-tap reverse, stop search with wrong-side guard, 7-day all-day timetable, departure detail with front-sign, stop list, Port Authority gate card (usual gate), ticket warning, exact-bus lock (scheduled-only until M3), English/Spanish, light/dark, offline service worker.
@@ -9,8 +9,11 @@ Updated 2026-11-01. Keep this short; replace stale lines rather than appending.
 - NJ Transit data-terms notices (footer and Settings, English and Spanish): data obtained from NJ Transit and redistributed from Arriba's own server; may not be real time. The demo shows only the real-time line, since its data is invented.
 - 5 Playwright flows on a Pixel 7 viewport; one stubs a real-style dataset to check the NJ Transit source line and the estimate marker.
 
+- Route 165 printed timetable (owner-supplied PDF "T0165 - 7/26", issued 7/1/26) is typed in as `data/t0165/transcription.json` and built by `scripts/build-timetable.mjs` into the committed `public/data/corridor.json`, so the app now shows real 165/165T times (500 printed trips: weekday, Saturday, Sunday, both directions). The app shows a "typed in from NJ Transit's printed timetable" banner. NJ Transit's printed Port Authority gate rules (gate change effective 3/15/2025) show as "Gate 212, door 1" etc. with a "general rule, not posted for this bus" note. To rebuild: `npm run timetable -- --built-at <ISO>`; `tests/unit/timetable.test.ts` fails if the committed JSON and the transcription disagree.
+- Limits of that data: 20 timepoints per direction only (no intermediate stops, so a rider's own stop may be missing); no coordinates, so the wrong-side guard works only through named twin stops (same printed location both ways, 11 pairs; other map references differ by direction and get no twin); no holiday schedules (the PDF lists holidays but not their times); the end date of the schedule is unknown, so calendars run to 2099-12-31 and the banner is the only warning; headsigns are Arriba's own "route + last timepoint" labels, not sign text; FP trips and F meaning are read from the legend, which defines F and P but not FP; DST edge dates are still unchecked. Transcription method: per-cell OCR with AM (light) / PM (bold) classified from stroke weight, resolved by a monotone-time search per row, structural checks (no step over 45 min, every cell valid), four independent passes compared, about 25 cells corrected by eye, and an 18-row random visual check with no errors found. It is not NJ Transit's feed: replace it with `build-gtfs.mjs` output at M2 and compare the two.
+
 ## Not yet done / blocked
-- Real schedule (M2): needs the NJ Transit bus GTFS zip. This environment's network cannot reach njtransit.com; owner either allows the domains or drops the zip into a connected folder.
+- Real schedule (M2; supersedes the printed-timetable data): needs the NJ Transit bus GTFS zip. This environment's network cannot reach njtransit.com; owner either allows the domains or drops the zip into a connected folder.
 - Live data (M0 spike, M3): needs NJ Transit developer credentials (BUSDATA and GTFS-BUS APIs) stored as secrets by the owner.
 - Owner instruction 2026-11-01: do not start M2 or any data collection (including the M0 archive) until the owner says NJ Transit developer approval has arrived.
 - Not yet opened on Jeff's Galaxy S26 Ultra or Diego's phone.
