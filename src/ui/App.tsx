@@ -371,6 +371,8 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
   const alightIndex = dep.pattern.stopIds.indexOf(leg.toStopId);
   const boardStop = ds.stops.find((s) => s.id === dep.pattern.stopIds[dep.stopIndex]);
   const alightStop = alightIndex > dep.stopIndex ? ds.stops.find((s) => s.id === dep.pattern.stopIds[alightIndex]) : undefined;
+  // The printed Park/Ride note is about Parkway express (P, FP) trips only; other trips stop there as usual.
+  const alightNote = alightStop?.noteId && (alightStop.noteId !== 'parkride-request' || ['P', 'FP'].includes(dep.pattern.variant ?? '')) ? t.stopNotes[alightStop.noteId] : undefined;
   const atPabt = boardStop?.terminal === 'PABT';
   // Usual-gate windows use service-day minutes (a 24:00 trip is 1440, not 0) and the service date's day type.
   const localMin = Math.round((ds.trips.find((x) => x.id === dep.tripId)?.times[dep.stopIndex] ?? 0) / 60);
@@ -387,7 +389,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
       </div>
       {dep.pattern.variant && t.variantNotes[dep.pattern.variant] && <p className="muted small">{t.variantNotes[dep.pattern.variant]}</p>}
       {boardStop?.noteId && t.stopNotes[boardStop.noteId] && <p className="muted small" role="note">{t.stopNotes[boardStop.noteId]}</p>}
-      {alightStop?.noteId && t.stopNotes[alightStop.noteId] && <p className="warn small" role="note">{t.stopNotes[alightStop.noteId]}</p>}
+      {alightNote && <p className="warn small" role="note">{alightNote}</p>}
       {ds.meta.transcribed && isNjtHoliday(dep.serviceDate) && <p className="warn small" role="note">{t.holidayOn}</p>}
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>
