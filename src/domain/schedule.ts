@@ -52,6 +52,7 @@ export function departuresOn(ds: Dataset, q: DepartureQuery): Departure[] {
         pattern,
         stopIndex,
         departs,
+        estimated: trip.estimated?.includes(stopIndex) ?? false,
         arrivesEnd: serviceTimeToInstant(serviceDate, endSecs, tz),
       });
     }
@@ -77,12 +78,13 @@ export function nextDepartures(ds: Dataset, q: Omit<DepartureQuery, 'date'>, now
   return list.filter((d) => d.departs >= now - 60_000).slice(0, n);
 }
 
-/** Scheduled time (epoch ms) at every stop of a departure's trip, for the stop list. */
-export function tripStopTimes(ds: Dataset, d: Departure): { stopId: string; at: number }[] {
+/** Scheduled time (epoch ms) at every stop of a departure's trip, for the stop list. `estimated` marks Arriba's filled-in times. */
+export function tripStopTimes(ds: Dataset, d: Departure): { stopId: string; at: number; estimated: boolean }[] {
   const trip = ds.trips.find((t) => t.id === d.tripId);
   if (!trip) return [];
   return d.pattern.stopIds.map((stopId, i) => ({
     stopId,
     at: serviceTimeToInstant(d.serviceDate, trip.times[i] ?? 0, ds.meta.timezone),
+    estimated: trip.estimated?.includes(i) ?? false,
   }));
 }

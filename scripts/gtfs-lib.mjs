@@ -61,7 +61,11 @@ export function parseGtfsTime(s) {
   return h * 3600 + m * 60 + (sec || 0);
 }
 
-/** Fill blank intermediate times linearly between known ones (GTFS allows blanks at non-timepoints). */
+/**
+ * Fill blank intermediate times linearly between known ones (GTFS allows blanks at non-timepoints).
+ * A filled value is Arriba's estimate, not NJ Transit data: buildDataset records those indices in
+ * trip.estimated so the app labels them (NJ Transit's terms require using the data as-is).
+ */
 export function interpolate(times) {
   const out = [...times];
   let last = -1;
@@ -118,8 +122,11 @@ export function buildDataset(files, { routeShortNames, feedVersion = 'unknown', 
       p = { id: `P${patterns.size + 1}`, routeId: t.route_id, directionId: dir, headsign, stopIds };
       patterns.set(key, p);
     }
-    const times = interpolate(sts.map((s) => parseGtfsTime(s.departure_time || s.arrival_time)));
-    outTrips.push({ id: t.trip_id, patternId: p.id, serviceId: t.service_id, times });
+    const given = sts.map((s) => parseGtfsTime(s.departure_time || s.arrival_time));
+    const trip = { id: t.trip_id, patternId: p.id, serviceId: t.service_id, times: interpolate(given) };
+    const estimated = given.flatMap((v, i) => (v === undefined ? [i] : []));
+    if (estimated.length) trip.estimated = estimated;
+    outTrips.push(trip);
     stopIds.forEach((s) => usedStops.add(s));
     usedServices.add(t.service_id);
   }

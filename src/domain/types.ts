@@ -50,6 +50,8 @@ export interface Trip {
   serviceId: string;
   /** Departure seconds after the service day's noon-minus-12h, aligned to pattern.stopIds. May exceed 86400. */
   times: number[];
+  /** Indices into `times` the build script filled in because the feed left them blank: Arriba's estimates, not NJ Transit data. Omitted when none. */
+  estimated?: number[];
 }
 
 export interface ServiceCalendar {
@@ -77,6 +79,8 @@ export interface Departure {
   stopIndex: number;
   /** Scheduled departure at the chosen stop (epoch ms). */
   departs: number;
+  /** True when `departs` is Arriba's estimate (see Trip.estimated), so the UI must label it. */
+  estimated: boolean;
   /** Scheduled arrival at the pattern's last stop (epoch ms). */
   arrivesEnd: number;
 }

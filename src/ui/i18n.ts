@@ -4,6 +4,10 @@ const en = {
   appTagline: 'When you ride NJ Transit, you need all the help you can get.',
   demoBanner: 'Demo data: invented stops, times and gates. Do not use it to catch a real bus.',
   notAffiliated: 'Independent app. Not affiliated with or endorsed by NJ Transit.',
+  // NJ Transit developer data terms: say the data was obtained from NJ Transit and is redistributed
+  // from Arriba's own server, and that it may not be real time. Shown with every dataset that is not the demo.
+  dataObtained: "Schedule data obtained from NJ Transit and redistributed from Arriba's own server, not an NJ Transit server.",
+  notRealTime: 'This information may not be real time.',
   settings: 'Settings',
   back: 'Back',
   noFavoritesTitle: 'Save your stop once',
@@ -30,6 +34,9 @@ const en = {
   arrivesLabel: 'Arrives',
   scheduledOnly: 'Scheduled only',
   scheduledOnlyHelp: 'No live bus is linked yet. Live tracking arrives with NJ Transit data (milestone M3).',
+  estimatedNote: '~ Estimated by Arriba. NJ Transit publishes no time for this stop; it is worked out from the stops before and after it.',
+  /** Read by screen readers after an estimated time, in place of the "~". */
+  estimatedWord: 'estimated',
   noMoreToday: 'No more buses today.',
   noBusesThisDay: 'No buses this day.',
   noReturnStop: 'No return bus stops near your home stop. Save the return trip as its own commute.',
@@ -102,6 +109,8 @@ const es: Strings = {
   appTagline: 'Cuando viajas en NJ Transit, necesitas toda la ayuda posible.',
   demoBanner: 'Datos de demostración: paradas, horarios y puertas inventados. No los uses para tomar un autobús real.',
   notAffiliated: 'App independiente. No está afiliada ni respaldada por NJ Transit.',
+  dataObtained: 'Datos de horarios obtenidos de NJ Transit y redistribuidos desde el servidor propio de Arriba, no desde un servidor de NJ Transit.',
+  notRealTime: 'Es posible que esta información no sea en tiempo real.',
   settings: 'Ajustes',
   back: 'Atrás',
   noFavoritesTitle: 'Guarda tu parada una vez',
@@ -128,6 +137,8 @@ const es: Strings = {
   arrivesLabel: 'Llega',
   scheduledOnly: 'Solo horario',
   scheduledOnlyHelp: 'Aún no hay un autobús en vivo vinculado. El seguimiento en vivo llega con los datos de NJ Transit (etapa M3).',
+  estimatedNote: '~ Hora estimada por Arriba. NJ Transit no publica una hora para esta parada; se calcula con las horas de la parada anterior y la siguiente.',
+  estimatedWord: 'estimada',
   noMoreToday: 'No hay más autobuses hoy.',
   noBusesThisDay: 'No hay autobuses este día.',
   noReturnStop: 'No hay parada de regreso cerca de tu parada. Guarda el regreso como un viaje aparte.',

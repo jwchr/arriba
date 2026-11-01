@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain ESM script without type declarations
 import { buildDataset, filterCsvByColumn, interpolate, parseCsv } from '../../scripts/gtfs-lib.mjs';
-import { departuresOn } from '../../src/domain/schedule';
+import { departuresOn, tripStopTimes } from '../../src/domain/schedule';
 import { formatTime12 } from '../../src/domain/time';
 import type { Dataset } from '../../src/domain/types';
 
@@ -36,6 +36,14 @@ describe('GTFS build', () => {
     expect(ds.stops.find((s) => s.id === '3')?.terminal).toBe('PABT');
     expect(ds.stops.find((s) => s.id === '2')?.name).toBe('MAIN ST, AT ELM');
     expect(ds.meta).toMatchObject({ demo: false, timezone: 'America/New_York' });
+  });
+
+  it('flags filled-in times as estimates and never a time the feed gave', () => {
+    expect(ds.trips.find((t) => t.id === 'T1')?.estimated).toEqual([1]);
+    expect(ds.trips.find((t) => t.id === 'T2')).not.toHaveProperty('estimated');
+    const [late, filled] = departuresOn(ds, { stopId: '2', date: '20261104' });
+    expect([late?.estimated, filled?.estimated]).toEqual([false, true]);
+    expect(tripStopTimes(ds, filled!).map((x) => x.estimated)).toEqual([false, true, false]);
   });
 
   it('keeps the express as its own pattern', () => {
