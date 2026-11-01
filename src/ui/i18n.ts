@@ -26,7 +26,11 @@ const en = {
   stopNotes: {
     'westwood-pickup':
       "Westwood pickups to New York: NJ Transit's timetable says the first pick-ups on local, T, R and P trips are stop #14025 (Kinderkamack Rd., 100 ft north of Old Hook Rd.) and stop #14026 (Kinderkamack Rd., 160 ft north of Lotus Ave.), served about 5 minutes before the time listed for Broadway at Irvington St.",
+    'parkride-request':
+      "Exit 165 Park/Ride lot: NJ Transit's timetable says PM Parkway express (P) trips stop here only if you ask the driver when you board. For midday service to the lot, it points to the route 168 timetable.",
   } as Record<string, string>,
+  holidayToday: "Today is on NJ Transit's holiday list. Buses may run a different schedule from the one shown here; check njtransit.com.",
+  holidayOn: "This day is on NJ Transit's holiday list. Buses may run a different schedule from the one shown here; check njtransit.com.",
   settings: 'Settings',
   back: 'Back',
   noFavoritesTitle: 'Save your stop once',
@@ -148,7 +152,11 @@ const es: Strings = {
   stopNotes: {
     'westwood-pickup':
       'Recogida en Westwood hacia Nueva York: el horario de NJ Transit indica que las primeras recogidas de los viajes locales, T, R y P son la parada n.º 14025 (Kinderkamack Rd., 100 pies al norte de Old Hook Rd.) y la parada n.º 14026 (Kinderkamack Rd., 160 pies al norte de Lotus Ave.), unos 5 minutos antes de la hora indicada para Broadway en Irvington St.',
+    'parkride-request':
+      'Estacionamiento Park/Ride de la salida 165: el horario de NJ Transit indica que los viajes exprés por el Parkway (P) de la tarde paran aquí solo si se lo pides al conductor al subir. Para servicio al mediodía al estacionamiento, remite al horario de la ruta 168.',
   } as Record<string, string>,
+  holidayToday: 'Hoy está en la lista de días feriados de NJ Transit. Los autobuses pueden tener un horario distinto del que se muestra aquí; verifica en njtransit.com.',
+  holidayOn: 'Este día está en la lista de días feriados de NJ Transit. Los autobuses pueden tener un horario distinto del que se muestra aquí; verifica en njtransit.com.',
   settings: 'Ajustes',
   back: 'Atrás',
   noFavoritesTitle: 'Guarda tu parada una vez',

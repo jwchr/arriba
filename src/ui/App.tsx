@@ -3,6 +3,7 @@ import { demoDataset, demoUsualGates } from '../data/demo';
 import { alightingStopFor, checkDirection, searchStops } from '../domain/direction';
 import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, type Favorite } from '../domain/favorites';
 import { gateFor, type GateAnswer } from '../domain/gate';
+import { isNjtHoliday } from '../domain/holidays';
 import { createLock, type TripLock } from '../domain/lock';
 import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule';
 import { addDays, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
@@ -89,6 +90,7 @@ export function App() {
       {ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner}</div>}
       {ds.meta.transcribed && <div className="data-banner" role="note">{t.transcribedBanner(fmtYmd(ds.meta.transcribed.issued))}</div>}
       <FeedStatus ctx={ctx} />
+      {ds.meta.transcribed && isNjtHoliday(localYmd(now, tz)) && <p className="status-line" data-level="warn" role="note">{t.holidayToday}</p>}
       <main>
         {screen.name === 'home' && (
           <Home ctx={ctx} favorites={favorites} count={settings.count} setFavorites={setFavorites} reversedIds={reversedIds} toggleReversed={toggleReversed}
@@ -342,6 +344,7 @@ function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title
             data-weekend={weekdayIndex(d) >= 5 ? 'true' : undefined}>{dayLabel(d, i)}</button>
         ))}
       </div>
+      {ds.meta.transcribed && isNjtHoliday(date) && <p className="warn small" role="note">{t.holidayOn}</p>}
       <table className="timetable">
         <thead><tr><th>{t.departs}</th><th>{t.route}</th><th>{t.arrives}</th></tr></thead>
         <tbody>
@@ -367,6 +370,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
   const times = tripStopTimes(ds, dep);
   const alightIndex = dep.pattern.stopIds.indexOf(leg.toStopId);
   const boardStop = ds.stops.find((s) => s.id === dep.pattern.stopIds[dep.stopIndex]);
+  const alightStop = alightIndex > dep.stopIndex ? ds.stops.find((s) => s.id === dep.pattern.stopIds[alightIndex]) : undefined;
   const atPabt = boardStop?.terminal === 'PABT';
   // Usual-gate windows use service-day minutes (a 24:00 trip is 1440, not 0) and the service date's day type.
   const localMin = Math.round((ds.trips.find((x) => x.id === dep.tripId)?.times[dep.stopIndex] ?? 0) / 60);
@@ -383,6 +387,8 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
       </div>
       {dep.pattern.variant && t.variantNotes[dep.pattern.variant] && <p className="muted small">{t.variantNotes[dep.pattern.variant]}</p>}
       {boardStop?.noteId && t.stopNotes[boardStop.noteId] && <p className="muted small" role="note">{t.stopNotes[boardStop.noteId]}</p>}
+      {alightStop?.noteId && t.stopNotes[alightStop.noteId] && <p className="warn small" role="note">{t.stopNotes[alightStop.noteId]}</p>}
+      {ds.meta.transcribed && isNjtHoliday(dep.serviceDate) && <p className="warn small" role="note">{t.holidayOn}</p>}
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>
         <div className="row-between">

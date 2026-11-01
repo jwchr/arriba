@@ -5,9 +5,11 @@ import { describe, expect, it } from 'vitest';
 import { buildTimetableDataset } from '../../scripts/timetable-lib.mjs';
 import { alightingStopFor, checkDirection } from '../../src/domain/direction';
 import { gateFor, publishedGateFor } from '../../src/domain/gate';
+import { isNjtHoliday, njtHolidaysIn } from '../../src/domain/holidays';
 import { departuresOn } from '../../src/domain/schedule';
 import { formatTime12 } from '../../src/domain/time';
 import type { Dataset } from '../../src/domain/types';
+import { strings } from '../../src/ui/i18n';
 
 const root = join(__dirname, '../..');
 const doc = JSON.parse(readFileSync(join(root, 'data/t0165/transcription.json'), 'utf8'));
@@ -152,5 +154,35 @@ describe('published Port Authority gates', () => {
       if (!publishedGateFor(g, p.variant ?? 'local', t.times[0]! / 60, day)) missing.push(`${t.id} ${p.variant ?? 'local'}`);
     }
     expect(missing).toEqual([]);
+  });
+});
+
+describe('printed notes', () => {
+  it('warns riders getting off at the Park/Ride lot that PM Parkway express trips stop there only on request', () => {
+    expect(ds.stops.find((s) => s.id === 'W13')?.noteId).toBe('parkride-request');
+    expect(ds.stops.find((s) => s.id === 'N13')?.noteId).toBeUndefined();
+    expect(strings.en.stopNotes['parkride-request']).toContain('only if you ask the driver when you board');
+  });
+  it('has English and Spanish text for every stop note and trip marker the dataset uses', () => {
+    for (const lang of ['en', 'es'] as const) {
+      for (const s of ds.stops) if (s.noteId) expect(strings[lang].stopNotes[s.noteId], `${lang} ${s.noteId}`).toBeTruthy();
+      for (const p of ds.patterns) if (p.variant) expect(strings[lang].variantNotes[p.variant], `${lang} ${p.variant}`).toBeTruthy();
+    }
+  });
+});
+
+describe("NJ Transit's printed holiday list", () => {
+  it('lists the printed days for a year, with movable holidays worked out', () => {
+    expect(new Set(njtHolidaysIn(2026))).toEqual(new Set([
+      '20260101', '20260102', '20260119', '20260216', '20260403', '20260522', '20260525', '20260619', '20260703', '20260704',
+      '20260705', '20260904', '20260907', '20261012', '20261111', '20261125', '20261126', '20261127', '20261218', '20261224',
+      '20261225', '20261226', '20261231',
+    ]));
+    // 2027: Good Friday 3/26, Friday before July 4 (a Sunday) is 7/2, Thanksgiving 11/25, Friday before Christmas 12/24.
+    for (const d of ['20270326', '20270702', '20271124', '20271125', '20271126', '20271224', '20270118', '20270215', '20270528', '20271011'])
+      expect(isNjtHoliday(d), d).toBe(true);
+  });
+  it('leaves ordinary days alone', () => {
+    for (const d of ['20261104', '20261110', '20261124', '20261128', '20270104', '20270701']) expect(isNjtHoliday(d), d).toBe(false);
   });
 });

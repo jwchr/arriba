@@ -176,6 +176,7 @@ test.describe('printed timetable data (route 165)', () => {
     await expect(page.locator('.data-banner')).toContainText("printed timetable issued 7/1/2026");
     await expect(page.locator('.data-banner')).toContainText('not from NJ Transit');
     await expect(page.locator('.data-banner')).toContainText('no holiday schedules');
+    await expect(page.getByText("on NJ Transit's holiday list")).toHaveCount(0);
 
     // A stop on the Westwood-bound side: buses here never reach Port Authority, and the twin is named without a distance.
     await saveCommute(page, 'irvington', /Irvington St\. \(to Westwood\)/, /Port Authority Bus Terminal/);
@@ -200,5 +201,19 @@ test.describe('printed timetable data (route 165)', () => {
     await expect(page.locator('.gate-card')).toContainText('Always confirm on the terminal departure screens');
     await expect(page.locator('.stop-list li[data-role="alight"]')).toContainText('Westwood - Broadway at Irvington St. (to Westwood)');
     await page.screenshot({ path: 'test-results/printed-departure.png', fullPage: true });
+  });
+
+  test("Thanksgiving: holiday warning at the top, in the timetable and on the trip", async ({ page }) => {
+    await page.goto('/?now=2026-11-26T07:50');
+    await expect(page.locator('.status-line')).toContainText("Today is on NJ Transit's holiday list");
+    await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.getByRole('button', { name: /All day/ }).click();
+    const holidayNote = page.getByRole('note').filter({ hasText: "This day is on NJ Transit's holiday list" });
+    await expect(holidayNote).toBeVisible();
+    await page.getByRole('tab', { name: 'Tomorrow' }).click(); // Friday after Thanksgiving is on the list too
+    await expect(holidayNote).toBeVisible();
+    await page.locator('.link-cell').first().click();
+    await expect(holidayNote).toBeVisible();
   });
 });

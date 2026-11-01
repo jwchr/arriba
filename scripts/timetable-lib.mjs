@@ -52,6 +52,8 @@ export function buildTimetableDataset(doc, { builtAt }) {
     stopById.get(stopIdFor('toWestwood', tp.ref)).twin = stopIdFor('toNewYork', tp.ref);
   }
   for (const id of ['N19', 'N20']) if (stopById.has(id)) stopById.get(id).noteId = 'westwood-pickup';
+  // Printed note: PM Parkway express trips stop at the Exit 165 Park/Ride lot only on request at boarding.
+  if (stopById.has('W13')) stopById.get('W13').noteId = 'parkride-request';
 
   const patterns = [];
   const patternIndex = new Map();
