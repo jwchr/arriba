@@ -87,3 +87,34 @@ test('favorites keep the rider order', async ({ page }) => {
   await page.reload();
   await expect(titles).toHaveText([/^Oak/, /^Maple/]);
 });
+
+test('ticket guide: labeled drawings of paper and app tickets, never a usable ticket', async ({ page }) => {
+  await page.goto(URL);
+  await saveCommute(page, '90002', /Maple Ave & Main St \(to NYC\)/, /Port Authority Bus Terminal/);
+  await page.getByRole('button', { name: 'Save to my commutes' }).click();
+  await page.getByRole('button', { name: /Reverse/ }).click();
+  await page.getByRole('article').locator('.dep').first().click();
+
+  await expect(page.locator('.trip-ticket-label')).toHaveText('Trip card · not a ticket');
+  const guide = page.locator('details.ticket-guide');
+  await expect(guide).toHaveAttribute('open', ''); // open by default when boarding at Port Authority
+  await expect(guide.getByRole('img', { name: /paper one-way bus ticket, marked sample/ })).toBeVisible();
+  await expect(guide.locator('svg text', { hasText: 'SAMPLE · NOT VALID' }).first()).toBeAttached();
+  await expect(guide.locator('.ticket-notes li')).toHaveCount(5);
+  await expect(guide.locator('.ticket-notes li').nth(1)).toContainText('30 days');
+  await page.screenshot({ path: 'test-results/ticket-paper.png', fullPage: true });
+
+  await guide.getByRole('button', { name: 'App ticket' }).click();
+  await expect(guide.getByRole('img', { name: /app bus ticket, marked sample/ })).toBeVisible();
+  await expect(guide.locator('.ticket-notes li').last()).toContainText('60 minutes after activation');
+  await guide.locator('.ticket-figure').screenshot({ path: 'test-results/ticket-app.png' });
+
+  // No real scannable code is ever drawn: the code area is a labeled hatch, not a QR or barcode image.
+  await expect(guide.locator('image, img')).toHaveCount(0);
+
+  // From a New Jersey stop the guide starts closed.
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: /Reverse/ }).click();
+  await page.getByRole('article').locator('.dep').first().click();
+  await expect(page.locator('details.ticket-guide')).not.toHaveAttribute('open', '');
+});

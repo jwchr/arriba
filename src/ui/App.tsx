@@ -8,6 +8,7 @@ import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule'
 import { addDays, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
 import type { Dataset, Departure, Stop } from '../domain/types';
 import { strings, type Lang, type Strings } from './i18n';
+import { TicketGuide } from './TicketGuide';
 
 type Theme = 'system' | 'light' | 'dark';
 interface Settings { lang: Lang; theme: Theme; count: 3 | 5 }
@@ -362,7 +363,8 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
         <span className="sign-label">{t.checkSign}</span>
         <span className="sign-led">{dep.pattern.headsign}</span>
       </div>
-      <div className="card">
+      <div className="card trip-ticket">
+        <p className="trip-ticket-label">{t.tripCard}</p>
         <div className="row-between">
           <div><span className="muted">{t.departs}</span><div className="big-time">{formatTime12(dep.departs, tz, lang)}</div></div>
           {alightIndex > dep.stopIndex && (
@@ -384,6 +386,8 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
           <a className="link" href="https://www.njtransit.com/app" target="_blank" rel="noreferrer">{t.buyTicket} ↗</a>
         </div>
       )}
+
+      <TicketGuide t={t} defaultOpen={atPabt} />
 
       <div className="card">
         {lock ? (

@@ -130,3 +130,28 @@ main { flex: 1; padding-bottom: 24px; }
 
 .status-line { font-size: 0.8rem; color: var(--muted); margin: 0 0 8px; }
 .status-line[data-level='warn'] { color: var(--warn-ink); background: var(--warn-bg); border-radius: 8px; padding: 6px 10px; font-weight: 600; }
+
+/* Trip card styled after the old pink paper bus ticket: original pattern, labeled "not a ticket". */
+.trip-ticket {
+  --paper: #f6d6d2; --paper-ink: #2e1210; --paper-line: rgba(181, 101, 95, 0.28);
+  position: relative; color: var(--paper-ink); border: 1px solid #b5655f; padding-left: 26px;
+  background:
+    radial-gradient(circle at 0 50%, var(--bg) 0 7px, transparent 7.5px) 0 0 / 14px 20px repeat-y,
+    repeating-linear-gradient(-12deg, transparent 0 5px, var(--paper-line) 5px 6px),
+    var(--paper);
+}
+.trip-ticket .muted, .trip-ticket .badge-sched { color: #6b2b27; border-color: #6b2b27; }
+.trip-ticket .big-time { font-family: ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: -0.02em; font-size: clamp(1.4rem, 7vw, 1.9rem); white-space: nowrap; }
+.trip-ticket .row-between { flex-wrap: wrap; column-gap: 16px; }
+.trip-ticket-label { margin: 0 0 6px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #6b2b27; }
+
+.ticket-guide summary { cursor: pointer; list-style: none; }
+.ticket-guide summary::-webkit-details-marker { display: none; }
+.ticket-guide summary h2 { display: inline; margin: 0; }
+.ticket-guide summary::after { content: ' ▾'; color: var(--muted); }
+.ticket-guide[open] summary::after { content: ' ▴'; }
+.ticket-figure { display: flex; justify-content: center; margin: 8px 0; }
+.ticket-svg { width: 100%; max-width: 260px; height: auto; }
+.ticket-notes { padding-left: 1.4em; margin: 8px 0 0; }
+.ticket-notes li { margin: 6px 0; }
+.ticket-notes li::marker { font-weight: 800; color: var(--brand-text); }
