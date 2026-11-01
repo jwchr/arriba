@@ -1,0 +1,4 @@
+route_id,agency_id,route_short_name,route_long_name,route_type,route_color
+10,NJB,165,"Synthetic Local, via ""Main""",3,1F6F43
+11,NJB,165T,Synthetic Express,3,
+99,NJB,999,Not in corridor,3,

@@ -1,0 +1,88 @@
+import { addDays, localYmd, serviceTimeToInstant, weekdayIndex } from './time';
+import { type Dataset, type Departure, type Pattern, type ServiceCalendar, tripInstanceId } from './types';
+
+export function isServiceActive(cal: ServiceCalendar | undefined, ymd: string): boolean {
+  if (!cal) return false;
+  if (cal.removed.includes(ymd)) return false;
+  if (cal.added.includes(ymd)) return true;
+  return ymd >= cal.start && ymd <= cal.end && cal.days[weekdayIndex(ymd)] === true;
+}
+
+export interface DepartureQuery {
+  stopId: string;
+  /** Local calendar date YYYYMMDD whose departures we want (midnight to midnight). */
+  date: string;
+  routeIds?: string[];
+  directionId?: 0 | 1;
+  /** Only patterns that later reach this stop (a trip "to" somewhere). */
+  toStopId?: string;
+}
+
+/**
+ * Every scheduled departure from a stop on one local calendar date, both from that date's service
+ * and from the previous service date's after-midnight trips (GTFS times past 24:00).
+ * The last stop of a pattern is not a departure.
+ */
+export function departuresOn(ds: Dataset, q: DepartureQuery): Departure[] {
+  const tz = ds.meta.timezone;
+  const patterns = new Map(ds.patterns.map((p) => [p.id, p]));
+  const routes = new Map(ds.routes.map((r) => [r.id, r]));
+  const out: Departure[] = [];
+  // Previous service day: trips past 24:00. Next service day: on a spring-forward date, GTFS times
+  // before 01:00 fall on the evening before (noon-minus-12h rule), so they belong to q.date.
+  for (const serviceDate of [addDays(q.date, -1), q.date, addDays(q.date, 1)]) {
+    for (const trip of ds.trips) {
+      if (!isServiceActive(ds.calendars[trip.serviceId], serviceDate)) continue;
+      const pattern = patterns.get(trip.patternId);
+      if (!pattern || !matchesPattern(pattern, q)) continue;
+      const stopIndex = pattern.stopIds.indexOf(q.stopId);
+      if (stopIndex < 0 || stopIndex === pattern.stopIds.length - 1) continue;
+      const secs = trip.times[stopIndex];
+      const endSecs = trip.times[trip.times.length - 1];
+      if (secs === undefined || endSecs === undefined) continue;
+      const departs = serviceTimeToInstant(serviceDate, secs, tz);
+      if (localYmd(departs, tz) !== q.date) continue;
+      const route = routes.get(pattern.routeId);
+      if (!route) continue;
+      out.push({
+        tripInstanceId: tripInstanceId(trip.id, serviceDate),
+        tripId: trip.id,
+        serviceDate,
+        route,
+        pattern,
+        stopIndex,
+        departs,
+        arrivesEnd: serviceTimeToInstant(serviceDate, endSecs, tz),
+      });
+    }
+  }
+  return out.sort((a, b) => a.departs - b.departs || a.route.shortName.localeCompare(b.route.shortName));
+}
+
+function matchesPattern(p: Pattern, q: DepartureQuery): boolean {
+  if (q.routeIds && q.routeIds.length && !q.routeIds.includes(p.routeId)) return false;
+  if (q.directionId !== undefined && p.directionId !== q.directionId) return false;
+  if (q.toStopId) {
+    const from = p.stopIds.indexOf(q.stopId);
+    const to = p.stopIds.indexOf(q.toStopId);
+    if (from < 0 || to <= from) return false;
+  }
+  return true;
+}
+
+/** The next `n` departures at or after `now`, crossing into tomorrow if needed. */
+export function nextDepartures(ds: Dataset, q: Omit<DepartureQuery, 'date'>, now: number, n: number): Departure[] {
+  const today = localYmd(now, ds.meta.timezone);
+  const list = [...departuresOn(ds, { ...q, date: today }), ...departuresOn(ds, { ...q, date: addDays(today, 1) })];
+  return list.filter((d) => d.departs >= now - 60_000).slice(0, n);
+}
+
+/** Scheduled time (epoch ms) at every stop of a departure's trip, for the stop list. */
+export function tripStopTimes(ds: Dataset, d: Departure): { stopId: string; at: number }[] {
+  const trip = ds.trips.find((t) => t.id === d.tripId);
+  if (!trip) return [];
+  return d.pattern.stopIds.map((stopId, i) => ({
+    stopId,
+    at: serviceTimeToInstant(d.serviceDate, trip.times[i] ?? 0, ds.meta.timezone),
+  }));
+}
