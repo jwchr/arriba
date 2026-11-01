@@ -147,9 +147,11 @@ function RouteBadge({ ds, routeId }: { ds: Dataset; routeId: string }) {
 
 function minutesUntil(now: number, at: number) { return Math.round((at - now) / 60_000); }
 
-/** "7:20 AM", or "~7:20 AM" when the time is Arriba's estimate rather than one NJ Transit published. */
-function timeText(ctx: Ctx, at: number, estimated: boolean): string {
-  return `${estimated ? '~' : ''}${formatTime12(at, ctx.tz, ctx.lang)}`;
+/** "7:20 AM", or "~7:20 AM" when the time is Arriba's estimate rather than one NJ Transit published; screen readers hear "estimated" instead of the "~". */
+function TimeText({ ctx, at, estimated }: { ctx: Ctx; at: number; estimated: boolean }) {
+  const s = formatTime12(at, ctx.tz, ctx.lang);
+  if (!estimated) return <>{s}</>;
+  return <><span aria-hidden="true">~</span>{s}<span className="sr-only">, {ctx.t.estimatedWord}</span></>;
 }
 
 /** NJ Transit developer terms: the data came from NJ Transit via Arriba's own server and may not be real time. The demo is not NJ Transit data. */
@@ -243,8 +245,8 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
                   <button className={`dep ${i === 0 ? 'dep-next' : ''}`} onClick={() => onDeparture(d, leg)}>
                     <RouteBadge ds={ds} routeId={d.route.id} />
                     <span className="dep-main">
-                      <span className="dep-time">{timeText(ctx, d.departs, d.estimated)}</span>
-                      <span className="dep-sub">{arr ? `${t.arrives} ${timeText(ctx, arr.at, arr.estimated)}` : d.pattern.headsign}</span>
+                      <span className="dep-time"><TimeText ctx={ctx} at={d.departs} estimated={d.estimated} /></span>
+                      <span className="dep-sub">{arr ? <>{t.arrives} <TimeText ctx={ctx} at={arr.at} estimated={arr.estimated} /></> : d.pattern.headsign}</span>
                     </span>
                     <span className="dep-right">
                       <span className="dep-min">{t.inMin(minutesUntil(now, d.departs))}</span>
@@ -343,9 +345,9 @@ function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title
         <tbody>
           {rows.map(({ d, arr }) => (
             <tr key={d.tripInstanceId} className={d.departs < now ? 'past' : ''}>
-              <td className="tt-time"><button className="link-cell" onClick={() => onDeparture(d)}>{timeText(ctx, d.departs, d.estimated)}</button></td>
+              <td className="tt-time"><button className="link-cell" onClick={() => onDeparture(d)}><TimeText ctx={ctx} at={d.departs} estimated={d.estimated} /></button></td>
               <td><RouteBadge ds={ds} routeId={d.route.id} /></td>
-              <td>{arr ? timeText(ctx, arr.at, arr.estimated) : ''}</td>
+              <td>{arr ? <TimeText ctx={ctx} at={arr.at} estimated={arr.estimated} /> : ''}</td>
             </tr>
           ))}
         </tbody>
@@ -379,14 +381,14 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>
         <div className="row-between">
-          <div><span className="muted">{t.departs}</span><div className="big-time">{timeText(ctx, dep.departs, dep.estimated)}</div></div>
+          <div><span className="muted">{t.departs}</span><div className="big-time"><TimeText ctx={ctx} at={dep.departs} estimated={dep.estimated} /></div></div>
           {alightIndex > dep.stopIndex && (
-            <div className="right"><span className="muted">{t.arrivesLabel}</span><div className="big-time">{timeText(ctx, times[alightIndex]!.at, times[alightIndex]!.estimated)}</div></div>
+            <div className="right"><span className="muted">{t.arrivesLabel}</span><div className="big-time"><TimeText ctx={ctx} at={times[alightIndex]!.at} estimated={times[alightIndex]!.estimated} /></div></div>
           )}
         </div>
         <p className="badge-sched block">{t.scheduledOnly}</p>
         <p className="muted small">{t.scheduledOnlyHelp}</p>
-        {(dep.estimated || times[alightIndex]?.estimated) && <p className="muted small">{t.estimatedNote}</p>}
+        {(dep.estimated || (alightIndex > dep.stopIndex && times[alightIndex]?.estimated)) && <p className="muted small">{t.estimatedNote}</p>}
       </div>
 
       {gate && (
@@ -417,7 +419,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
       <ol className="stop-list">
         {dep.pattern.stopIds.map((id, i) => (
           <li key={`${id}-${i}`} data-role={i === dep.stopIndex ? 'board' : i === alightIndex ? 'alight' : i < dep.stopIndex ? 'before' : undefined}>
-            <span className="stop-time">{timeText(ctx, times[i]!.at, times[i]!.estimated)}</span>
+            <span className="stop-time"><TimeText ctx={ctx} at={times[i]!.at} estimated={times[i]!.estimated} /></span>
             <span className="stop-name">{stopName(id)}</span>
             {i === dep.stopIndex && <span className="tag">{t.boardHere}</span>}
             {i === alightIndex && <span className="tag tag-alight">{t.getOffHere}</span>}

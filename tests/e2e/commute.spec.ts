@@ -119,3 +119,44 @@ test('ticket guide: labeled drawings of paper and app tickets, never a usable ti
   await page.getByRole('article').locator('.dep').first().click();
   await expect(page.locator('details.ticket-guide')).not.toHaveAttribute('open', '');
 });
+
+// A real-style dataset (meta.demo false) served in place of public/data/corridor.json: the NJ Transit
+// source line must appear, the DEMO banner must not, and a stop time the build script filled in
+// (trip.estimated) must read as an estimate everywhere it is shown.
+const realStyle = {
+  meta: { demo: false, source: 'NJ Transit GTFS', feedVersion: 'e2e', builtAt: '2026-11-01T00:00:00Z', timezone: 'America/New_York' },
+  routes: [{ id: '10', shortName: '165', longName: 'E2E local' }],
+  stops: [
+    { id: '1', code: '30001', name: 'FIXTURE TERMINAL', lat: 40.88, lon: -74.045 },
+    { id: '2', code: '30002', name: 'MAIN ST AT ELM', lat: 40.87, lon: -74.04 },
+    { id: '3', name: 'PORT AUTHORITY BUS TERMINAL', lat: 40.757, lon: -73.991, terminal: 'PABT' },
+  ],
+  patterns: [{ id: 'P1', routeId: '10', directionId: 0, headsign: '165 NEW YORK', stopIds: ['1', '2', '3'] }],
+  trips: [
+    { id: 'T1', patternId: 'P1', serviceId: 'WK', times: [8 * 3600, 8 * 3600 + 20 * 60, 9 * 3600], estimated: [1] },
+    { id: 'T4', patternId: 'P1', serviceId: 'WK', times: [9 * 3600, 9 * 3600 + 10 * 60, 9 * 3600 + 50 * 60] },
+  ],
+  calendars: { WK: { days: [true, true, true, true, true, false, false], start: '20261101', end: '20270430', added: [], removed: [] } },
+};
+
+test('real data: NJ Transit source line, no demo banner, filled-in times read as estimates', async ({ page }) => {
+  await page.route('**/data/corridor.json', (route) => route.fulfill({ json: realStyle }));
+  await page.goto('/?now=2026-11-04T07:50');
+  await expect(page.locator('footer')).toContainText('obtained from NJ Transit and redistributed from Arriba');
+  await expect(page.locator('footer')).toContainText('may not be real time');
+  await expect(page.locator('.demo-banner')).toHaveCount(0);
+
+  await saveCommute(page, '30002', /MAIN ST AT ELM/, /PORT AUTHORITY BUS TERMINAL/);
+  await page.getByRole('button', { name: 'Save to my commutes' }).click();
+  const card = page.getByRole('article');
+  // 8:20 AM at this stop is the filled-in time; the third entry is tomorrow's 8:20 AM.
+  await expect(card.locator('.dep-time')).toContainText(['~8:20 AM', '9:10 AM', '~8:20 AM']);
+  await expect(card.locator('.dep-sub').first()).toContainText('arrives 9:00 AM');
+  await expect(card).toContainText('Estimated by Arriba');
+
+  await card.locator('.dep').first().click();
+  await expect(page.locator('.trip-ticket .big-time').first()).toContainText('~8:20 AM');
+  await expect(page.locator('.trip-ticket')).toContainText('Estimated by Arriba');
+  await expect(page.locator('.stop-list .stop-time')).toContainText(['8:00 AM', '~8:20 AM', '9:00 AM']);
+  await page.screenshot({ path: 'test-results/estimated.png', fullPage: true });
+});
