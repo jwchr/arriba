@@ -13,6 +13,7 @@ async function saveCommute(page: Page, query: string, pick: RegExp, dest: RegExp
 test('first run: wrong-side guard, save, zero-tap home on return', async ({ page }) => {
   await page.goto(URL);
   await expect(page.getByRole('note').first()).toContainText('Demo data');
+  await expect(page.locator('footer')).toContainText('may not be real time'); // NJ Transit data terms
   await saveCommute(page, 'maple', /Maple Ave & Main St \(to Demo Terminal\)/, /Port Authority Bus Terminal/);
 
   // Buses on this side go the other way: the app points across the street.

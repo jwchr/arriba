@@ -109,7 +109,10 @@ export function App() {
         )}
         {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} />}
       </main>
-      <footer className="foot">{t.notAffiliated}</footer>
+      <footer className="foot">
+        <p>{t.notAffiliated}</p>
+        <p>{dataNotice(ds, t)}</p>
+      </footer>
     </div>
   );
 }
@@ -144,9 +147,19 @@ function RouteBadge({ ds, routeId }: { ds: Dataset; routeId: string }) {
 
 function minutesUntil(now: number, at: number) { return Math.round((at - now) / 60_000); }
 
-function arrivalAt(ds: Dataset, d: Departure, stopId: string): number | undefined {
+/** "7:20 AM", or "~7:20 AM" when the time is Arriba's estimate rather than one NJ Transit published. */
+function timeText(ctx: Ctx, at: number, estimated: boolean): string {
+  return `${estimated ? '~' : ''}${formatTime12(at, ctx.tz, ctx.lang)}`;
+}
+
+/** NJ Transit developer terms: the data came from NJ Transit via Arriba's own server and may not be real time. The demo is not NJ Transit data. */
+function dataNotice(ds: Dataset, t: Strings): string {
+  return ds.meta.demo ? t.notRealTime : `${t.dataObtained} ${t.notRealTime}`;
+}
+
+function arrivalAt(ds: Dataset, d: Departure, stopId: string): { at: number; estimated: boolean } | undefined {
   const i = d.pattern.stopIds.indexOf(stopId);
-  return i > d.stopIndex ? tripStopTimes(ds, d)[i]?.at : undefined;
+  return i > d.stopIndex ? tripStopTimes(ds, d)[i] : undefined;
 }
 
 function legFor(ds: Dataset, f: Favorite, reversedView: boolean): Leg | undefined {
@@ -198,9 +211,11 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
   onMove: (d: -1 | 1) => void; onRemove: () => void; onRename: (s: string) => void;
   onAllDay: (leg: Leg, title: string) => void; onDeparture: (d: Departure, leg: Leg) => void;
 }) {
-  const { ds, t, tz, now, lang, stopName } = ctx;
+  const { ds, t, now, stopName } = ctx;
   const leg = legFor(ds, fav, rev);
   const deps = leg ? nextDepartures(ds, { stopId: leg.fromStopId, toStopId: leg.toStopId, routeIds: leg.routeIds }, now, count) : [];
+  const rows = deps.map((d) => ({ d, arr: leg ? arrivalAt(ds, d, leg.toStopId) : undefined }));
+  const anyEstimated = rows.some((r) => r.d.estimated || r.arr?.estimated);
   const title = leg ? `${stopName(leg.fromStopId)} → ${stopName(leg.toStopId)}` : '';
   return (
     <article className="card fav" aria-label={fav.label}>
@@ -223,26 +238,24 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
         <>
           {!leg ? null : deps.length === 0 ? <p className="muted">{t.noMoreToday}</p> : (
             <ul className="deps">
-              {deps.map((d, i) => {
-                const arr = arrivalAt(ds, d, leg.toStopId);
-                return (
-                  <li key={d.tripInstanceId}>
-                    <button className={`dep ${i === 0 ? 'dep-next' : ''}`} onClick={() => onDeparture(d, leg)}>
-                      <RouteBadge ds={ds} routeId={d.route.id} />
-                      <span className="dep-main">
-                        <span className="dep-time">{formatTime12(d.departs, tz, lang)}</span>
-                        <span className="dep-sub">{arr ? `${t.arrives} ${formatTime12(arr, tz, lang)}` : d.pattern.headsign}</span>
-                      </span>
-                      <span className="dep-right">
-                        <span className="dep-min">{t.inMin(minutesUntil(now, d.departs))}</span>
-                        <span className="badge-sched">{t.scheduledOnly}</span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
+              {rows.map(({ d, arr }, i) => (
+                <li key={d.tripInstanceId}>
+                  <button className={`dep ${i === 0 ? 'dep-next' : ''}`} onClick={() => onDeparture(d, leg)}>
+                    <RouteBadge ds={ds} routeId={d.route.id} />
+                    <span className="dep-main">
+                      <span className="dep-time">{timeText(ctx, d.departs, d.estimated)}</span>
+                      <span className="dep-sub">{arr ? `${t.arrives} ${timeText(ctx, arr.at, arr.estimated)}` : d.pattern.headsign}</span>
+                    </span>
+                    <span className="dep-right">
+                      <span className="dep-min">{t.inMin(minutesUntil(now, d.departs))}</span>
+                      <span className="badge-sched">{t.scheduledOnly}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
             </ul>
           )}
+          {anyEstimated && <p className="muted small">{t.estimatedNote}</p>}
           {leg && <button className="link" onClick={() => onAllDay(leg, title)}>{t.allDay} →</button>}
         </>
       )}
@@ -310,6 +323,8 @@ function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title
   const [date, setDate] = useState(today);
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
   const list = departuresOn(ds, { stopId: leg.fromStopId, toStopId: leg.toStopId, routeIds: leg.routeIds, date });
+  const rows = list.map((d) => ({ d, arr: arrivalAt(ds, d, leg.toStopId) }));
+  const anyEstimated = rows.some((r) => r.d.estimated || r.arr?.estimated);
   const dayLabel = (d: string, i: number) => i === 0 ? t.today : i === 1 ? t.tomorrow :
     new Intl.DateTimeFormat(lang === 'es' ? 'es-US' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
       .format(new Date(Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8))));
@@ -326,18 +341,16 @@ function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title
       <table className="timetable">
         <thead><tr><th>{t.departs}</th><th>{t.route}</th><th>{t.arrives}</th></tr></thead>
         <tbody>
-          {list.map((d) => {
-            const arr = arrivalAt(ds, d, leg.toStopId);
-            return (
-              <tr key={d.tripInstanceId} className={d.departs < now ? 'past' : ''}>
-                <td className="tt-time"><button className="link-cell" onClick={() => onDeparture(d)}>{formatTime12(d.departs, tz, lang)}</button></td>
-                <td><RouteBadge ds={ds} routeId={d.route.id} /></td>
-                <td>{arr ? formatTime12(arr, tz, lang) : ''}</td>
-              </tr>
-            );
-          })}
+          {rows.map(({ d, arr }) => (
+            <tr key={d.tripInstanceId} className={d.departs < now ? 'past' : ''}>
+              <td className="tt-time"><button className="link-cell" onClick={() => onDeparture(d)}>{timeText(ctx, d.departs, d.estimated)}</button></td>
+              <td><RouteBadge ds={ds} routeId={d.route.id} /></td>
+              <td>{arr ? timeText(ctx, arr.at, arr.estimated) : ''}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
+      {anyEstimated && <p className="muted small">{t.estimatedNote}</p>}
       {!list.length && <p className="muted">{t.noBusesThisDay}</p>}
     </section>
   );
@@ -346,7 +359,7 @@ function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title
 function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
   ctx: Ctx; dep: Departure; leg: Leg; lock?: TripLock; onLock: () => void; onUnlock: () => void;
 }) {
-  const { ds, t, tz, lang, stopName } = ctx;
+  const { ds, t, stopName } = ctx;
   const times = tripStopTimes(ds, dep);
   const alightIndex = dep.pattern.stopIds.indexOf(leg.toStopId);
   const boardStop = ds.stops.find((s) => s.id === dep.pattern.stopIds[dep.stopIndex]);
@@ -366,13 +379,14 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>
         <div className="row-between">
-          <div><span className="muted">{t.departs}</span><div className="big-time">{formatTime12(dep.departs, tz, lang)}</div></div>
+          <div><span className="muted">{t.departs}</span><div className="big-time">{timeText(ctx, dep.departs, dep.estimated)}</div></div>
           {alightIndex > dep.stopIndex && (
-            <div className="right"><span className="muted">{t.arrivesLabel}</span><div className="big-time">{formatTime12(times[alightIndex]!.at, tz, lang)}</div></div>
+            <div className="right"><span className="muted">{t.arrivesLabel}</span><div className="big-time">{timeText(ctx, times[alightIndex]!.at, times[alightIndex]!.estimated)}</div></div>
           )}
         </div>
         <p className="badge-sched block">{t.scheduledOnly}</p>
         <p className="muted small">{t.scheduledOnlyHelp}</p>
+        {(dep.estimated || times[alightIndex]?.estimated) && <p className="muted small">{t.estimatedNote}</p>}
       </div>
 
       {gate && (
@@ -403,13 +417,14 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
       <ol className="stop-list">
         {dep.pattern.stopIds.map((id, i) => (
           <li key={`${id}-${i}`} data-role={i === dep.stopIndex ? 'board' : i === alightIndex ? 'alight' : i < dep.stopIndex ? 'before' : undefined}>
-            <span className="stop-time">{formatTime12(times[i]!.at, tz, lang)}</span>
+            <span className="stop-time">{timeText(ctx, times[i]!.at, times[i]!.estimated)}</span>
             <span className="stop-name">{stopName(id)}</span>
             {i === dep.stopIndex && <span className="tag">{t.boardHere}</span>}
             {i === alightIndex && <span className="tag tag-alight">{t.getOffHere}</span>}
           </li>
         ))}
       </ol>
+      {times.some((x) => x.estimated) && <p className="muted small">{t.estimatedNote}</p>}
     </section>
   );
 }
@@ -430,6 +445,7 @@ function SettingsScreen({ ctx, settings, setSettings }: { ctx: Ctx; settings: Se
       <div className="choice-list">{opt('count', 3, '3')}{opt('count', 5, '5')}</div>
       <h2>{t.dataSource}</h2>
       <p className="small">{ds.meta.source} · {ds.meta.feedVersion}</p>
+      <p className="small muted">{dataNotice(ds, t)}</p>
       <p className="small muted">{t.appTagline}</p>
     </section>
   );

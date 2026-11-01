@@ -16,4 +16,4 @@ npm run verify       # type check, unit tests, build, Playwright
 npm run gtfs -- path/to/bus_data.zip   # writes public/data/corridor.json (not committed)
 ```
 
-Schedule data © NJ Transit, used under its developer terms; may not be real time.
+Schedule data was obtained from NJ Transit and is redistributed from Arriba's own server, not an NJ Transit server, under NJ Transit's developer data terms. This information may not be real time. Where the feed leaves a stop's time blank, the build script fills it in and the app shows it as an estimate (`~7:20 AM`).
