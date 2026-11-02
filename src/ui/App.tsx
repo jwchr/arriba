@@ -304,6 +304,8 @@ function Search({ ctx, onSave }: { ctx: Ctx; onSave: (f: Favorite) => void }) {
           <button key={s.id} className="chip" aria-pressed={dest === s.id} onClick={() => setDest(s.id)}>{s.name}</button>
         ))}
       </div>
+      {/* Destinations list only what buses from here (or across the street) reach; say so when Port Authority is not among them. */}
+      {!stop.terminal && !destinations.some((s) => s.terminal) && <p className="warn small" role="note">{t.noTerminalFromHere}</p>}
       {check && !check.ok && check.reason === 'wrong-side' && (
         <div className="warn" role="alert">
           <p>{check.distanceM === undefined ? t.wrongSideNoDistance(check.useStop.name) : t.wrongSide(check.useStop.name, check.distanceM)}</p>

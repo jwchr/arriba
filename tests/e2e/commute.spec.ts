@@ -218,4 +218,13 @@ test.describe('printed timetable data (route 165)', () => {
     await page.locator('.link-cell').first().click();
     await expect(holidayNote).toBeVisible();
   });
+
+  test('a stop whose buses never reach Port Authority says which side to use instead', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T07:50');
+    await page.getByRole('button', { name: /find a stop/i }).first().click();
+    await page.getByRole('searchbox').fill('emerson');
+    await page.getByRole('button', { name: /Emerson .*\(to Westwood\)/ }).click();
+    await expect(page.getByRole('note').filter({ hasText: 'No bus from this stop goes to Port Authority' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Port Authority/ })).toHaveCount(0);
+  });
 });
