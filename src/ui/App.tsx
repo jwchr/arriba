@@ -44,20 +44,70 @@ function useNow(tz: string): number {
   return pinned ?? now;
 }
 
-function useDataset(): Dataset {
-  const [ds, setDs] = useState<Dataset>(demoDataset);
+type DatasetState =
+  | { status: 'loading' }
+  | { status: 'error' }
+  /** `savedAt` (ms) is set when the service worker answered from its saved copy, not the network. */
+  | { status: 'ready'; ds: Dataset; savedAt?: number | undefined };
+
+/** The app gives up on a load after this long even without a service worker (first visit, slow tunnel). */
+const LOAD_TIMEOUT_MS = 15_000;
+
+/**
+ * Loads the published schedule. The invented demo is used only with `?demo` or when no real dataset is
+ * published (404); a slow or failed load is an error with a retry, never silently the demo.
+ */
+function useDataset(): [DatasetState, () => void] {
+  const demo = useMemo(() => new URLSearchParams(location.search).has('demo'), []);
+  const [state, setState] = useState<DatasetState>(demo ? { status: 'ready', ds: demoDataset } : { status: 'loading' });
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    if (new URLSearchParams(location.search).has('demo')) return;
-    fetch(`${import.meta.env.BASE_URL}data/corridor.json`)
-      .then((r) => (r.ok ? (r.json() as Promise<Dataset>) : Promise.reject(new Error(String(r.status)))))
-      .then((d) => { if (d && Array.isArray(d.trips) && d.trips.length) setDs(d); })
-      .catch(() => { /* no real dataset published yet: stay on the labeled demo */ });
-  }, []);
-  return ds;
+    if (demo) return;
+    let live = true;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), LOAD_TIMEOUT_MS);
+    setState({ status: 'loading' });
+    fetch(`${import.meta.env.BASE_URL}data/corridor.json`, { signal: ctl.signal })
+      .then(async (r): Promise<DatasetState> => {
+        if (r.status === 404) return { status: 'ready', ds: demoDataset };
+        if (!r.ok) throw new Error(String(r.status));
+        const d = (await r.json()) as Dataset;
+        if (!d || !Array.isArray(d.trips) || !d.trips.length) throw new Error('empty dataset');
+        const savedAt = r.headers.get('x-arriba-from-cache') ? Number(r.headers.get('x-arriba-saved-at')) : NaN;
+        return { status: 'ready', ds: d, savedAt: Number.isFinite(savedAt) ? savedAt : undefined };
+      })
+      .then((s) => { if (live) setState(s); })
+      .catch(() => { if (live) setState({ status: 'error' }); })
+      .finally(() => clearTimeout(timer));
+    return () => { live = false; ctl.abort(); clearTimeout(timer); };
+  }, [demo, attempt]);
+  return [state, () => setAttempt((n) => n + 1)];
 }
 
 export function App() {
-  const ds = useDataset();
+  const [data, retry] = useDataset();
+  if (data.status !== 'ready') return <LoadScreen failed={data.status === 'error'} onRetry={retry} />;
+  return <Main ds={data.ds} savedAt={data.savedAt} />;
+}
+
+function LoadScreen({ failed, onRetry }: { failed: boolean; onRetry: () => void }) {
+  const t = strings[readSettings().lang];
+  return (
+    <div className="app">
+      <header className="top"><span className="wordmark" role="img" aria-label="Arriba">ARRIBA<span className="bang" aria-hidden="true">!</span></span></header>
+      <main>
+        {failed ? (
+          <div className="warn" role="alert">
+            <p>{t.loadFailed}</p>
+            <button className="primary" onClick={onRetry}>{t.retry}</button>
+          </div>
+        ) : <p className="muted" role="status">{t.loading}</p>}
+      </main>
+    </div>
+  );
+}
+
+function Main({ ds, savedAt }: { ds: Dataset; savedAt?: number | undefined }) {
   const tz = ds.meta.timezone;
   const now = useNow(tz);
   const [settings, setSettings] = useState<Settings>(readSettings);
@@ -77,7 +127,7 @@ export function App() {
   }, [settings]);
 
   const stopName = (id: string) => ds.stops.find((s) => s.id === id)?.name ?? id;
-  const ctx: Ctx = { ds, tz, now, t, lang: settings.lang, stopName };
+  const ctx: Ctx = { ds, tz, now, t, lang: settings.lang, stopName, savedAt };
 
   return (
     <div className="app">
@@ -122,11 +172,11 @@ export function App() {
 
 const fmtYmd = (d: string) => `${+d.slice(4, 6)}/${+d.slice(6, 8)}/${d.slice(0, 4)}`;
 
-interface Ctx { ds: Dataset; tz: string; now: number; t: Strings; lang: Lang; stopName: (id: string) => string }
+interface Ctx { ds: Dataset; tz: string; now: number; t: Strings; lang: Lang; stopName: (id: string) => string; savedAt?: number | undefined }
 
 /** Offline state and schedule validity, so a stale or expired feed is never mistaken for "no buses". */
 function FeedStatus({ ctx }: { ctx: Ctx }) {
-  const { ds, t, now, tz } = ctx;
+  const { ds, t, now, tz, lang, savedAt } = ctx;
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
   useEffect(() => {
     const up = () => setOnline(true);
@@ -141,6 +191,8 @@ function FeedStatus({ ctx }: { ctx: Ctx }) {
   if (!Object.keys(ds.calendars).length) return null;
   if (expired) return <p className="status-line" data-level="warn" role="alert">{t.feedExpired(fmtYmd(validThrough))}</p>;
   if (!online) return <p className="status-line" data-level="warn" role="status">{t.offline(fmtYmd(Number.isNaN(built) ? validThrough : localYmd(built, tz)))}</p>;
+  // Online as far as the browser knows, but the service worker gave up on a slow or failed network and used its saved copy.
+  if (savedAt !== undefined) return <p className="status-line" data-level="warn" role="status">{t.savedCopy(fmtYmd(localYmd(savedAt, tz)), formatTime12(savedAt, tz, lang))}</p>;
   return null;
 }
 

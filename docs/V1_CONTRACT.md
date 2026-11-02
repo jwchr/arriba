@@ -18,7 +18,7 @@ Household tool for Jeff and Diego. Bergen County corridor to and from Port Autho
 | UX-07 | First-time-rider guide, English and Spanish | M1 ✅ languages, M4 guide |
 | GATE-02 | Gate cards (floor, gate, door, nearest escalator or elevator, photo) for corridor gates | M4 |
 | MAP-01/02 | Geographic map (MapLibre + OpenStreetMap); Clean, dark, Turnpike styles | M3-M4 |
-| OFF-01 | Offline: last known schedule with its age | M1 ✅ service worker, M4 hardened |
+| OFF-01 | Offline: last known schedule with its age | M1 ✅ service worker, M4 ✅ network timeout and saved-copy age |
 
 ## Not in V1
 Native app, widgets, watch, Live Activities; personal location sharing; Smart ETA model; 511 incidents; indoor live dot; Parkway, subway and atlas skins; personal stats; Casting Director bridge; e-ink display; public launch.
