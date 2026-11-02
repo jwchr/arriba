@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { demoDataset as ds, demoUsualGates } from '../../src/data/demo';
-import { alightingStopFor, checkDirection, searchStops } from '../../src/domain/direction';
+import { alightingStopFor, checkDirection, destinationsFrom, searchStops } from '../../src/domain/direction';
 import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, type Favorite } from '../../src/domain/favorites';
 import { gateChanged, gateFor, parseLaneGate } from '../../src/domain/gate';
 import { createLock, reduceLock, type VehicleObservation } from '../../src/domain/lock';
@@ -103,6 +103,10 @@ describe('direction guard', () => {
     expect(alightingStopFor(ds, 'PABT', 'D1')?.id).toBe('D1');
     expect(alightingStopFor(ds, 'D1', 'D4B')?.id).toBe('D4');
     expect(alightingStopFor(ds, 'PABT', 'D3', ['R165T'])).toBeUndefined();
+  });
+  it('offers the terminal from the wrong side too, so the guard can send the rider across', () => {
+    expect(destinationsFrom(ds, 'D2').map((s) => s.id)).toEqual(['D1', 'PABT']);
+    expect(destinationsFrom(ds, 'D2B').map((s) => s.id)).toEqual(['D1', 'PABT']);
   });
   it('finds stops by name, accents ignored, and by exact code', () => {
     expect(searchStops(ds, 'maple main').map((s) => s.id).sort()).toEqual(['D2', 'D2B']);

@@ -184,6 +184,8 @@ test.describe('printed timetable data (route 165)', () => {
     await expect(page.getByRole('alert')).not.toContainText(' m away');
     await page.getByRole('button', { name: 'Use that stop' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Westwood - Broadway at Irvington St. (to New York)');
+    // Short trips toward Westwood end at River Edge and Oradell; no bus from this side goes there.
+    await expect(page.getByRole('button', { name: /River Edge|Oradell/ })).toHaveCount(0);
     await page.getByRole('button', { name: /Port Authority Bus Terminal/ }).click();
     await page.getByRole('button', { name: 'Save to my commutes' }).click();
 

@@ -93,3 +93,17 @@ export function searchStops(ds: Dataset, query: string, limit = 20): Stop[] {
     .sort((a, b) => Number(b.code === query.trim()) - Number(a.code === query.trim()) || a.name.localeCompare(b.name))
     .slice(0, limit);
 }
+
+/**
+ * Destinations to offer a rider at `stopId`: the last stops of route patterns that a bus from here reaches,
+ * plus those reached from the stop across the street, so the wrong-side guard can still point the rider over.
+ * Ends that only buses going elsewhere reach (for example a short trip in the other direction) are left out.
+ */
+export function destinationsFrom(ds: Dataset, stopId: string): Stop[] {
+  const ends = new Set(ds.patterns.map((p) => p.stopIds[p.stopIds.length - 1]!));
+  const offered = (toStopId: string) => {
+    const c = checkDirection(ds, stopId, toStopId);
+    return c.ok || c.reason === 'wrong-side';
+  };
+  return ds.stops.filter((s) => ends.has(s.id) && s.id !== stopId && offered(s.id));
+}
