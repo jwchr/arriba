@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { demoDataset, demoUsualGates } from '../data/demo';
-import { alightingStopFor, checkDirection, searchStops } from '../domain/direction';
+import { alightingStopFor, checkDirection, destinationsFrom, searchStops } from '../domain/direction';
 import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, type Favorite } from '../domain/favorites';
 import { gateFor, type GateAnswer } from '../domain/gate';
 import { isNjtHoliday } from '../domain/holidays';
@@ -275,10 +275,7 @@ function Search({ ctx, onSave }: { ctx: Ctx; onSave: (f: Favorite) => void }) {
   const [stop, setStop] = useState<Stop | undefined>();
   const [dest, setDest] = useState<string | undefined>();
   const results = useMemo(() => searchStops(ds, q), [ds, q]);
-  const destinations = useMemo(() => {
-    const ends = new Set(ds.patterns.map((p) => p.stopIds[p.stopIds.length - 1]!));
-    return ds.stops.filter((s) => ends.has(s.id) && s.id !== stop?.id);
-  }, [ds, stop]);
+  const destinations = useMemo(() => (stop ? destinationsFrom(ds, stop.id) : []), [ds, stop]);
   const headsigns = stop ? [...new Set(ds.patterns.filter((p) => p.stopIds.slice(0, -1).includes(stop.id)).map((p) => p.headsign))] : [];
   const check = stop && dest ? checkDirection(ds, stop.id, dest) : undefined;
 
@@ -307,6 +304,8 @@ function Search({ ctx, onSave }: { ctx: Ctx; onSave: (f: Favorite) => void }) {
           <button key={s.id} className="chip" aria-pressed={dest === s.id} onClick={() => setDest(s.id)}>{s.name}</button>
         ))}
       </div>
+      {/* Destinations list only what buses from here (or across the street) reach; say so when Port Authority is not among them. */}
+      {!stop.terminal && !destinations.some((s) => s.terminal) && <p className="warn small" role="note">{t.noTerminalFromHere}</p>}
       {check && !check.ok && check.reason === 'wrong-side' && (
         <div className="warn" role="alert">
           <p>{check.distanceM === undefined ? t.wrongSideNoDistance(check.useStop.name) : t.wrongSide(check.useStop.name, check.distanceM)}</p>

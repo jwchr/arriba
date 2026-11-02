@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain ESM script without type declarations
 import { buildTimetableDataset } from '../../scripts/timetable-lib.mjs';
-import { alightingStopFor, checkDirection } from '../../src/domain/direction';
+import { alightingStopFor, checkDirection, destinationsFrom } from '../../src/domain/direction';
 import { gateFor, publishedGateFor } from '../../src/domain/gate';
 import { isNjtHoliday, njtHolidaysIn } from '../../src/domain/holidays';
 import { departuresOn } from '../../src/domain/schedule';
@@ -103,6 +103,11 @@ describe('twin stops without coordinates', () => {
     // Fairview: the printed locations differ by direction, so no twin is claimed.
     expect(ds.stops.find((s) => s.id === 'N6')?.twin).toBeUndefined();
     expect(checkDirection(ds, 'W6', 'PABT')).toEqual({ ok: false, reason: 'not-served' });
+  });
+  it('offers only destinations a bus from here or across the street reaches, not short trips the other way', () => {
+    expect(destinationsFrom(ds, 'N19').map((s) => s.id)).toEqual(['PABT', 'W20']);
+    expect(destinationsFrom(ds, 'W19').map((s) => s.id)).toEqual(['PABT', 'W20']);
+    expect(destinationsFrom(ds, 'PABT').map((s) => s.id)).toEqual(['W12', 'W14', 'W15', 'W18', 'W20']);
   });
   it('links only stops with the same printed location, and links them both ways', () => {
     const byId = new Map(ds.stops.map((s) => [s.id, s]));
