@@ -76,7 +76,9 @@ describe('service worker', () => {
 
   it('keeps waiting for a slow network when nothing is saved (first visit in the tunnel)', async () => {
     net = () => new Promise((r) => setTimeout(() => r(new Response('{"v":3}')), 80));
-    expect(await (await answer(get(DATA))).text()).toBe('{"v":3}');
+    const { res, kept } = handle(get(DATA));
+    expect(await (await res!).text()).toBe('{"v":3}');
+    await Promise.all(kept); // let the save finish here, not in the next test's cache
   });
 
   it('uses the saved copy when the network fails, and fails when nothing is saved', async () => {
