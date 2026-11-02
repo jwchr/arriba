@@ -10,6 +10,17 @@ export function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+type Located = Stop & { lat: number; lon: number };
+const located = (s: Stop): s is Located => typeof s.lat === 'number' && typeof s.lon === 'number';
+/** Meters between two stops, or undefined when either has no coordinates (datasets from printed timetables). */
+function metersBetween(a: Stop, b: Stop): number | undefined {
+  return located(a) && located(b) ? Math.round(distanceM(a, b)) : undefined;
+}
+/** The opposite-direction stop at the same place, when the dataset says which it is (either stop may carry the link). */
+export function twinOf(ds: Dataset, stop: Stop): Stop | undefined {
+  return ds.stops.find((s) => s.id === stop.twin || (s.twin !== undefined && s.twin === stop.id));
+}
+
 /** Does any pattern serve `from` and later `to`? */
 export function reaches(ds: Dataset, fromStopId: string, toStopId: string, routeIds?: string[]): boolean {
   return ds.patterns.some((p) => {
@@ -22,7 +33,7 @@ export function reaches(ds: Dataset, fromStopId: string, toStopId: string, route
 
 export type DirectionCheck =
   | { ok: true }
-  | { ok: false; reason: 'wrong-side'; useStop: Stop; distanceM: number }
+  | { ok: false; reason: 'wrong-side'; useStop: Stop; /** Absent when the stops have no coordinates. */ distanceM?: number }
   | { ok: false; reason: 'not-served' };
 
 /**
@@ -39,9 +50,13 @@ export function checkDirection(
   if (reaches(ds, stopId, toStopId, routeIds)) return { ok: true };
   const here = ds.stops.find((s) => s.id === stopId);
   if (!here) return { ok: false, reason: 'not-served' };
+  // A twin the dataset names is the stop across the street; trust it before guessing from distance.
+  const twin = twinOf(ds, here);
+  if (twin && reaches(ds, twin.id, toStopId, routeIds)) return { ok: false, reason: 'wrong-side', useStop: twin, distanceM: metersBetween(here, twin) };
+  if (!located(here)) return { ok: false, reason: 'not-served' };
   const candidates = ds.stops
-    .filter((s) => s.id !== stopId)
-    .map((s) => ({ s, d: distanceM(here, s) }))
+    .filter((s) => s.id !== stopId && located(s))
+    .map((s) => ({ s, d: distanceM(here, s as Located) }))
     .filter(({ s, d }) => d <= radiusM && reaches(ds, s.id, toStopId, routeIds))
     .sort((a, b) => a.d - b.d);
   const best = candidates[0];
@@ -57,9 +72,12 @@ export function alightingStopFor(ds: Dataset, fromStopId: string, toStopId: stri
   const target = ds.stops.find((s) => s.id === toStopId);
   if (!target) return undefined;
   if (reaches(ds, fromStopId, toStopId, routeIds)) return target;
+  const twin = twinOf(ds, target);
+  if (twin && reaches(ds, fromStopId, twin.id, routeIds)) return twin;
+  if (!located(target)) return undefined;
   return ds.stops
-    .filter((s) => s.id !== toStopId && reaches(ds, fromStopId, s.id, routeIds))
-    .map((s) => ({ s, d: distanceM(target, s) }))
+    .filter((s) => s.id !== toStopId && located(s) && reaches(ds, fromStopId, s.id, routeIds))
+    .map((s) => ({ s, d: distanceM(target, s as Located) }))
     .filter(({ d }) => d <= radiusM)
     .sort((a, b) => a.d - b.d)[0]?.s;
 }

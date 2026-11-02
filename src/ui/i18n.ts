@@ -8,6 +8,29 @@ const en = {
   // from Arriba's own server, and that it may not be real time. Shown with every dataset that is not the demo.
   dataObtained: "Schedule data obtained from NJ Transit and redistributed from Arriba's own server, not an NJ Transit server.",
   notRealTime: 'This information may not be real time.',
+  transcribedBanner: (issued: string) =>
+    `Typed in from NJ Transit's printed timetable issued ${issued}, not from NJ Transit's data feed. It lists main timepoints only, not every stop, and has no holiday schedules. Check njtransit.com before you rely on it.`,
+  routeAndDirection: 'Route and destination',
+  variantNotes: {
+    T: 'Turnpike express: runs express between Rt. 46 and Teaneck Rd. in Ridgefield Park and New York via the NJ Turnpike.',
+    P: 'Parkway express: runs express between Garden State Parkway exit 165 in Paramus and New York.',
+    R: 'Route 4 express: runs express between Teaneck (Rt. 4 at Margaret St.) and New York.',
+    RF: 'Runs express from New York to River Edge via Rt. 4, then Oradell Ave. and Forest Ave. to Westwood.',
+    F: 'Runs via Forest Avenue.',
+    FP: 'Marked FP in the printed timetable. Its legend lists F (via Forest Avenue) and P (Parkway express).',
+  } as Record<string, string>,
+  gatePublished: (g: string, d?: string) => `Gate ${g}${d ? `, door ${d}` : ''}`,
+  gatePublishedNote: (effective: string) =>
+    `NJ Transit's printed timetable lists this gate for this kind of trip and time (gate change effective ${effective}). It is a general rule, not a gate posted for this bus.`,
+  wrongSideNoDistance: (stop: string) => `Wrong side of the street for this trip. Use ${stop}.`,
+  stopNotes: {
+    'westwood-pickup':
+      "Westwood pickups to New York: NJ Transit's timetable says the first pick-ups on local, T, R and P trips are stop #14025 (Kinderkamack Rd., 100 ft north of Old Hook Rd.) and stop #14026 (Kinderkamack Rd., 160 ft north of Lotus Ave.), served about 5 minutes before the time listed for Broadway at Irvington St.",
+    'parkride-request':
+      "Exit 165 Park/Ride lot: NJ Transit's timetable says PM Parkway express (P) trips stop here only if you ask the driver when you board. For midday service to the lot, see the route 168 (Paramus-New York) timetable.",
+  } as Record<string, string>,
+  holidayToday: "Today is on NJ Transit's holiday list. Buses may run a different schedule from the one shown here; check njtransit.com.",
+  holidayOn: "This day is on NJ Transit's holiday list. Buses may run a different schedule from the one shown here; check njtransit.com.",
   settings: 'Settings',
   back: 'Back',
   noFavoritesTitle: 'Save your stop once',
@@ -111,6 +134,29 @@ const es: Strings = {
   notAffiliated: 'App independiente. No está afiliada ni respaldada por NJ Transit.',
   dataObtained: 'Datos de horarios obtenidos de NJ Transit y redistribuidos desde el servidor propio de Arriba, no desde un servidor de NJ Transit.',
   notRealTime: 'Es posible que esta información no sea en tiempo real.',
+  transcribedBanner: (issued: string) =>
+    `Transcrito del horario impreso de NJ Transit emitido el ${issued}, no del sistema de datos de NJ Transit. Solo incluye los puntos de control principales, no todas las paradas, y no tiene horarios de días feriados. Verifica en njtransit.com antes de confiar en él.`,
+  routeAndDirection: 'Ruta y destino',
+  variantNotes: {
+    T: 'Exprés por la autopista: va exprés entre la Ruta 46 y Teaneck Rd. en Ridgefield Park y Nueva York por la autopista de Nueva Jersey (NJ Turnpike).',
+    P: 'Exprés por el Parkway: va exprés entre la salida 165 del Garden State Parkway en Paramus y Nueva York.',
+    R: 'Exprés por la Ruta 4: va exprés entre Teaneck (Rt. 4 en Margaret St.) y Nueva York.',
+    RF: 'Va exprés de Nueva York a River Edge por la Ruta 4, luego por Oradell Ave. y Forest Ave. hasta Westwood.',
+    F: 'Va por Forest Avenue.',
+    FP: 'Marcado FP en el horario impreso. Su leyenda indica F (por Forest Avenue) y P (exprés por el Parkway).',
+  } as Record<string, string>,
+  gatePublished: (g: string, d?: string) => `Puerta ${g}${d ? `, acceso ${d}` : ''}`,
+  gatePublishedNote: (effective: string) =>
+    `El horario impreso de NJ Transit indica esta puerta para este tipo de viaje y hora (cambio de puerta vigente desde ${effective}). Es una regla general, no una puerta publicada para este autobús.`,
+  wrongSideNoDistance: (stop: string) => `Lado equivocado de la calle para este viaje. Usa ${stop}.`,
+  stopNotes: {
+    'westwood-pickup':
+      'Recogida en Westwood hacia Nueva York: el horario de NJ Transit indica que las primeras recogidas de los viajes locales, T, R y P son la parada n.º 14025 (Kinderkamack Rd., 100 pies al norte de Old Hook Rd.) y la parada n.º 14026 (Kinderkamack Rd., 160 pies al norte de Lotus Ave.), unos 5 minutos antes de la hora indicada para Broadway en Irvington St.',
+    'parkride-request':
+      'Estacionamiento Park/Ride de la salida 165: el horario de NJ Transit indica que los viajes exprés por el Parkway (P) de la tarde paran aquí solo si se lo pides al conductor al subir. Para servicio al estacionamiento al mediodía, consulta el horario de la ruta 168 (Paramus-Nueva York).',
+  } as Record<string, string>,
+  holidayToday: 'Hoy está en la lista de días feriados de NJ Transit. Los autobuses pueden tener un horario distinto del que se muestra aquí; verifica en njtransit.com.',
+  holidayOn: 'Este día está en la lista de días feriados de NJ Transit. Los autobuses pueden tener un horario distinto del que se muestra aquí; verifica en njtransit.com.',
   settings: 'Ajustes',
   back: 'Atrás',
   noFavoritesTitle: 'Guarda tu parada una vez',

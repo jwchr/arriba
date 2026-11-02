@@ -3,6 +3,7 @@ import { demoDataset, demoUsualGates } from '../data/demo';
 import { alightingStopFor, checkDirection, searchStops } from '../domain/direction';
 import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, type Favorite } from '../domain/favorites';
 import { gateFor, type GateAnswer } from '../domain/gate';
+import { isNjtHoliday } from '../domain/holidays';
 import { createLock, type TripLock } from '../domain/lock';
 import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule';
 import { addDays, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
@@ -87,7 +88,9 @@ export function App() {
         <button className="icon-btn" onClick={() => setScreen({ name: 'settings' })} aria-label={t.settings}>⚙</button>
       </header>
       {ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner}</div>}
+      {ds.meta.transcribed && <div className="data-banner" role="note">{t.transcribedBanner(fmtYmd(ds.meta.transcribed.issued))}</div>}
       <FeedStatus ctx={ctx} />
+      {ds.meta.transcribed && isNjtHoliday(localYmd(now, tz)) && <p className="status-line" data-level="warn" role="note">{t.holidayToday}</p>}
       <main>
         {screen.name === 'home' && (
           <Home ctx={ctx} favorites={favorites} count={settings.count} setFavorites={setFavorites} reversedIds={reversedIds} toggleReversed={toggleReversed}
@@ -117,6 +120,8 @@ export function App() {
   );
 }
 
+const fmtYmd = (d: string) => `${+d.slice(4, 6)}/${+d.slice(6, 8)}/${d.slice(0, 4)}`;
+
 interface Ctx { ds: Dataset; tz: string; now: number; t: Strings; lang: Lang; stopName: (id: string) => string }
 
 /** Offline state and schedule validity, so a stale or expired feed is never mistaken for "no buses". */
@@ -132,7 +137,6 @@ function FeedStatus({ ctx }: { ctx: Ctx }) {
   }, []);
   const validThrough = Object.values(ds.calendars).reduce((m, c) => [c.end, ...c.added].reduce((a, b) => (b > a ? b : a), m), '00000000');
   const expired = localYmd(now, tz) > validThrough;
-  const fmtYmd = (d: string) => `${+d.slice(4, 6)}/${+d.slice(6, 8)}/${d.slice(0, 4)}`;
   const built = Date.parse(ds.meta.builtAt);
   if (!Object.keys(ds.calendars).length) return null;
   if (expired) return <p className="status-line" data-level="warn" role="alert">{t.feedExpired(fmtYmd(validThrough))}</p>;
@@ -156,7 +160,7 @@ function TimeText({ ctx, at, estimated }: { ctx: Ctx; at: number; estimated: boo
 
 /** NJ Transit developer terms: the data came from NJ Transit via Arriba's own server and may not be real time. The demo is not NJ Transit data. */
 function dataNotice(ds: Dataset, t: Strings): string {
-  return ds.meta.demo ? t.notRealTime : `${t.dataObtained} ${t.notRealTime}`;
+  return ds.meta.demo || ds.meta.transcribed ? t.notRealTime : `${t.dataObtained} ${t.notRealTime}`;
 }
 
 function arrivalAt(ds: Dataset, d: Departure, stopId: string): { at: number; estimated: boolean } | undefined {
@@ -305,7 +309,7 @@ function Search({ ctx, onSave }: { ctx: Ctx; onSave: (f: Favorite) => void }) {
       </div>
       {check && !check.ok && check.reason === 'wrong-side' && (
         <div className="warn" role="alert">
-          <p>{t.wrongSide(check.useStop.name, check.distanceM)}</p>
+          <p>{check.distanceM === undefined ? t.wrongSideNoDistance(check.useStop.name) : t.wrongSide(check.useStop.name, check.distanceM)}</p>
           <button className="primary" onClick={() => setStop(check.useStop)}>{t.useThatStop}</button>
         </div>
       )}
@@ -340,6 +344,7 @@ function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title
             data-weekend={weekdayIndex(d) >= 5 ? 'true' : undefined}>{dayLabel(d, i)}</button>
         ))}
       </div>
+      {ds.meta.transcribed && isNjtHoliday(date) && <p className="warn small" role="note">{t.holidayOn}</p>}
       <table className="timetable">
         <thead><tr><th>{t.departs}</th><th>{t.route}</th><th>{t.arrives}</th></tr></thead>
         <tbody>
@@ -365,19 +370,27 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
   const times = tripStopTimes(ds, dep);
   const alightIndex = dep.pattern.stopIds.indexOf(leg.toStopId);
   const boardStop = ds.stops.find((s) => s.id === dep.pattern.stopIds[dep.stopIndex]);
+  const alightStop = alightIndex > dep.stopIndex ? ds.stops.find((s) => s.id === dep.pattern.stopIds[alightIndex]) : undefined;
+  // The printed Park/Ride note is about Parkway express (P, FP) trips only; other trips stop there as usual.
+  const alightNote = alightStop?.noteId && (alightStop.noteId !== 'parkride-request' || ['P', 'FP'].includes(dep.pattern.variant ?? '')) ? t.stopNotes[alightStop.noteId] : undefined;
   const atPabt = boardStop?.terminal === 'PABT';
   // Usual-gate windows use service-day minutes (a 24:00 trip is 1440, not 0) and the service date's day type.
   const localMin = Math.round((ds.trips.find((x) => x.id === dep.tripId)?.times[dep.stopIndex] ?? 0) / 60);
   const wd = weekdayIndex(dep.serviceDate);
   const gate: GateAnswer | undefined = atPabt
-    ? gateFor(dep.tripInstanceId, dep.pattern.id, localMin, wd === 5 ? 'saturday' : wd === 6 ? 'sunday' : 'weekday', [], ds.meta.demo ? demoUsualGates : [])
+    ? gateFor(dep.tripInstanceId, dep.pattern.id, localMin, wd === 5 ? 'saturday' : wd === 6 ? 'sunday' : 'weekday', [], ds.meta.demo ? demoUsualGates : [], ds.publishedGates, dep.pattern.variant)
     : undefined;
   return (
     <section>
-      <div className="sign" aria-label={`${t.checkSign}: ${dep.pattern.headsign}`}>
-        <span className="sign-label">{t.checkSign}</span>
+      {/* A printed timetable gives no sign text, so a transcribed dataset's headsign is Arriba's own route-and-destination label, not what the sign reads. */}
+      <div className="sign" aria-label={`${ds.meta.transcribed ? t.routeAndDirection : t.checkSign}: ${dep.pattern.headsign}`}>
+        <span className="sign-label">{ds.meta.transcribed ? t.routeAndDirection : t.checkSign}</span>
         <span className="sign-led">{dep.pattern.headsign}</span>
       </div>
+      {dep.pattern.variant && t.variantNotes[dep.pattern.variant] && <p className="muted small">{t.variantNotes[dep.pattern.variant]}</p>}
+      {boardStop?.noteId && t.stopNotes[boardStop.noteId] && <p className="muted small" role="note">{t.stopNotes[boardStop.noteId]}</p>}
+      {alightNote && <p className="warn small" role="note">{alightNote}</p>}
+      {ds.meta.transcribed && isNjtHoliday(dep.serviceDate) && <p className="warn small" role="note">{t.holidayOn}</p>}
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>
         <div className="row-between">
@@ -396,6 +409,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
           <h2>{t.gateTitle}</h2>
           {gate.status === 'posted' && <p className="gate-big">{t.gatePosted(gate.gate, gate.door)}</p>}
           {gate.status === 'usual' && <><p className="gate-big">{t.gateUsual(gate.gate, gate.door)}</p><p className="muted small">{t.gateUsualNote(gate.samples)}</p></>}
+          {gate.status === 'published' && <><p className="gate-big">{t.gatePublished(gate.gate, gate.door)}</p><p className="muted small">{t.gatePublishedNote(fmtYmd(gate.effective))}</p></>}
           {gate.status === 'unknown' && <p className="gate-big">{t.gateUnknown}</p>}
           <p className="small">{t.gateConfirm}</p>
           <p className="warn small" role="note">{t.ticketWarning}</p>
