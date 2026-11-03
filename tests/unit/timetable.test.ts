@@ -3,7 +3,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain ESM script without type declarations
 import { buildTimetableDataset } from '../../scripts/timetable-lib.mjs';
+import { demoDataset } from '../../src/data/demo';
 import { alightingStopFor, checkDirection, destinationsFrom } from '../../src/domain/direction';
+import { fareBetween } from '../../src/domain/fare';
 import { gateFor, publishedGateFor } from '../../src/domain/gate';
 import { isNjtHoliday, njtHolidaysIn } from '../../src/domain/holidays';
 import { departuresOn } from '../../src/domain/schedule';
@@ -189,5 +191,50 @@ describe("NJ Transit's printed holiday list", () => {
   });
   it('leaves ordinary days alone', () => {
     for (const d of ['20261104', '20261110', '20261124', '20261128', '20270104', '20270701']) expect(isNjtHoliday(d), d).toBe(false);
+  });
+});
+
+describe("NJ Transit's printed fares and fare zones", () => {
+  const quote = (a: string, b: string) => fareBetween(ds, a, b);
+
+  it('gives every stop a zone band that never falls moving away from New York', () => {
+    const z = ds.publishedFares!.stopZones;
+    expect(Object.keys(z).sort()).toEqual(ds.stops.map((s) => s.id).sort());
+    for (const p of ds.patterns) {
+      const bands = p.stopIds.map((id) => z[id]!);
+      const outward = p.directionId === 1 ? bands : [...bands].reverse();
+      for (let i = 1; i < outward.length; i++) expect(outward[i]![0], p.id).toBeGreaterThanOrEqual(outward[i - 1]![0]);
+    }
+  });
+
+  it('charges the printed to/from New York fare for 5 zones between Port Authority and Westwood, both ways', () => {
+    expect(quote('PABT', 'W20')).toEqual({ zones: { min: 5, max: 5 }, newYork: true, adult: { min: 845, max: 845 }, reduced: { min: 385, max: 385 } });
+    expect(quote('N20', 'PABT')).toEqual(quote('PABT', 'W20'));
+    expect(quote('PABT', 'W2')?.adult).toEqual({ min: 420, max: 420 }); // Weehawken: across the state line only
+  });
+
+  it('uses the within-New Jersey table between New Jersey stops', () => {
+    expect(quote('N11', 'N7')).toEqual({ zones: { min: 1, max: 1 }, newYork: false, adult: { min: 190, max: 190 }, reduced: { min: 85, max: 85 } });
+    expect(quote('W6', 'W7')?.adult).toEqual({ min: 300, max: 300 }); // Broad Ave. at Fairview Ave. boundary
+    expect(quote('W11', 'W20')?.zones).toEqual({ min: 3, max: 3 });
+    expect(quote('N20', 'N5')).toMatchObject({ zones: { min: 4, max: 4 }, adult: { min: 455, max: 455 }, reduced: { min: 210, max: 210 } });
+  });
+
+  it('gives a range, not a guess, for a stop drawn on a zone boundary', () => {
+    expect(quote('N13', 'PABT')).toEqual({ zones: { min: 3, max: 4 }, newYork: true, adult: { min: 545, max: 730 }, reduced: { min: 245, max: 320 } });
+    expect(quote('W15', 'W20')?.zones).toEqual({ min: 1, max: 2 });
+    expect(quote('N15', 'N12')?.zones).toEqual({ min: 2, max: 2 }); // to New York, 15 is at Church St., inside the zone
+  });
+
+  it('has a printed price for every boarding and alighting pair on every trip pattern', () => {
+    for (const p of ds.patterns)
+      for (let i = 0; i < p.stopIds.length; i++)
+        for (let j = i + 1; j < p.stopIds.length; j++) expect(quote(p.stopIds[i]!, p.stopIds[j]!), `${p.id} ${i}-${j}`).toBeDefined();
+  });
+
+  it('shows no fare without a fare table', () => {
+    expect(demoDataset.publishedFares).toBeUndefined();
+    const [a, b] = demoDataset.stops;
+    expect(fareBetween(demoDataset, a!.id, b!.id)).toBeUndefined();
   });
 });

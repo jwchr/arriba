@@ -110,6 +110,7 @@ main { flex: 1; padding-bottom: 24px; }
 
 .gate-card { border-width: 2px; border-color: var(--brand); }
 .gate-card[data-status='unknown'] { border-color: var(--muted); border-style: dashed; }
+.fare-card .row-between { padding: 4px 0; }
 .gate-big { font-size: 1.5rem; font-weight: 900; margin: 4px 0; }
 .gate-card[data-status='usual'] .gate-big, .gate-card[data-status='published'] .gate-big { font-weight: 700; }
 .lock-status { font-weight: 700; }

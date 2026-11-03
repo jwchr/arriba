@@ -161,6 +161,7 @@ test.describe('real data', () => {
     await card.locator('.dep').first().click();
     await expect(page.locator('.trip-ticket .big-time').first()).toContainText('~8:20 AM');
     await expect(page.locator('.trip-ticket')).toContainText('Estimated by Arriba');
+    await expect(page.locator('.fare-card')).toHaveCount(0); // no fare table in this dataset
     await expect(page.locator('.stop-list .stop-time')).toContainText(['8:00 AM', '~8:20 AM', '9:00 AM']);
     await page.screenshot({ path: 'test-results/estimated.png', fullPage: true });
   });
@@ -227,6 +228,12 @@ test.describe('printed timetable data (route 165)', () => {
     await expect(page.locator('.gate-card')).toContainText("NJ Transit's printed timetable lists this gate");
     await expect(page.locator('.gate-card')).toContainText('Always confirm on the terminal departure screens');
     await expect(page.locator('.stop-list li[data-role="alight"]')).toContainText('Westwood - Broadway at Irvington St. (to Westwood)');
+    // Printed cash fare: Port Authority to Westwood crosses four zone lines.
+    await expect(page.locator('.fare-card h2')).toHaveText('Fare · 5 zones');
+    await expect(page.locator('.fare-card')).toContainText('$8.45');
+    await expect(page.locator('.fare-card')).toContainText('$3.85');
+    await expect(page.locator('.fare-card')).toContainText('fares effective 7/1/2026');
+    await expect(page.locator('.fare-card')).not.toContainText('makes change'); // Port Authority needs a ticket, not cash
     await page.screenshot({ path: 'test-results/printed-departure.png', fullPage: true });
   });
 
