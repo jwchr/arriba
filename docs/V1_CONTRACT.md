@@ -8,16 +8,16 @@ Household tool for Jeff and Diego. Bergen County corridor to and from Port Autho
 ## V1 must do
 | ID | Capability | Milestone |
 | --- | --- | --- |
-| UX-01/02 | Zero-tap home: saved commutes in the rider's order, next 3 or 5 departures, one-tap reverse | M1 ✅ demo, M2 real |
-| UX-03 | Stop search by name or code; wrong-side-of-street guard | M1 ✅ demo |
-| UX-04 | All-day timetable, 7 days, holidays, after-midnight trips, DST-safe, 12-hour times | M1 ✅ demo, M2 real |
+| UX-01/02 | Zero-tap home: saved commutes in the rider's order, next 3 or 5 departures, one-tap reverse | M1 ✅ demo, ✅ printed route 165 (D42) with the Port Authority gate on rows that board there, M2 real |
+| UX-03 | Stop search by name or code; wrong-side-of-street guard | M1 ✅ demo, ✅ printed route 165: town-first search, every reachable stop, guard through named twins, reverse from across the street |
+| UX-04 | All-day timetable, 7 days, holidays, after-midnight trips, DST-safe, 12-hour times | M1 ✅ demo, ✅ printed route 165 (after-midnight, DST as printed with notes, holiday warning: the print has no holiday times), M2 real |
 | BUS-01/02 | Exact-bus lock keyed to trip + service date; tracked / not tracked / not reporting / needs confirmation states | M1 ✅ logic, M3 live |
 | GATE-01/03 | Port Authority gate and door per departure from NJ Transit DepartureVision; usual gate before posting; gate-change push | M1 ✅ logic, M3 live |
 | UX-10 | Stop alerts 3, 2 and 1 stops before getting off, sent by the server from the locked bus (Web Push) | M3 |
-| UX-09 | Ticket-before-boarding warning at Port Authority; Tap & Ride guidance in NJ; zone count only from a real fare table | M1 ✅ PABT warning, M4 ✅ printed route 165 cash fare and zone count; Tap & Ride guidance rest |
+| UX-09 | Ticket-before-boarding warning at Port Authority; Tap & Ride guidance in NJ; zone count only from a real fare table | M1 ✅ PABT warning, M4 ✅ printed route 165 cash fare and zone count, ✅ Tap & Ride steps in the guide |
 | UX-07 | First-time-rider guide, English and Spanish | M1 ✅ languages, M4 ✅ route 165 first-ride guide |
-| GATE-02 | Gate cards (floor, gate, door, nearest escalator or elevator, photo) for corridor gates | M4 |
-| MAP-01/02 | Geographic map (MapLibre + OpenStreetMap); Clean, dark, Turnpike styles | M3-M4 |
+| GATE-02 | Gate cards (floor, gate, door, nearest escalator or elevator, photo) for corridor gates | M4: needs owner photos and notes from Port Authority (no official source found for floors and escalators) |
+| MAP-01/02 | Geographic map (MapLibre + OpenStreetMap); Clean, dark, Turnpike styles | M3-M4: needs stop coordinates (M2 feed; the print has none) and an owner choice of map tile provider |
 | OFF-01 | Offline: last known schedule with its age | M1 ✅ service worker, M4 ✅ network timeout and saved-copy age |
 
 ## Not in V1

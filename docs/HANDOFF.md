@@ -1,9 +1,10 @@
 # Handoff: current state
 
-Updated 2026-11-03 (printed times read as wall clock on DST nights; home-screen icons; accessibility checks). Keep this short; replace stale lines rather than appending.
+Updated 2026-11-03 (all V1 work not blocked by NJ Transit approval and M2/M3, owner photos, a map tile choice or phone testing is built). Keep this short; replace stale lines rather than appending.
 
 ## Built and tested
 - M1 prototype on invented demo data (`src/data/demo.ts`, DEMO banner): home with ordered saved commutes and one-tap reverse, stop search with wrong-side guard, 7-day all-day timetable, departure detail with front-sign, stop list, Port Authority gate card (usual gate), ticket warning, exact-bus lock (scheduled-only until M3), English/Spanish, light/dark, offline service worker.
+- Performance: Intl date formatters are built once per time zone and language (`src/domain/time.ts`); a week of Port Authority departures with stop lists went from 1,169 ms to 117 ms on the Mac.
 - Domain logic: GTFS service-day time with DST and after-midnight trips, calendars and holiday exceptions, departures, direction guard, favorites, trip lock state machine, gate parsing/selection/change detection. 80 unit tests (40 domain and GTFS, 30 on the printed route 165 data, fares and guide text, 10 running the service worker).
 - `scripts/build-gtfs.mjs`: real NJ Transit GTFS zip to `public/data/corridor.json` (corridor routes only); tested on a synthetic mini feed. When that file is present the app uses it instead of the demo. Stop times the feed leaves blank are filled in and listed in `trip.estimated`; the app shows them as `~7:20 AM` with a legend.
 - NJ Transit data-terms notices (footer and Settings, English and Spanish): data obtained from NJ Transit and redistributed from Arriba's own server; may not be real time. The demo shows only the real-time line, since its data is invented.
@@ -24,6 +25,10 @@ Updated 2026-11-03 (printed times read as wall clock on DST nights; home-screen 
 - Live data (M0 spike, M3): needs NJ Transit developer credentials (BUSDATA and GTFS-BUS APIs) stored as secrets by the owner.
 - Owner instruction 2026-11-01: do not start M2 or any data collection (including the M0 archive) until the owner says NJ Transit developer approval has arrived.
 - Not yet opened on Jeff's Galaxy S26 Ultra or Diego's phone.
+- Gate cards (GATE-02): need photos and notes from Port Authority; no official source for gate floors or escalators was found (searched 2026-11-03).
+- Map (MAP-01/02): needs stop coordinates (M2 feed) and an owner choice of map tile provider (a new service).
+- Stop alerts (UX-10) and live lock, gates and gate-change push (BUS, GATE-01/03): M3, after M2.
+- Everything else in the V1 contract that does not need these is built (2026-11-03).
 
 ## Known gaps (from independent review, 2026-10-31)
 - DST: GTFS feeds keep the spec's noon-minus-12h rule (`timeBaseOf` gives 'gtfs' for any dataset not typed in from print); check how NJ Transit encodes 00:00-02:59 on DST dates before real data ships (M2 gate).
@@ -31,4 +36,4 @@ Updated 2026-11-03 (printed times read as wall clock on DST nights; home-screen 
 ## Next actions
 1. M0: record 72 h of vehicle positions, trip updates, alerts and DepartureVision for Port Authority and the boarding stop; one-page go/no-go.
 2. M2: build `corridor.json` from the real feed; compare 163/164/165/165T against published timetables (weekday, Saturday, Sunday, one holiday).
-3. Owner usability test of the M1 build (5 scripted tasks each).
+3. Owner usability test on Jeff's and Diego's phones (5 scripted tasks each): install to the home screen from the guide, save a commute, reverse it, open a trip from Port Authority, use it offline.
