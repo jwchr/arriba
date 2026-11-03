@@ -282,6 +282,15 @@ test.describe('printed timetable data (route 165)', () => {
     await card.locator('.dep').nth(1).click();
     await expect(page.locator('.trip-ticket .big-time').first()).toContainText('1:03 AM');
     await expect(page.getByRole('note').filter({ hasText: 'Clocks go back an hour at 2 AM during this trip' })).toBeVisible();
+    // The all-day timetable for that day explains the order too; the next day has no note.
+    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('article').nth(2).getByRole('button', { name: /All day/ }).click();
+    await expect(page.locator('table.timetable .link-cell').first()).toBeVisible();
+    const listed = await page.locator('table.timetable .link-cell').allTextContents();
+    expect(listed.slice(listed.indexOf('1:14 AM'), listed.indexOf('1:14 AM') + 2)).toEqual(['1:14 AM', '1:03 AM']);
+    await expect(page.getByRole('note').filter({ hasText: 'Clocks go back an hour at 2 AM on this day' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Tomorrow' }).click();
+    await expect(page.getByRole('note').filter({ hasText: 'Clocks go' })).toHaveCount(0);
   });
 
   test('banner, wrong-side guard without coordinates, return trip with published gate', async ({ page }) => {
