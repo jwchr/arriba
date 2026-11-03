@@ -8,7 +8,7 @@ Household tool for Jeff and Diego. Bergen County corridor to and from Port Autho
 ## V1 must do
 | ID | Capability | Milestone |
 | --- | --- | --- |
-| UX-01/02 | Zero-tap home: saved commutes in the rider's order, next 3 or 5 departures, one-tap reverse | M1 ✅ demo, ✅ printed route 165 (D42) with Port Authority gate on each row, M2 real |
+| UX-01/02 | Zero-tap home: saved commutes in the rider's order, next 3 or 5 departures, one-tap reverse | M1 ✅ demo, ✅ printed route 165 (D42) with the Port Authority gate on rows that board there, M2 real |
 | UX-03 | Stop search by name or code; wrong-side-of-street guard | M1 ✅ demo, ✅ printed route 165: town-first search, every reachable stop, guard through named twins, reverse from across the street |
 | UX-04 | All-day timetable, 7 days, holidays, after-midnight trips, DST-safe, 12-hour times | M1 ✅ demo, ✅ printed route 165 (after-midnight, DST as printed with notes, holiday warning: the print has no holiday times), M2 real |
 | BUS-01/02 | Exact-bus lock keyed to trip + service date; tracked / not tracked / not reporting / needs confirmation states | M1 ✅ logic, M3 live |

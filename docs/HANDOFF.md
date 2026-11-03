@@ -1,6 +1,6 @@
 # Handoff: current state
 
-Updated 2026-11-03 (all V1 work not blocked by NJ Transit approval, owner photos or phones is built). Keep this short; replace stale lines rather than appending.
+Updated 2026-11-03 (all V1 work not blocked by NJ Transit approval and M2/M3, owner photos, a map tile choice or phone testing is built). Keep this short; replace stale lines rather than appending.
 
 ## Built and tested
 - M1 prototype on invented demo data (`src/data/demo.ts`, DEMO banner): home with ordered saved commutes and one-tap reverse, stop search with wrong-side guard, 7-day all-day timetable, departure detail with front-sign, stop list, Port Authority gate card (usual gate), ticket warning, exact-bus lock (scheduled-only until M3), English/Spanish, light/dark, offline service worker.
