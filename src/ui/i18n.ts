@@ -365,7 +365,7 @@ const es: Strings = {
         title: 'En el autobús y al bajar',
         steps: [
           'Presiona la franja de aviso sobre tu asiento, o el botón de parada más cercano, antes de tu parada.',
-          '¿Vas al Park/Ride de la salida 165 en un expreso por la Parkway (P) de la tarde? Díselo al chofer al subir.',
+          '¿Vas al Park/Ride de la salida 165 en un expreso por el Parkway (P) de la tarde? Díselo al chofer al subir.',
           'Espera a que el autobús se detenga por completo antes de levantarte. Baja a la acera y nunca camines por delante del autobús.',
         ],
       },

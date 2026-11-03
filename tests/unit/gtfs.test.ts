@@ -23,6 +23,14 @@ describe('GTFS build', () => {
     expect(filterCsvByColumn(text, 'trip_id', new Set(['A']))).toBe('trip_id,stop_id\nA,1\n"A",3');
   });
 
+  it('keeps or drops a record whole when a quoted field holds a line break', () => {
+    const text = 'trip_id,stop_headsign,stop_id\r\nA,"Line one\r\nline two",1\r\nB,"x\r\nA,5",2\r\nA,"say ""hi""",3\r\n';
+    expect(parseCsv(filterCsvByColumn(text, 'trip_id', new Set(['A'])))).toEqual([
+      { trip_id: 'A', stop_headsign: 'Line one\nline two', stop_id: '1' },
+      { trip_id: 'A', stop_headsign: 'say "hi"', stop_id: '3' },
+    ]);
+  });
+
   it('interpolates blank intermediate times', () => {
     expect(interpolate([0, undefined, undefined, 300])).toEqual([0, 100, 200, 300]);
     expect(() => interpolate([undefined, 10])).toThrow();
