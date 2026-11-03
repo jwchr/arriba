@@ -101,7 +101,9 @@ main { flex: 1; padding-bottom: 24px; }
 .timetable { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .timetable th { text-align: left; color: var(--muted); font-size: 0.8rem; font-weight: 600; padding: 6px 4px; border-bottom: 1px solid var(--line); }
 .timetable td { padding: 4px; border-bottom: 1px solid var(--line); }
-.timetable tr.past { opacity: 0.45; }
+/* Past departures read dimmer through the muted text color (contrast-safe in both themes), not opacity. */
+.timetable tr.past, .timetable tr.past .link-cell { color: var(--muted); }
+.timetable tr.past .link-cell { font-weight: 500; }
 .link-cell { border: none; background: none; padding: 6px 0; font-weight: 700; font-size: 1.05rem; color: var(--text); min-height: 40px; }
 .chip[data-weekend='true'] { font-style: italic; }
 
