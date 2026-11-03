@@ -446,7 +446,10 @@ function departureGate(ds: Dataset, dep: Departure): GateAnswer | undefined {
   return gateFor(dep.tripInstanceId, dep.pattern.id, localMin, wd === 5 ? 'saturday' : wd === 6 ? 'sunday' : 'weekday', [], ds.meta.demo ? demoUsualGates : [], ds.publishedGates, dep.pattern.variant);
 }
 
-/** One-line gate for a home departure row, always saying what kind of answer it is. */
+/**
+ * One-line gate for a home departure row, always saying what kind of answer it is. Postings are always
+ * empty until M3; when DepartureVision is wired in, the posted line must also say how old the posting is.
+ */
 const gateLine = (t: Strings, g: GateAnswer) =>
   g.status === 'posted' ? t.gatePosted(g.gate, g.door)
     : g.status === 'usual' ? t.gateUsual(g.gate, g.door)
