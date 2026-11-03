@@ -94,7 +94,8 @@ test('first-ride guide from home and Settings, in English and Spanish', async ({
   await page.goto(URL);
   await page.getByRole('button', { name: 'First time riding? How it works' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your first ride');
-  await expect(page.locator('.guide .card')).toHaveCount(5);
+  await expect(page.locator('.guide .card')).toHaveCount(6);
+  await expect(page.locator('.guide')).toContainText('Put Arriba on your home screen');
   await expect(page.locator('.guide')).toContainText('Buy your ticket or pass before you board');
   await expect(page.getByRole('link', { name: 'Call NJ Transit: 973-275-5555' })).toHaveAttribute('href', 'tel:+19732755555');
   await expect(page.locator('.guide')).toContainText('checked 11/3/2026');
