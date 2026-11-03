@@ -225,6 +225,28 @@ test.describe('printed timetable data (route 165)', () => {
     await expect(card.locator('.dep-time')).toHaveCount(3);
   });
 
+  test('departure rows fit a 320 px phone with large text, in English and Spanish', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto('/?now=2026-11-04T17:10');
+    await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.getByRole('button', { name: /Reverse/ }).click(); // Port Authority rows carry a gate line
+    await page.addStyleTag({ content: 'html { font-size: 130%; } body { font-size: 20.8px; }' }); // the phone's text size set to 130%
+    const overflow = () => page.evaluate(() => ({
+      page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      row: Math.max(...[...document.querySelectorAll('.dep')].flatMap((b) => [...b.querySelectorAll('*')].map((e) => e.getBoundingClientRect().right - b.getBoundingClientRect().right))),
+    }));
+    await expect(page.locator('.dep-gate')).toHaveCount(3);
+    expect(await overflow()).toEqual(expect.objectContaining({ page: 0 }));
+    expect((await overflow()).row).toBeLessThanOrEqual(0);
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: 'Español' }).click();
+    await page.getByRole('button', { name: 'Atrás' }).click();
+    await expect(page.locator('.dep-gate').first()).toContainText('regla impresa');
+    expect(await overflow()).toEqual(expect.objectContaining({ page: 0 }));
+    expect((await overflow()).row).toBeLessThanOrEqual(0);
+  });
+
   test('banner, wrong-side guard without coordinates, return trip with published gate', async ({ page }) => {
     await page.goto('/?now=2026-11-04T07:50');
     await expect(page.locator('.demo-banner')).toHaveCount(0);
