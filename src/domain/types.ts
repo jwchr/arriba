@@ -96,7 +96,7 @@ export interface Trip {
   id: string;
   patternId: string;
   serviceId: string;
-  /** Departure seconds after the service day's noon-minus-12h, aligned to pattern.stopIds. May exceed 86400. */
+  /** Departure seconds on the service day, aligned to pattern.stopIds; may exceed 86400. GTFS: after noon minus 12 h. Printed timetables: the printed clock time (see `tripTimeAt`). */
   times: number[];
   /** Indices into `times` the build script filled in because the feed left them blank: Arriba's estimates, not NJ Transit data. Omitted when none. */
   estimated?: number[];

@@ -1,11 +1,29 @@
-import { addDays, localYmd, serviceTimeToInstant, weekdayIndex } from './time';
-import { type Dataset, type Departure, type Pattern, type ServiceCalendar, tripInstanceId } from './types';
+import { addDays, localYmd, serviceTimeToInstant, type TimeBase, weekdayIndex } from './time';
+import { type Dataset, type Departure, type Pattern, type ServiceCalendar, type Trip, tripInstanceId } from './types';
 
 export function isServiceActive(cal: ServiceCalendar | undefined, ymd: string): boolean {
   if (!cal) return false;
   if (cal.removed.includes(ymd)) return false;
   if (cal.added.includes(ymd)) return true;
   return ymd >= cal.start && ymd <= cal.end && cal.days[weekdayIndex(ymd)] === true;
+}
+
+/** A timetable typed in from print gives wall-clock times; NJ Transit's GTFS feed uses the GTFS rule. */
+export const timeBaseOf = (ds: Dataset): TimeBase => (ds.meta.transcribed ? 'wall' : 'gtfs');
+
+/**
+ * Epoch ms of a trip's `i`-th time on `serviceDate`. With printed wall-clock times the first time is read
+ * on the clock and later stops add the printed running times, so a bus that keeps running through a
+ * clock change keeps its real pace. On the fall-back night that shows a printed 2:03 AM as 1:03 AM, the
+ * safe side (nothing printed says the bus waits out the repeated hour); on the spring-forward night it
+ * matches the clock (a printed 2:03 AM, which does not exist, shows as 3:03 AM).
+ */
+export function tripTimeAt(ds: Dataset, trip: Trip, serviceDate: string, i: number): number {
+  const tz = ds.meta.timezone;
+  const secs = trip.times[i] ?? 0;
+  if (timeBaseOf(ds) === 'gtfs') return serviceTimeToInstant(serviceDate, secs, tz);
+  const first = trip.times[0] ?? 0;
+  return serviceTimeToInstant(serviceDate, first, tz, 'wall') + (secs - first) * 1000;
 }
 
 export interface DepartureQuery {
@@ -40,7 +58,7 @@ export function departuresOn(ds: Dataset, q: DepartureQuery): Departure[] {
       const secs = trip.times[stopIndex];
       const endSecs = trip.times[trip.times.length - 1];
       if (secs === undefined || endSecs === undefined) continue;
-      const departs = serviceTimeToInstant(serviceDate, secs, tz);
+      const departs = tripTimeAt(ds, trip, serviceDate, stopIndex);
       if (localYmd(departs, tz) !== q.date) continue;
       const route = routes.get(pattern.routeId);
       if (!route) continue;
@@ -53,7 +71,7 @@ export function departuresOn(ds: Dataset, q: DepartureQuery): Departure[] {
         stopIndex,
         departs,
         estimated: trip.estimated?.includes(stopIndex) ?? false,
-        arrivesEnd: serviceTimeToInstant(serviceDate, endSecs, tz),
+        arrivesEnd: tripTimeAt(ds, trip, serviceDate, trip.times.length - 1),
       });
     }
   }
@@ -84,7 +102,7 @@ export function tripStopTimes(ds: Dataset, d: Departure): { stopId: string; at: 
   if (!trip) return [];
   return d.pattern.stopIds.map((stopId, i) => ({
     stopId,
-    at: serviceTimeToInstant(d.serviceDate, trip.times[i] ?? 0, ds.meta.timezone),
+    at: tripTimeAt(ds, trip, d.serviceDate, i),
     estimated: trip.estimated?.includes(i) ?? false,
   }));
 }

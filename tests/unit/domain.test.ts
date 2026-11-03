@@ -24,6 +24,19 @@ describe('time', () => {
     expect(fmt(serviceTimeToInstant('20261101', 8 * 3600, TZ))).toBe('8:00 AM');
     expect(tzOffsetMinutes(zonedWallTime(2026, 11, 1, 12, 0, TZ), TZ)).toBe(-300);
   });
+  it('reads wall-clock times on clock-change nights: a repeated hour is the first, a skipped one moves forward', () => {
+    // Fall back 11/1/2026: 1:30 AM happens twice; the first (EDT, UTC-4) is used.
+    expect(tzOffsetMinutes(zonedWallTime(2026, 11, 1, 1, 30, TZ), TZ)).toBe(-240);
+    expect(zonedWallTime(2026, 11, 1, 2, 10, TZ) - zonedWallTime(2026, 11, 1, 1, 50, TZ)).toBe(80 * 60_000);
+    // Spring forward 3/14/2027: 2:10 AM does not exist; it reads as 3:10 AM EDT, after 1:50 AM EST.
+    expect(fmt(zonedWallTime(2027, 3, 14, 2, 10, TZ))).toBe('3:10 AM');
+    expect(zonedWallTime(2027, 3, 14, 2, 10, TZ) - zonedWallTime(2027, 3, 14, 1, 50, TZ)).toBe(20 * 60_000);
+    // Service-day 26:08 on Saturday 10/31/2026 is 2:08 AM Sunday as printed; the GTFS rule would say 1:08 AM.
+    expect(fmt(serviceTimeToInstant('20261031', 26 * 3600 + 8 * 60, TZ, 'wall'))).toBe('2:08 AM');
+    expect(fmt(serviceTimeToInstant('20261031', 26 * 3600 + 8 * 60, TZ))).toBe('1:08 AM');
+    // Ordinary days read the same either way.
+    expect(serviceTimeToInstant('20261104', 25 * 3600 + 10 * 60, TZ, 'wall')).toBe(serviceTimeToInstant('20261104', 25 * 3600 + 10 * 60, TZ));
+  });
   it('is correct across the spring-forward DST day (Mar 14 2027)', () => {
     expect(fmt(serviceTimeToInstant('20270314', 8 * 3600, TZ))).toBe('8:00 AM');
     expect(fmt(serviceTimeToInstant('20270314', 23 * 3600 + 30 * 60, TZ))).toBe('11:30 PM');
