@@ -339,9 +339,9 @@ const es: Strings = {
       {
         title: 'Antes de salir',
         steps: [
-          'El horario muestra solo las paradas principales. Los autobuses locales también paran entre ellas: si tu parada está entre dos paradas del horario, guíate por la hora anterior y llega unos minutos antes.',
-          'Espera en la acera junto a un letrero de parada de NJ Transit, un poco alejado del borde de la acera. Hazle señas al chofer cuando se acerque el autobús.',
-          'Por una misma parada pasan varias rutas. Revisa el número de ruta y el destino al frente del autobús antes de subir.',
+          'El horario muestra solo las paradas principales. Los autobuses locales también paran entre ellas: si tu parada está entre dos paradas del horario, guíate por la más temprana de las dos horas y llega unos minutos antes.',
+          'Espera en la acera junto a un letrero de parada de NJ Transit, sin pararte en el borde. Hazle señas al chofer cuando se acerque el autobús.',
+          'Por una misma parada pueden pasar varias rutas. Revisa el número de ruta y el destino al frente del autobús antes de subir.',
         ],
       },
       {
