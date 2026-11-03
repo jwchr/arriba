@@ -158,7 +158,7 @@ const en = {
         title: 'Paying in New Jersey',
         steps: [
           'Route 165 is a full-service line, so you can pay cash. The driver makes change. $1, $5, $10 and $20 bills and most coins are accepted; drivers do not have to accept bills over $20.',
-          'Tap & Ride: tap your contactless bank card or phone on the reader, then tell the driver how many zones you are going. When Arriba has NJ Transit's fare table, the trip screen shows the zones.',
+          "Tap & Ride: tap your contactless bank card or phone on the reader, then tell the driver how many zones you are going. When Arriba has NJ Transit's fare table, the trip screen shows the zones.",
           'Ticket in the NJ Transit app: activate it before you board, then scan it on the reader. If the bus has no reader, show it to the driver. Paper tickets are scanned on the reader too.',
           'Fares go by zones: each fare zone line you cross adds a zone.',
         ],
