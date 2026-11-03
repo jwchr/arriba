@@ -164,6 +164,31 @@ test.describe('real data', () => {
     await expect(page.locator('.stop-list .stop-time')).toContainText(['8:00 AM', '~8:20 AM', '9:00 AM']);
     await page.screenshot({ path: 'test-results/estimated.png', fullPage: true });
   });
+
+  test('a failed load shows an error with a retry, never the demo', async ({ page }) => {
+    let fail = true;
+    await page.route('**/data/corridor.json', (route) => (fail ? route.abort('internetdisconnected') : route.fulfill({ json: realStyle })));
+    await page.goto('/?now=2026-11-04T07:50');
+    await expect(page.getByRole('alert')).toContainText("Couldn't load the schedule");
+    await expect(page.locator('.demo-banner')).toHaveCount(0);
+    fail = false;
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.locator('footer')).toContainText('obtained from NJ Transit');
+  });
+
+  test("a saved copy from the service worker says when it was saved", async ({ page }) => {
+    const savedAt = Date.parse('2026-11-04T12:30:00Z'); // 7:30 AM in New York
+    await page.route('**/data/corridor.json', (route) =>
+      route.fulfill({ json: realStyle, headers: { 'x-arriba-from-cache': '1', 'x-arriba-saved-at': String(savedAt) } }));
+    await page.goto('/?now=2026-11-04T07:50');
+    await expect(page.locator('.status-line')).toHaveText('The network is slow or down. Showing the schedule saved 11/4/2026, 7:30 AM.');
+  });
+
+  test('with no real dataset published, the labeled demo loads', async ({ page }) => {
+    await page.route('**/data/corridor.json', (route) => route.fulfill({ status: 404, body: 'Not found' }));
+    await page.goto('/?now=2026-11-04T07:50');
+    await expect(page.locator('.demo-banner')).toBeVisible();
+  });
 });
 
 // The committed public/data/corridor.json: route 165 typed in from NJ Transit's printed timetable.

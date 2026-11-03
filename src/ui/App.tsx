@@ -44,20 +44,73 @@ function useNow(tz: string): number {
   return pinned ?? now;
 }
 
-function useDataset(): Dataset {
-  const [ds, setDs] = useState<Dataset>(demoDataset);
+type DatasetState =
+  | { status: 'loading' }
+  | { status: 'error' }
+  /** `fromCache` when the service worker answered from its saved copy; `savedAt` (ms) when it knows when that copy was saved. */
+  | { status: 'ready'; ds: Dataset; fromCache?: boolean | undefined; savedAt?: number | undefined };
+
+/** The app gives up on a load after this long even without a service worker (first visit, slow tunnel). */
+const LOAD_TIMEOUT_MS = 15_000;
+
+/**
+ * Loads the published schedule. The invented demo is used only with `?demo` or when no real dataset is
+ * published (404); a slow or failed load is an error with a retry, never silently the demo.
+ */
+function useDataset(): [DatasetState, () => void] {
+  const demo = useMemo(() => new URLSearchParams(location.search).has('demo'), []);
+  const [state, setState] = useState<DatasetState>(demo ? { status: 'ready', ds: demoDataset } : { status: 'loading' });
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    if (new URLSearchParams(location.search).has('demo')) return;
-    fetch(`${import.meta.env.BASE_URL}data/corridor.json`)
-      .then((r) => (r.ok ? (r.json() as Promise<Dataset>) : Promise.reject(new Error(String(r.status)))))
-      .then((d) => { if (d && Array.isArray(d.trips) && d.trips.length) setDs(d); })
-      .catch(() => { /* no real dataset published yet: stay on the labeled demo */ });
-  }, []);
-  return ds;
+    if (demo) return;
+    let live = true;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), LOAD_TIMEOUT_MS);
+    setState({ status: 'loading' });
+    fetch(`${import.meta.env.BASE_URL}data/corridor.json`, { signal: ctl.signal })
+      .then(async (r): Promise<DatasetState> => {
+        if (r.status === 404) return { status: 'ready', ds: demoDataset };
+        if (!r.ok) throw new Error(String(r.status));
+        const d = (await r.json()) as Dataset;
+        if (!d || !Array.isArray(d.trips) || !d.trips.length) throw new Error('empty dataset');
+        const fromCache = r.headers.get('x-arriba-from-cache') === '1';
+        // Copies saved by older service workers have no x-arriba-saved-at; the server's Date header is the next best.
+        const raw = r.headers.get('x-arriba-saved-at');
+        const at = raw ? Number(raw) : Date.parse(r.headers.get('date') ?? '');
+        return { status: 'ready', ds: d, fromCache, savedAt: fromCache && Number.isFinite(at) && at > 0 ? at : undefined };
+      })
+      .then((s) => { if (live) setState(s); })
+      .catch(() => { if (live) setState({ status: 'error' }); })
+      .finally(() => clearTimeout(timer));
+    return () => { live = false; ctl.abort(); clearTimeout(timer); };
+  }, [demo, attempt]);
+  return [state, () => setAttempt((n) => n + 1)];
 }
 
 export function App() {
-  const ds = useDataset();
+  const [data, retry] = useDataset();
+  if (data.status !== 'ready') return <LoadScreen failed={data.status === 'error'} onRetry={retry} />;
+  return <Main ds={data.ds} fromCache={data.fromCache} savedAt={data.savedAt} />;
+}
+
+function LoadScreen({ failed, onRetry }: { failed: boolean; onRetry: () => void }) {
+  const t = strings[readSettings().lang];
+  return (
+    <div className="app">
+      <header className="top"><span className="wordmark" role="img" aria-label="Arriba">ARRIBA<span className="bang" aria-hidden="true">!</span></span></header>
+      <main>
+        {failed ? (
+          <div className="warn" role="alert">
+            <p>{t.loadFailed}</p>
+            <button className="primary" onClick={onRetry}>{t.retry}</button>
+          </div>
+        ) : <p className="muted" role="status">{t.loading}</p>}
+      </main>
+    </div>
+  );
+}
+
+function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | undefined; savedAt?: number | undefined }) {
   const tz = ds.meta.timezone;
   const now = useNow(tz);
   const [settings, setSettings] = useState<Settings>(readSettings);
@@ -77,7 +130,7 @@ export function App() {
   }, [settings]);
 
   const stopName = (id: string) => ds.stops.find((s) => s.id === id)?.name ?? id;
-  const ctx: Ctx = { ds, tz, now, t, lang: settings.lang, stopName };
+  const ctx: Ctx = { ds, tz, now, t, lang: settings.lang, stopName, fromCache, savedAt };
 
   return (
     <div className="app">
@@ -88,7 +141,7 @@ export function App() {
         <button className="icon-btn" onClick={() => setScreen({ name: 'settings' })} aria-label={t.settings}>⚙</button>
       </header>
       {ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner}</div>}
-      {ds.meta.transcribed && <div className="data-banner" role="note">{t.transcribedBanner(fmtYmd(ds.meta.transcribed.issued))}</div>}
+      {ds.meta.transcribed && <div className="data-banner" role="note">{t.transcribedBanner(fmtYmd(ds.meta.transcribed.issued, settings.lang))}</div>}
       <FeedStatus ctx={ctx} />
       {ds.meta.transcribed && isNjtHoliday(localYmd(now, tz)) && <p className="status-line" data-level="warn" role="note">{t.holidayToday}</p>}
       <main>
@@ -120,13 +173,15 @@ export function App() {
   );
 }
 
-const fmtYmd = (d: string) => `${+d.slice(4, 6)}/${+d.slice(6, 8)}/${d.slice(0, 4)}`;
+/** YYYYMMDD as month/day/year in English and day/month/year in Spanish, as each reader expects. */
+const fmtYmd = (d: string, lang: Lang) =>
+  lang === 'es' ? `${+d.slice(6, 8)}/${+d.slice(4, 6)}/${d.slice(0, 4)}` : `${+d.slice(4, 6)}/${+d.slice(6, 8)}/${d.slice(0, 4)}`;
 
-interface Ctx { ds: Dataset; tz: string; now: number; t: Strings; lang: Lang; stopName: (id: string) => string }
+interface Ctx { ds: Dataset; tz: string; now: number; t: Strings; lang: Lang; stopName: (id: string) => string; fromCache?: boolean | undefined; savedAt?: number | undefined }
 
 /** Offline state and schedule validity, so a stale or expired feed is never mistaken for "no buses". */
 function FeedStatus({ ctx }: { ctx: Ctx }) {
-  const { ds, t, now, tz } = ctx;
+  const { ds, t, now, tz, lang, fromCache, savedAt } = ctx;
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
   useEffect(() => {
     const up = () => setOnline(true);
@@ -139,8 +194,13 @@ function FeedStatus({ ctx }: { ctx: Ctx }) {
   const expired = localYmd(now, tz) > validThrough;
   const built = Date.parse(ds.meta.builtAt);
   if (!Object.keys(ds.calendars).length) return null;
-  if (expired) return <p className="status-line" data-level="warn" role="alert">{t.feedExpired(fmtYmd(validThrough))}</p>;
-  if (!online) return <p className="status-line" data-level="warn" role="status">{t.offline(fmtYmd(Number.isNaN(built) ? validThrough : localYmd(built, tz)))}</p>;
+  if (expired) return <p className="status-line" data-level="warn" role="alert">{t.feedExpired(fmtYmd(validThrough, lang))}</p>;
+  if (!online) return <p className="status-line" data-level="warn" role="status">{t.offline(fmtYmd(Number.isNaN(built) ? validThrough : localYmd(built, tz), lang))}</p>;
+  // Online as far as the browser knows, but the service worker gave up on a slow or failed network and used its saved copy.
+  if (fromCache) {
+    const line = savedAt !== undefined ? t.savedCopy(fmtYmd(localYmd(savedAt, tz), lang), formatTime12(savedAt, tz, lang)) : t.savedCopyUnknown;
+    return <p className="status-line" data-level="warn" role="status">{line}</p>;
+  }
   return null;
 }
 
@@ -408,7 +468,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
           <h2>{t.gateTitle}</h2>
           {gate.status === 'posted' && <p className="gate-big">{t.gatePosted(gate.gate, gate.door)}</p>}
           {gate.status === 'usual' && <><p className="gate-big">{t.gateUsual(gate.gate, gate.door)}</p><p className="muted small">{t.gateUsualNote(gate.samples)}</p></>}
-          {gate.status === 'published' && <><p className="gate-big">{t.gatePublished(gate.gate, gate.door)}</p><p className="muted small">{t.gatePublishedNote(fmtYmd(gate.effective))}</p></>}
+          {gate.status === 'published' && <><p className="gate-big">{t.gatePublished(gate.gate, gate.door)}</p><p className="muted small">{t.gatePublishedNote(fmtYmd(gate.effective, ctx.lang))}</p></>}
           {gate.status === 'unknown' && <p className="gate-big">{t.gateUnknown}</p>}
           <p className="small">{t.gateConfirm}</p>
           <p className="warn small" role="note">{t.ticketWarning}</p>
