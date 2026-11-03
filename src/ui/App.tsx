@@ -7,7 +7,7 @@ import { gateFor, type GateAnswer } from '../domain/gate';
 import { isNjtHoliday } from '../domain/holidays';
 import { createLock, type TripLock } from '../domain/lock';
 import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule';
-import { addDays, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
+import { addDays, clockChangeBetween, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
 import type { Dataset, Departure, Stop } from '../domain/types';
 import { strings, type Lang, type Strings } from './i18n';
 import { RiderGuide } from './RiderGuide';
@@ -469,6 +469,10 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
   const atPabt = boardStop?.terminal === 'PABT';
   const fare = boardStop && alightStop ? fareBetween(ds, boardStop.id, alightStop.id) : undefined;
   const gate = departureGate(ds, dep);
+  // From the trip's first stop (read as printed) to where the rider gets off: a change before boarding
+  // still shifts the rider's times, a change after getting off does not.
+  const rideEnd = times[alightIndex > dep.stopIndex ? alightIndex : times.length - 1];
+  const clockChange = rideEnd && times[0] ? clockChangeBetween(times[0].at, rideEnd.at, ctx.tz) : undefined;
   return (
     <section>
       {/* A printed timetable gives no sign text, so a transcribed dataset's headsign is Arriba's own route-and-destination label, not what the sign reads. */}
@@ -480,6 +484,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
       {boardStop?.noteId && t.stopNotes[boardStop.noteId] && <p className="muted small" role="note">{t.stopNotes[boardStop.noteId]}</p>}
       {alightNote && <p className="warn small" role="note">{alightNote}</p>}
       {ds.meta.transcribed && isNjtHoliday(dep.serviceDate) && <p className="warn small" role="note">{t.holidayOn}</p>}
+      {clockChange && <p className="warn small" role="note">{clockChange === 'back' ? t.clockBackTrip : t.clockAheadTrip}</p>}
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>
         <div className="row-between">

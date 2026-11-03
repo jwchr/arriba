@@ -248,6 +248,42 @@ test.describe('printed timetable data (route 165)', () => {
     expect((await overflow()).row).toBeLessThanOrEqual(0);
   });
 
+  test('a trip that runs through the clock change says so', async ({ page }) => {
+    // Fall-back night: the Saturday 1:10 AM bus toward Westwood runs to Oradell past 2 AM, when the clocks go back.
+    await page.goto('/?now=2026-11-01T01:00');
+    await saveCommute(page, 'port authority', /^New York - Port Authority Bus Terminal$/, /^Oradell - Kinderkamack Rd\. at New Milford Ave\./);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.locator('.dep').first().click();
+    await expect(page.locator('.trip-ticket .big-time').first()).toContainText('1:10 AM');
+    await expect(page.getByRole('note').filter({ hasText: 'Clocks go back an hour at 2 AM during this trip' })).toBeVisible();
+    await expect(page.locator('.stop-list li[data-role="alight"] .stop-time')).toHaveText('1:08 AM');
+    // An ordinary Saturday night: no note.
+    await page.goto('/?now=2026-11-08T01:00');
+    await page.locator('.dep').first().click();
+    await expect(page.locator('.trip-ticket .big-time').first()).toContainText('1:10 AM');
+    await expect(page.locator('.stop-list li[data-role="alight"] .stop-time')).toHaveText('2:08 AM');
+    await expect(page.getByRole('note').filter({ hasText: 'Clocks go' })).toHaveCount(0);
+    // Fall-back night again: a ride on the same bus that ends before 2 AM (Port Authority to Hackensack) gets no note.
+    await page.goto('/?now=2026-11-01T01:00');
+    await saveCommute(page, 'port authority', /^New York - Port Authority Bus Terminal$/, /^Hackensack \(Sears\) .*\(to Westwood\)$/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.getByRole('article').nth(1).locator('.dep').first().click();
+    await expect(page.locator('.trip-ticket .big-time').first()).toContainText('1:10 AM');
+    await expect(page.locator('.stop-list li[data-role="alight"] .stop-time')).toHaveText('1:57 AM');
+    await expect(page.getByRole('note').filter({ hasText: 'Clocks go' })).toHaveCount(0);
+    // ...but boarding the same bus after the change (River Edge to Oradell, 1:03 AM) does get the note.
+    await page.getByRole('button', { name: 'Back' }).click();
+    await saveCommute(page, 'river edge', /^River Edge .*\(to Westwood\)$/, /^Oradell - Kinderkamack Rd\. at New Milford Ave\./);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    // In real time the 1:14 AM bus (old clock) leaves before the 1:03 AM bus (new clock), so 1:14 is listed first.
+    const card = page.getByRole('article').nth(2);
+    await expect(card.locator('.dep-time').nth(0)).toHaveText('1:14 AM');
+    await expect(card.locator('.dep-time').nth(1)).toHaveText('1:03 AM');
+    await card.locator('.dep').nth(1).click();
+    await expect(page.locator('.trip-ticket .big-time').first()).toContainText('1:03 AM');
+    await expect(page.getByRole('note').filter({ hasText: 'Clocks go back an hour at 2 AM during this trip' })).toBeVisible();
+  });
+
   test('banner, wrong-side guard without coordinates, return trip with published gate', async ({ page }) => {
     await page.goto('/?now=2026-11-04T07:50');
     await expect(page.locator('.demo-banner')).toHaveCount(0);

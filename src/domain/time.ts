@@ -56,6 +56,13 @@ export function serviceTimeToInstant(serviceDate: string, seconds: number, timeZ
   return noon - 12 * 3600_000 + seconds * 1000;
 }
 
+/** Whether the clocks go back or ahead between two instants (a ride through the 2 AM change); undefined if neither. */
+export function clockChangeBetween(from: number, to: number, timeZone: string): 'back' | 'ahead' | undefined {
+  const a = tzOffsetMinutes(from, timeZone);
+  const b = tzOffsetMinutes(to, timeZone);
+  return b < a ? 'back' : b > a ? 'ahead' : undefined;
+}
+
 /** YYYYMMDD of the local calendar date of `instant` in `timeZone`. */
 export function localYmd(instant: number, timeZone: string): string {
   const s = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
