@@ -39,7 +39,8 @@ const MAX_RECORD_LINES = 10;
  * largest file (millions of rows); filtering first keeps memory to the corridor's share.
  * Lines containing quotes fall back to the full parser for that record. A quoted field may hold a line
  * break (normalised to \n), so a record runs until its quotes balance; it is kept or dropped whole.
- * An unclosed or stray quote throws rather than silently swallowing the rows after it.
+ * An unclosed or stray quote throws rather than silently swallowing the rows after it. (Two stray quotes
+ * within MAX_RECORD_LINES of each other still pair up into one bogus record; that needs two malformed rows.)
  */
 export function filterCsvByColumn(text, column, keep) {
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);

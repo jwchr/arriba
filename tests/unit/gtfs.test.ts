@@ -33,9 +33,9 @@ describe('GTFS build', () => {
   });
 
   it('fails loudly on an unclosed or stray quote instead of dropping the rows after it', () => {
-    expect(() => filterCsvByColumn('trip_id,stop_id\nA,1\nB,"oops\nA,3\nA,4', 'trip_id', new Set(['A']))).toThrow(/unclosed quote.*line 3/);
+    expect(() => filterCsvByColumn('trip_id,stop_id\nA,1\nB,"oops\nA,3\nA,4', 'trip_id', new Set(['A']))).toThrow(/unclosed quote.*line 3$/);
     const rows = Array.from({ length: 20 }, (_, i) => `A,${i}`).join('\n');
-    expect(() => filterCsvByColumn(`trip_id,stop_id\nB,Joe"s\n${rows}`, 'trip_id', new Set(['A']))).toThrow(/line 2/);
+    expect(() => filterCsvByColumn(`trip_id,stop_id\nB,Joe"s\n${rows}`, 'trip_id', new Set(['A']))).toThrow(/line 2$/);
   });
 
   it('interpolates blank intermediate times', () => {
