@@ -188,10 +188,19 @@ const en = {
           'NJ Transit customer service and language help: 973-275-5555.',
         ],
       },
+      {
+        title: 'Put Arriba on your home screen',
+        steps: [
+          'Android with Chrome: open the ⋮ menu and choose Add to home screen or Install app.',
+          'Samsung Internet (Galaxy phones): open the ≡ menu, choose Add page to, then Home screen.',
+          'iPhone with Safari: tap the Share button, then Add to Home Screen.',
+          'After one visit with signal, Arriba opens without signal and shows the schedule it saved, with its date.',
+        ],
+      },
     ],
     call: 'Call NJ Transit: 973-275-5555',
     sources:
-      'From NJ Transit\'s printed route 165 timetable (issued 7/1/26) and njtransit.com\'s "How to Ride - Bus", "Rider Guide for Bus Customers" and Tap & Ride pages, checked 11/3/2026. Arriba is not NJ Transit, and rules can change.',
+      'From NJ Transit\'s printed route 165 timetable (issued 7/1/26) and njtransit.com\'s "How to Ride - Bus", "Rider Guide for Bus Customers" and Tap & Ride pages, checked 11/3/2026. The home-screen steps are general phone steps, and their wording varies by phone. Arriba is not NJ Transit, and rules can change.',
   },
 };
 
@@ -380,10 +389,19 @@ const es: Strings = {
           'Servicio al cliente y ayuda en otros idiomas de NJ Transit: 973-275-5555.',
         ],
       },
+      {
+        title: 'Pon Arriba en tu pantalla de inicio',
+        steps: [
+          'Android con Chrome: abre el menú ⋮ y elige la opción para agregar a la pantalla principal o instalar la app.',
+          'Samsung Internet (teléfonos Galaxy): abre el menú ≡, elige agregar página y luego pantalla de inicio.',
+          'iPhone con Safari: toca el botón Compartir y luego la opción para agregar a la pantalla de inicio.',
+          'Después de una visita con señal, Arriba abre sin señal y muestra el horario que guardó, con su fecha.',
+        ],
+      },
     ],
     call: 'Llamar a NJ Transit: 973-275-5555',
     sources:
-      'Del horario impreso de la ruta 165 de NJ Transit (emitido el 1/7/26) y de las páginas "How to Ride - Bus", "Rider Guide for Bus Customers" y Tap & Ride de njtransit.com, consultadas el 3/11/2026. Arriba no es NJ Transit, y las reglas pueden cambiar.',
+      'Del horario impreso de la ruta 165 de NJ Transit (emitido el 1/7/26) y de las páginas "How to Ride - Bus", "Rider Guide for Bus Customers" y Tap & Ride de njtransit.com, consultadas el 3/11/2026. Los pasos para la pantalla de inicio son pasos generales del teléfono, y sus nombres cambian según el teléfono. Arriba no es NJ Transit, y las reglas pueden cambiar.',
   },
 };
 
