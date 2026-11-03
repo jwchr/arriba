@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { demoDataset, demoUsualGates } from '../data/demo';
-import { alightingStopFor, checkDirection, destinationsFrom, returnLeg, searchStops } from '../domain/direction';
+import { checkDirection, destinationsFrom, returnLeg, searchStops } from '../domain/direction';
 import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, type Favorite } from '../domain/favorites';
 import { fareBetween } from '../domain/fare';
 import { gateFor, type GateAnswer } from '../domain/gate';
