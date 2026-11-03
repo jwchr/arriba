@@ -1,10 +1,10 @@
 # Handoff: current state
 
-Updated 2026-11-03 (first-ride guide added). Keep this short; replace stale lines rather than appending.
+Updated 2026-11-03 (first-ride guide; CSV records with line breaks). Keep this short; replace stale lines rather than appending.
 
 ## Built and tested
 - M1 prototype on invented demo data (`src/data/demo.ts`, DEMO banner): home with ordered saved commutes and one-tap reverse, stop search with wrong-side guard, 7-day all-day timetable, departure detail with front-sign, stop list, Port Authority gate card (usual gate), ticket warning, exact-bus lock (scheduled-only until M3), English/Spanish, light/dark, offline service worker.
-- Domain logic: GTFS service-day time with DST and after-midnight trips, calendars and holiday exceptions, departures, direction guard, favorites, trip lock state machine, gate parsing/selection/change detection. 72 unit tests (36 domain and GTFS, 26 on the printed route 165 data, fares and guide text, 10 running the service worker).
+- Domain logic: GTFS service-day time with DST and after-midnight trips, calendars and holiday exceptions, departures, direction guard, favorites, trip lock state machine, gate parsing/selection/change detection. 74 unit tests (38 domain and GTFS, 26 on the printed route 165 data, fares and guide text, 10 running the service worker).
 - `scripts/build-gtfs.mjs`: real NJ Transit GTFS zip to `public/data/corridor.json` (corridor routes only); tested on a synthetic mini feed. When that file is present the app uses it instead of the demo. Stop times the feed leaves blank are filled in and listed in `trip.estimated`; the app shows them as `~7:20 AM` with a legend.
 - NJ Transit data-terms notices (footer and Settings, English and Spanish): data obtained from NJ Transit and redistributed from Arriba's own server; may not be real time. The demo shows only the real-time line, since its data is invented.
 - Offline hardening (OFF-01, issue #5): the service worker revalidates the page and schedule, uses its saved copy, marked as saved, when the network takes over 4 seconds, fails or answers with a server error; install saves the page, its assets and the schedule so the app opens offline after the first visit; pages are saved under one address without the query string; the app then says "Showing the schedule saved <date, time>" (or that the time is unknown) even when the browser thinks it is online. Spanish dates read day/month/year. The app shows a loading screen and, if nothing loads in 15 seconds, an error with a retry. The demo loads only with `?demo` or when no dataset is published (404), never as a fallback for a failed load.
@@ -22,7 +22,6 @@ Updated 2026-11-03 (first-ride guide added). Keep this short; replace stale line
 
 ## Known gaps (from independent review, 2026-10-31)
 - DST: GTFS times 00:00-02:59 on DST dates follow the spec's noon-minus-12h rule literally; check how NJ Transit encodes them before real data ships (M2 gate).
-- `filterCsvByColumn` does not handle a quoted field containing a newline in stop_times (rare); add a warning.
 
 ## Next actions
 1. M0: record 72 h of vehicle positions, trip updates, alerts and DepartureVision for Port Authority and the boarding stop; one-page go/no-go.

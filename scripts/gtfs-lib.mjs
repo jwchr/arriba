@@ -30,10 +30,17 @@ export function parseCsv(text) {
   return body.map((r) => Object.fromEntries(keys.map((k, i) => [k, (r[i] ?? '').trim()])));
 }
 
+const quoteCount = (s) => s.split('"').length - 1;
+/** No real GTFS field spans more lines than this; a longer record means a stray or unclosed quote. */
+const MAX_RECORD_LINES = 10;
+
 /**
  * Keep only lines whose `column` value is in `keep`, before full parsing. stop_times.txt is the
  * largest file (millions of rows); filtering first keeps memory to the corridor's share.
- * Lines containing quotes fall back to the full parser for that line.
+ * Lines containing quotes fall back to the full parser for that record. A quoted field may hold a line
+ * break (normalised to \n), so a record runs until its quotes balance; it is kept or dropped whole.
+ * An unclosed or stray quote throws rather than silently swallowing the rows after it. (Two stray quotes
+ * within MAX_RECORD_LINES of each other still pair up into one bogus record; that needs two malformed rows.)
  */
 export function filterCsvByColumn(text, column, keep) {
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
@@ -43,11 +50,26 @@ export function filterCsvByColumn(text, column, keep) {
   if (idx < 0) throw new Error(`column ${column} not found`);
   const out = [header];
   let start = nl + 1;
-  while (nl >= 0 && start < text.length) {
+  let lineNo = 1;
+  const next = () => {
     let end = text.indexOf('\n', start);
     if (end < 0) end = text.length;
-    const line = text.slice(start, end).replace(/\r$/, '');
+    const piece = text.slice(start, end).replace(/\r$/, '');
     start = end + 1;
+    lineNo++;
+    return piece;
+  };
+  while (nl >= 0 && start < text.length) {
+    let line = next();
+    const first = lineNo;
+    // Count quotes in each appended piece only, so a long record stays linear.
+    let open = quoteCount(line) % 2 === 1;
+    while (open) {
+      if (start >= text.length || lineNo - first + 1 >= MAX_RECORD_LINES) throw new Error(`${column} filter: unclosed quote in the record starting on line ${first}`);
+      const piece = next();
+      line += `\n${piece}`;
+      if (quoteCount(piece) % 2 === 1) open = false;
+    }
     if (!line) continue;
     const value = line.includes('"') ? Object.values(parseCsv(`${header}\n${line}`)[0] ?? {})[idx] : line.split(',')[idx];
     if (keep.has((value ?? '').trim())) out.push(line);

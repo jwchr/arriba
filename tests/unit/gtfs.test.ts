@@ -23,6 +23,21 @@ describe('GTFS build', () => {
     expect(filterCsvByColumn(text, 'trip_id', new Set(['A']))).toBe('trip_id,stop_id\nA,1\n"A",3');
   });
 
+  it('keeps or drops a record whole when a quoted field holds a line break', () => {
+    const text = 'trip_id,stop_headsign,stop_id\r\nA,"Line one\r\nline two",1\r\nB,"x\r\nA,5",2\r\nA,"say ""hi""",3\r\n';
+    expect(parseCsv(filterCsvByColumn(text, 'trip_id', new Set(['A'])))).toEqual([
+      { trip_id: 'A', stop_headsign: 'Line one\nline two', stop_id: '1' },
+      { trip_id: 'A', stop_headsign: 'say "hi"', stop_id: '3' },
+    ]);
+    expect(parseCsv(filterCsvByColumn('trip_id,stop_headsign\r\nA,"a\r\n\r\nb"\r\n', 'trip_id', new Set(['A'])))).toEqual([{ trip_id: 'A', stop_headsign: 'a\n\nb' }]);
+  });
+
+  it('fails loudly on an unclosed or stray quote instead of dropping the rows after it', () => {
+    expect(() => filterCsvByColumn('trip_id,stop_id\nA,1\nB,"oops\nA,3\nA,4', 'trip_id', new Set(['A']))).toThrow(/unclosed quote.*line 3$/);
+    const rows = Array.from({ length: 20 }, (_, i) => `A,${i}`).join('\n');
+    expect(() => filterCsvByColumn(`trip_id,stop_id\nB,Joe"s\n${rows}`, 'trip_id', new Set(['A']))).toThrow(/line 2$/);
+  });
+
   it('interpolates blank intermediate times', () => {
     expect(interpolate([0, undefined, undefined, 300])).toEqual([0, 100, 200, 300]);
     expect(() => interpolate([undefined, 10])).toThrow();
