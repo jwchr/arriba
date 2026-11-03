@@ -1,5 +1,6 @@
 // Service-day time handling. GTFS times count from "noon minus 12 hours" on the service date in the
-// agency timezone, so 25:10:00 is 1:10 AM the next calendar day and DST days are handled correctly.
+// agency timezone, so 25:10:00 is 1:10 AM the next calendar day. A printed timetable instead gives
+// wall-clock times, which differ from the GTFS reading on the nights the clocks change.
 
 /** Offset of `timeZone` from UTC, in minutes, at the given instant. */
 export function tzOffsetMinutes(instant: number, timeZone: string): number {
@@ -18,21 +19,37 @@ export function tzOffsetMinutes(instant: number, timeZone: string): number {
   return Math.round((asUtc - (instant - (instant % 1000))) / 60000);
 }
 
-/** Epoch ms of local wall-clock time y-m-d h:m in `timeZone`. */
+/**
+ * Epoch ms of local wall-clock time y-m-d h:m in `timeZone`. Around a clock change it follows the
+ * usual "compatible" rule: a repeated time (fall back) is the first one; a skipped time (spring
+ * forward) moves forward by the gap, so 2:10 AM becomes 3:10 AM.
+ */
 export function zonedWallTime(y: number, m: number, d: number, h: number, min: number, timeZone: string): number {
   const guess = Date.UTC(y, m - 1, d, h, min);
-  let t = guess - tzOffsetMinutes(guess, timeZone) * 60000;
-  // One correction pass handles instants near a DST change.
-  t = guess - tzOffsetMinutes(t, timeZone) * 60000;
-  return t;
+  const before = guess - tzOffsetMinutes(guess - 12 * 3600_000, timeZone) * 60000;
+  const after = guess - tzOffsetMinutes(guess + 12 * 3600_000, timeZone) * 60000;
+  const shows = (t: number) => t + tzOffsetMinutes(t, timeZone) * 60000 === guess;
+  const valid = [before, after].filter(shows);
+  return valid.length ? Math.min(...valid) : before;
 }
 
 export function parseYmd(ymd: string): [number, number, number] {
   return [Number(ymd.slice(0, 4)), Number(ymd.slice(4, 6)), Number(ymd.slice(6, 8))];
 }
 
-/** Epoch ms for a GTFS service-day time (seconds since noon-minus-12h). */
-export function serviceTimeToInstant(serviceDate: string, seconds: number, timeZone: string): number {
+/** How a dataset's service-day seconds read: GTFS "noon minus 12 h", or printed wall-clock time. */
+export type TimeBase = 'gtfs' | 'wall';
+
+/**
+ * Epoch ms for a service-day time. 'gtfs': seconds since noon minus 12 h on the service date.
+ * 'wall': the clock time printed, so 25:10 is 1:10 AM on the next calendar day whatever the clocks did.
+ */
+export function serviceTimeToInstant(serviceDate: string, seconds: number, timeZone: string, base: TimeBase = 'gtfs'): number {
+  if (base === 'wall') {
+    const [y, m, d] = parseYmd(addDays(serviceDate, Math.floor(seconds / 86400)));
+    const rest = seconds % 86400;
+    return zonedWallTime(y, m, d, Math.floor(rest / 3600), Math.floor((rest % 3600) / 60), timeZone) + (rest % 60) * 1000;
+  }
   const [y, m, d] = parseYmd(serviceDate);
   const noon = zonedWallTime(y, m, d, 12, 0, timeZone);
   return noon - 12 * 3600_000 + seconds * 1000;
