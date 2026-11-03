@@ -255,12 +255,22 @@ test.describe('printed timetable data (route 165)', () => {
     await page.getByRole('button', { name: 'Save to my commutes' }).click();
     await page.locator('.dep').first().click();
     await expect(page.locator('.trip-ticket .big-time').first()).toContainText('1:10 AM');
-    await expect(page.getByRole('note').filter({ hasText: 'The clocks change at 2 AM during this trip' })).toBeVisible();
+    await expect(page.getByRole('note').filter({ hasText: 'Clocks go back an hour at 2 AM during this ride' })).toBeVisible();
     await expect(page.locator('.stop-list li[data-role="alight"] .stop-time')).toHaveText('1:08 AM');
     // An ordinary Saturday night: no note.
     await page.goto('/?now=2026-11-08T01:00');
     await page.locator('.dep').first().click();
-    await expect(page.getByRole('note').filter({ hasText: 'The clocks change' })).toHaveCount(0);
+    await expect(page.locator('.trip-ticket .big-time').first()).toContainText('1:10 AM');
+    await expect(page.locator('.stop-list li[data-role="alight"] .stop-time')).toHaveText('2:08 AM');
+    await expect(page.getByRole('note').filter({ hasText: 'Clocks go' })).toHaveCount(0);
+    // Fall-back night again: a ride on the same bus that ends before 2 AM (Port Authority to Hackensack) gets no note.
+    await page.goto('/?now=2026-11-01T01:00');
+    await saveCommute(page, 'port authority', /^New York - Port Authority Bus Terminal$/, /^Hackensack \(Sears\) .*\(to Westwood\)$/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.getByRole('article').nth(1).locator('.dep').first().click();
+    await expect(page.locator('.trip-ticket .big-time').first()).toContainText('1:10 AM');
+    await expect(page.locator('.stop-list li[data-role="alight"] .stop-time')).toHaveText('1:57 AM');
+    await expect(page.getByRole('note').filter({ hasText: 'Clocks go' })).toHaveCount(0);
   });
 
   test('banner, wrong-side guard without coordinates, return trip with published gate', async ({ page }) => {

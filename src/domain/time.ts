@@ -56,9 +56,11 @@ export function serviceTimeToInstant(serviceDate: string, seconds: number, timeZ
   return noon - 12 * 3600_000 + seconds * 1000;
 }
 
-/** True when the clocks change between two instants (a trip that runs through the 2 AM change). */
-export function clockChangesBetween(from: number, to: number, timeZone: string): boolean {
-  return tzOffsetMinutes(from, timeZone) !== tzOffsetMinutes(to, timeZone);
+/** Whether the clocks go back or ahead between two instants (a ride through the 2 AM change); undefined if neither. */
+export function clockChangeBetween(from: number, to: number, timeZone: string): 'back' | 'ahead' | undefined {
+  const a = tzOffsetMinutes(from, timeZone);
+  const b = tzOffsetMinutes(to, timeZone);
+  return b < a ? 'back' : b > a ? 'ahead' : undefined;
 }
 
 /** YYYYMMDD of the local calendar date of `instant` in `timeZone`. */
