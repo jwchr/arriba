@@ -5,7 +5,7 @@ import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorit
 import { gateChanged, gateFor, parseLaneGate } from '../../src/domain/gate';
 import { createLock, reduceLock, type VehicleObservation } from '../../src/domain/lock';
 import { departuresOn, isServiceActive, nextDepartures } from '../../src/domain/schedule';
-import { formatTime12, localYmd, parseGtfsTime, serviceTimeToInstant, tzOffsetMinutes, zonedWallTime } from '../../src/domain/time';
+import { clockChangesBetween, formatTime12, localYmd, parseGtfsTime, serviceTimeToInstant, tzOffsetMinutes, zonedWallTime } from '../../src/domain/time';
 
 const TZ = 'America/New_York';
 const fmt = (t: number) => formatTime12(t, TZ);
@@ -36,6 +36,11 @@ describe('time', () => {
     expect(fmt(serviceTimeToInstant('20261031', 26 * 3600 + 8 * 60, TZ))).toBe('1:08 AM');
     // Ordinary days read the same either way.
     expect(serviceTimeToInstant('20261104', 25 * 3600 + 10 * 60, TZ, 'wall')).toBe(serviceTimeToInstant('20261104', 25 * 3600 + 10 * 60, TZ));
+  });
+  it('says when the clocks change between two instants', () => {
+    expect(clockChangesBetween(zonedWallTime(2026, 11, 1, 1, 10, TZ), zonedWallTime(2026, 11, 1, 2, 8, TZ), TZ)).toBe(true);
+    expect(clockChangesBetween(zonedWallTime(2027, 3, 14, 1, 10, TZ), zonedWallTime(2027, 3, 14, 3, 8, TZ), TZ)).toBe(true);
+    expect(clockChangesBetween(zonedWallTime(2026, 11, 7, 1, 10, TZ), zonedWallTime(2026, 11, 7, 2, 8, TZ), TZ)).toBe(false);
   });
   it('is correct across the spring-forward DST day (Mar 14 2027)', () => {
     expect(fmt(serviceTimeToInstant('20270314', 8 * 3600, TZ))).toBe('8:00 AM');

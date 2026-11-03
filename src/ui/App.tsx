@@ -7,7 +7,7 @@ import { gateFor, type GateAnswer } from '../domain/gate';
 import { isNjtHoliday } from '../domain/holidays';
 import { createLock, type TripLock } from '../domain/lock';
 import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule';
-import { addDays, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
+import { addDays, clockChangesBetween, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
 import type { Dataset, Departure, Stop } from '../domain/types';
 import { strings, type Lang, type Strings } from './i18n';
 import { RiderGuide } from './RiderGuide';
@@ -480,6 +480,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
       {boardStop?.noteId && t.stopNotes[boardStop.noteId] && <p className="muted small" role="note">{t.stopNotes[boardStop.noteId]}</p>}
       {alightNote && <p className="warn small" role="note">{alightNote}</p>}
       {ds.meta.transcribed && isNjtHoliday(dep.serviceDate) && <p className="warn small" role="note">{t.holidayOn}</p>}
+      {times.length > 1 && clockChangesBetween(times[0]!.at, times[times.length - 1]!.at, ctx.tz) && <p className="warn small" role="note">{t.clockChangeTrip}</p>}
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>
         <div className="row-between">
