@@ -2,9 +2,17 @@
 // agency timezone, so 25:10:00 is 1:10 AM the next calendar day. A printed timetable instead gives
 // wall-clock times, which differ from the GTFS reading on the nights the clocks change.
 
+/** Intl formatters are slow to build and are needed thousands of times per timetable: build each once. */
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function formatter(key: string, locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  let f = formatters.get(key);
+  if (!f) formatters.set(key, (f = new Intl.DateTimeFormat(locale, options)));
+  return f;
+}
+
 /** Offset of `timeZone` from UTC, in minutes, at the given instant. */
 export function tzOffsetMinutes(instant: number, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = formatter(`offset|${timeZone}`, 'en-US', {
     timeZone,
     hourCycle: 'h23',
     year: 'numeric',
@@ -65,9 +73,7 @@ export function clockChangeBetween(from: number, to: number, timeZone: string): 
 
 /** YYYYMMDD of the local calendar date of `instant` in `timeZone`. */
 export function localYmd(instant: number, timeZone: string): string {
-  const s = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
-    new Date(instant),
-  );
+  const s = formatter(`ymd|${timeZone}`, 'en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(instant));
   return s.replaceAll('-', '');
 }
 
@@ -85,7 +91,7 @@ export function weekdayIndex(ymd: string): number {
 
 /** "7:05 AM" in the agency timezone; 12-hour clock in both languages per owner decision D05. */
 export function formatTime12(instant: number, timeZone: string, lang: 'en' | 'es' = 'en'): string {
-  return new Intl.DateTimeFormat(lang === 'es' ? 'es-US' : 'en-US', {
+  return formatter(`time|${timeZone}|${lang}`, lang === 'es' ? 'es-US' : 'en-US', {
     timeZone,
     hour: 'numeric',
     minute: '2-digit',
