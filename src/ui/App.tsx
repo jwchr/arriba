@@ -404,6 +404,12 @@ function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title
   const list = departuresOn(ds, { stopId: leg.fromStopId, toStopId: leg.toStopId, routeIds: leg.routeIds, date });
   const rows = list.map((d) => ({ d, arr: arrivalAt(ds, d, leg.toStopId) }));
   const anyEstimated = rows.some((r) => r.d.estimated || r.arr?.estimated);
+  // Same rule as the trip screen, per row: a listed bus already running when the clocks change shows the new
+  // clock time. Only then is there anything to explain; other rows read exactly as printed.
+  const dayClockChange = rows.map(({ d, arr }) => {
+    const first = tripStopTimes(ds, d)[0];
+    return first ? clockChangeBetween(first.at, arr?.at ?? d.departs, tz) : undefined;
+  }).find(Boolean);
   const dayLabel = (d: string, i: number) => i === 0 ? t.today : i === 1 ? t.tomorrow :
     new Intl.DateTimeFormat(lang === 'es' ? 'es-US' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
       .format(new Date(Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8))));
@@ -418,6 +424,7 @@ function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title
         ))}
       </div>
       {ds.meta.transcribed && isNjtHoliday(date) && <p className="warn small" role="note">{t.holidayOn}</p>}
+      {dayClockChange && <p className="warn small" role="note">{dayClockChange === 'back' ? t.clockBackDay : t.clockAheadDay}</p>}
       <table className="timetable">
         <thead><tr><th>{t.departs}</th><th>{t.route}</th><th>{t.arrives}</th></tr></thead>
         <tbody>
