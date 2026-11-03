@@ -89,6 +89,23 @@ test('favorites keep the rider order', async ({ page }) => {
   await expect(titles).toHaveText([/^Oak/, /^Maple/]);
 });
 
+test('first-ride guide from home and Settings, in English and Spanish', async ({ page }) => {
+  await page.goto(URL);
+  await page.getByRole('button', { name: 'First time riding? How it works' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your first ride');
+  await expect(page.locator('.guide .card')).toHaveCount(5);
+  await expect(page.locator('.guide')).toContainText('Buy your ticket or pass before you board');
+  await expect(page.getByRole('link', { name: 'Call NJ Transit: 973-275-5555' })).toHaveAttribute('href', 'tel:+19732755555');
+  await expect(page.locator('.guide')).toContainText('checked 11/3/2026');
+  await page.screenshot({ path: 'test-results/guide.png', fullPage: true });
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Español' }).click();
+  await page.getByRole('button', { name: '¿Primera vez? Cómo funciona' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tu primer viaje');
+  await expect(page.locator('.guide')).toContainText('Compra tu boleto o pase antes de subir');
+});
+
 test('ticket guide: labeled drawings of paper and app tickets, never a usable ticket', async ({ page }) => {
   await page.goto(URL);
   await saveCommute(page, '90002', /Maple Ave & Main St \(to NYC\)/, /Port Authority Bus Terminal/);

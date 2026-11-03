@@ -139,6 +139,58 @@ const en = {
   themeDark: 'Dark',
   departuresShown: 'Departures on home',
   dataSource: 'Data',
+  // First-ride guide (UX-07). Every step is from NJ Transit's printed route 165 timetable (issued 7/1/26) or
+  // njtransit.com "How to Ride - Bus", "Rider Guide for Bus Customers" and /tap (Tap & Ride), checked 2026-11-03. Keep es in step.
+  guideOpen: 'First time riding? How it works',
+  guide: {
+    title: 'Your first ride',
+    intro: 'Steps for route 165 between Bergen County and Port Authority. If anything is unclear, ask the driver.',
+    sections: [
+      {
+        title: 'Before you go',
+        steps: [
+          'The timetable lists main stops only. Local buses also stop between them: if your stop is between two listed stops, use the earlier time, and be there a few minutes early.',
+          'Wait on the sidewalk at an NJ Transit bus stop sign, back from the curb. Wave to the driver as the bus comes.',
+          'One stop can serve several routes. Check the route number and destination on the front of the bus before you get on.',
+        ],
+      },
+      {
+        title: 'Paying in New Jersey',
+        steps: [
+          'Route 165 is a full-service line, so you can pay cash. The driver makes change. $1, $5, $10 and $20 bills and most coins are accepted; drivers do not have to accept bills over $20.',
+          "Tap & Ride: tap your contactless bank card or phone on the reader, then tell the driver how many zones you are going. When Arriba has NJ Transit's fare table, the trip screen shows the zones.",
+          'Ticket in the NJ Transit app: activate it before you board, then scan it on the reader. If the bus has no reader, show it to the driver. Paper tickets are scanned on the reader too.',
+          'Fares go by zones: each fare zone line you cross adds a zone.',
+        ],
+      },
+      {
+        title: 'Leaving from Port Authority',
+        steps: [
+          "Buy your ticket or pass before you board, in the NJ Transit app or at the terminal's ticket machines or windows. On the bus, drivers here do not accept cash, and Tap & Ride is not available.",
+          "Find your gate. The trip screen shows a gate when Arriba has one, and says where it comes from; always confirm on the terminal's departure screens.",
+          'Need an accessible gate? Call NJ Transit at 973-275-5555 before you travel.',
+        ],
+      },
+      {
+        title: 'On the bus and getting off',
+        steps: [
+          'Press the signal strip above your seat, or the nearest stop button, before your stop.',
+          'Going to the Exit 165 Park/Ride on a PM Parkway express (P) trip? Tell the driver when you board.',
+          'Wait until the bus stops fully before you stand. Step onto the sidewalk, and never walk in front of the bus.',
+        ],
+      },
+      {
+        title: 'Help',
+        steps: [
+          'All route 165 trips use lift-equipped buses. Ask the driver to lower ("kneel") the bus if the first step is hard.',
+          'NJ Transit customer service and language help: 973-275-5555.',
+        ],
+      },
+    ],
+    call: 'Call NJ Transit: 973-275-5555',
+    sources:
+      'From NJ Transit\'s printed route 165 timetable (issued 7/1/26) and njtransit.com\'s "How to Ride - Bus", "Rider Guide for Bus Customers" and Tap & Ride pages, checked 11/3/2026. Arriba is not NJ Transit, and rules can change.',
+  },
 };
 
 export type Strings = typeof en;
@@ -238,7 +290,7 @@ const es: Strings = {
   gateUsualNote: (n: number) => `Aún no publicada. Según ${n} salidas anteriores.`,
   gateUnknown: 'Puerta no confirmada',
   gateConfirm: 'Confirma siempre en las pantallas de salidas de la terminal.',
-  ticketWarning: 'Necesitas boleto antes de subir en Port Authority. Aquí no se acepta pagar con tarjeta (Tap & Ride).',
+  ticketWarning: 'Necesitas boleto antes de subir en Port Authority. En el autobús no se puede pagar con Tap & Ride (tarjeta sin contacto) al salir de aquí.',
   buyTicket: 'Comprar boleto en la app de NJ Transit',
   fareTitle: 'Tarifa',
   fareZones: (min: number, max: number) => (min === max ? `${min} ${min === 1 ? 'zona' : 'zonas'}` : `${min} o ${max} zonas`),
@@ -279,6 +331,56 @@ const es: Strings = {
   themeDark: 'Oscuro',
   departuresShown: 'Salidas en inicio',
   dataSource: 'Datos',
+  guideOpen: '¿Primera vez? Cómo funciona',
+  guide: {
+    title: 'Tu primer viaje',
+    intro: 'Pasos para la ruta 165 entre el condado de Bergen y Port Authority. Si algo no está claro, pregúntale al chofer.',
+    sections: [
+      {
+        title: 'Antes de salir',
+        steps: [
+          'El horario muestra solo las paradas principales. Los autobuses locales también paran entre ellas: si tu parada está entre dos paradas del horario, guíate por la más temprana de las dos horas y llega unos minutos antes.',
+          'Espera en la acera junto a un letrero de parada de NJ Transit, sin pararte en el borde. Hazle señas al chofer cuando se acerque el autobús.',
+          'Por una misma parada pueden pasar varias rutas. Revisa el número de ruta y el destino al frente del autobús antes de subir.',
+        ],
+      },
+      {
+        title: 'Cómo pagar en Nueva Jersey',
+        steps: [
+          'La ruta 165 es de servicio completo, así que puedes pagar en efectivo. El chofer da cambio. Se aceptan billetes de $1, $5, $10 y $20 y casi todas las monedas; el chofer no tiene que aceptar billetes de más de $20.',
+          'Tap & Ride: toca el lector con tu tarjeta bancaria sin contacto o tu teléfono y dile al chofer por cuántas zonas vas a viajar. Cuando Arriba tiene la tabla de tarifas de NJ Transit, la pantalla del viaje muestra las zonas.',
+          'Boleto en la app de NJ Transit: actívalo antes de subir y escanéalo en el lector. Si el autobús no tiene lector, muéstraselo al chofer. Los boletos de papel también se escanean en el lector.',
+          'La tarifa depende de las zonas: cada línea de zona que cruzas suma una zona.',
+        ],
+      },
+      {
+        title: 'Si sales de Port Authority',
+        steps: [
+          'Compra tu boleto o pase antes de subir, en la app de NJ Transit o en las máquinas o ventanillas de la terminal. Al salir de aquí, en el autobús el chofer no acepta efectivo y no se puede pagar con Tap & Ride (tarjeta sin contacto).',
+          'Busca tu puerta. La pantalla del viaje muestra una puerta cuando Arriba la tiene, y dice de dónde viene; confírmala siempre en las pantallas de salidas de la terminal.',
+          '¿Necesitas una puerta accesible? Llama a NJ Transit al 973-275-5555 antes de viajar.',
+        ],
+      },
+      {
+        title: 'En el autobús y al bajar',
+        steps: [
+          'Presiona la franja de aviso sobre tu asiento, o el botón de parada más cercano, antes de tu parada.',
+          '¿Vas al Park/Ride de la salida 165 en un expreso por la Parkway (P) de la tarde? Díselo al chofer al subir.',
+          'Espera a que el autobús se detenga por completo antes de levantarte. Baja a la acera y nunca camines por delante del autobús.',
+        ],
+      },
+      {
+        title: 'Ayuda',
+        steps: [
+          'Todos los viajes de la ruta 165 usan autobuses con elevador. Pídele al chofer que baje (incline) el autobús si te cuesta el primer escalón.',
+          'Servicio al cliente y ayuda en otros idiomas de NJ Transit: 973-275-5555.',
+        ],
+      },
+    ],
+    call: 'Llamar a NJ Transit: 973-275-5555',
+    sources:
+      'Del horario impreso de la ruta 165 de NJ Transit (emitido el 1/7/26) y de las páginas "How to Ride - Bus", "Rider Guide for Bus Customers" y Tap & Ride de njtransit.com, consultadas el 3/11/2026. Arriba no es NJ Transit, y las reglas pueden cambiar.',
+  },
 };
 
 export const strings: Record<Lang, Strings> = { en, es };

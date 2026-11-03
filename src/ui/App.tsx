@@ -10,6 +10,7 @@ import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule'
 import { addDays, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
 import type { Dataset, Departure, Stop } from '../domain/types';
 import { strings, type Lang, type Strings } from './i18n';
+import { RiderGuide } from './RiderGuide';
 import { TicketGuide } from './TicketGuide';
 
 type Theme = 'system' | 'light' | 'dark';
@@ -20,7 +21,8 @@ type Screen =
   | { name: 'search' }
   | { name: 'timetable'; leg: Leg; title: string }
   | { name: 'departure'; dep: Departure; leg: Leg }
-  | { name: 'settings' };
+  | { name: 'settings' }
+  | { name: 'guide' };
 
 const store = (() => { try { return window.localStorage; } catch { return undefined; } })();
 const readSettings = (): Settings => {
@@ -149,6 +151,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
         {screen.name === 'home' && (
           <Home ctx={ctx} favorites={favorites} count={settings.count} setFavorites={setFavorites} reversedIds={reversedIds} toggleReversed={toggleReversed}
             onSearch={() => setScreen({ name: 'search' })}
+            onGuide={() => setScreen({ name: 'guide' })}
             onAllDay={(leg, title) => setScreen({ name: 'timetable', leg, title })}
             onDeparture={(dep, leg) => setScreen({ name: 'departure', dep, leg })} />
         )}
@@ -164,7 +167,8 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             onLock={() => setLock(createLock(screen.dep.tripInstanceId, now))}
             onUnlock={() => setLock(undefined)} />
         )}
-        {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} />}
+        {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} onGuide={() => setScreen({ name: 'guide' })} />}
+        {screen.name === 'guide' && <RiderGuide t={t} />}
       </main>
       <footer className="foot">
         <p>{t.notAffiliated}</p>
@@ -242,10 +246,10 @@ function legFor(ds: Dataset, f: Favorite, reversedView: boolean): Leg | undefine
   return back ? { fromStopId: f.toStopId, toStopId: back.id, routeIds: f.routeIds } : undefined;
 }
 
-function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed, onSearch, onAllDay, onDeparture }: {
+function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed, onSearch, onGuide, onAllDay, onDeparture }: {
   ctx: Ctx; favorites: Favorite[]; count: number; setFavorites: (fn: (l: Favorite[]) => Favorite[]) => void;
   reversedIds: Set<string>; toggleReversed: (id: string) => void;
-  onSearch: () => void; onAllDay: (leg: Leg, title: string) => void; onDeparture: (d: Departure, leg: Leg) => void;
+  onSearch: () => void; onGuide: () => void; onAllDay: (leg: Leg, title: string) => void; onDeparture: (d: Departure, leg: Leg) => void;
 }) {
   const { t } = ctx;
   const [editing, setEditing] = useState(false);
@@ -255,6 +259,7 @@ function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed
         <h1>{t.noFavoritesTitle}</h1>
         <p>{t.noFavoritesBody}</p>
         <button className="primary" onClick={onSearch}>{t.findStop}</button>
+        <p><button className="ghost" onClick={onGuide}>{t.guideOpen}</button></p>
       </section>
     );
   }
@@ -275,6 +280,7 @@ function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed
           </li>
         ))}
       </ol>
+      <button className="ghost" onClick={onGuide}>{t.guideOpen}</button>
     </>
   );
 }
@@ -523,7 +529,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
   );
 }
 
-function SettingsScreen({ ctx, settings, setSettings }: { ctx: Ctx; settings: Settings; setSettings: (s: Settings) => void }) {
+function SettingsScreen({ ctx, settings, setSettings, onGuide }: { ctx: Ctx; settings: Settings; setSettings: (s: Settings) => void; onGuide: () => void }) {
   const { t, ds } = ctx;
   const opt = <K extends keyof Settings>(k: K, v: Settings[K], label: string) => (
     <button className="chip" aria-pressed={settings[k] === v} onClick={() => setSettings({ ...settings, [k]: v })}>{label}</button>
@@ -537,6 +543,8 @@ function SettingsScreen({ ctx, settings, setSettings }: { ctx: Ctx; settings: Se
       <div className="choice-list">{opt('theme', 'system', t.themeSystem)}{opt('theme', 'light', t.themeLight)}{opt('theme', 'dark', t.themeDark)}</div>
       <h2>{t.departuresShown}</h2>
       <div className="choice-list">{opt('count', 3, '3')}{opt('count', 5, '5')}</div>
+      <h2>{t.guide.title}</h2>
+      <button className="ghost" onClick={onGuide}>{t.guideOpen}</button>
       <h2>{t.dataSource}</h2>
       <p className="small">{ds.meta.source} · {ds.meta.feedVersion}</p>
       <p className="small muted">{dataNotice(ds, t)}</p>
