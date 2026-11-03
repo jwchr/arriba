@@ -227,8 +227,9 @@ test.describe('printed timetable data (route 165)', () => {
     await expect(page.getByRole('alert')).not.toContainText(' m away');
     await page.getByRole('button', { name: 'Use that stop' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Westwood - Broadway at Irvington St. (to New York)');
-    // Short trips toward Westwood end at River Edge and Oradell; no bus from this side goes there.
-    await expect(page.getByRole('button', { name: /River Edge|Oradell/ })).toHaveCount(0);
+    // Every stop toward New York is offered; the Westwood-bound short-trip ends (River Edge, Oradell) are not.
+    await expect(page.getByRole('button', { name: /^River Edge .*\(to New York\)$/ })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: /(River Edge|Oradell).*\(to Westwood\)/ })).toHaveCount(0);
     await page.getByRole('button', { name: /Port Authority Bus Terminal/ }).click();
     await page.getByRole('button', { name: 'Save to my commutes' }).click();
 
@@ -244,6 +245,7 @@ test.describe('printed timetable data (route 165)', () => {
     await expect(page.locator('.gate-card')).toContainText(/Gate (212|311|312|310)/);
     await expect(page.locator('.gate-card')).toContainText("NJ Transit's printed timetable lists this gate");
     await expect(page.locator('.gate-card')).toContainText('Always confirm on the terminal departure screens');
+    await expect(page.locator('.gate-card')).toContainText('construction at Port Authority may change gate assignments');
     await expect(page.locator('.stop-list li[data-role="alight"]')).toContainText('Westwood - Broadway at Irvington St. (to Westwood)');
     // Printed cash fare: Port Authority to Westwood crosses four zone lines.
     await expect(page.locator('.fare-card h2')).toHaveText('Fare · 5 zones');

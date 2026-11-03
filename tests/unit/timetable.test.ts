@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain ESM script without type declarations
 import { buildTimetableDataset } from '../../scripts/timetable-lib.mjs';
 import { demoDataset } from '../../src/data/demo';
-import { alightingStopFor, checkDirection, destinationsFrom } from '../../src/domain/direction';
+import { alightingStopFor, checkDirection, destinationsFrom, searchStops } from '../../src/domain/direction';
 import { fareBetween } from '../../src/domain/fare';
 import { gateFor, publishedGateFor } from '../../src/domain/gate';
 import { isNjtHoliday, njtHolidaysIn } from '../../src/domain/holidays';
@@ -106,10 +106,17 @@ describe('twin stops without coordinates', () => {
     expect(ds.stops.find((s) => s.id === 'N6')?.twin).toBeUndefined();
     expect(checkDirection(ds, 'W6', 'PABT')).toEqual({ ok: false, reason: 'not-served' });
   });
-  it('offers only destinations a bus from here or across the street reaches, not short trips the other way', () => {
-    expect(destinationsFrom(ds, 'N19').map((s) => s.id)).toEqual(['PABT', 'W20']);
-    expect(destinationsFrom(ds, 'W19').map((s) => s.id)).toEqual(['PABT', 'W20']);
-    expect(destinationsFrom(ds, 'PABT').map((s) => s.id)).toEqual(['W12', 'W14', 'W15', 'W18', 'W20']);
+  it('offers every stop a bus from here reaches, then the wrong side, never short trips the other way', () => {
+    const N = (refs: number[]) => refs.map((r) => `N${r}`);
+    expect(destinationsFrom(ds, 'N19').map((s) => s.id)).toEqual(['PABT', ...N([18, 17, 16, 15, 14, 13, 12, 11, 10, 8, 7, 6, 5, 4, 3]), 'W20']);
+    expect(destinationsFrom(ds, 'W19').map((s) => s.id)).toEqual(['W20', 'PABT', ...N([18, 17, 16, 15, 14, 13, 12, 11, 10, 8, 7, 6, 5, 4, 3])]);
+    // From Port Authority every Westwood-bound stop is offered (Hackensack, River Edge...), not just trip ends.
+    expect(destinationsFrom(ds, 'PABT').map((s) => s.id)).toEqual([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((r) => `W${r}`));
+    expect(destinationsFrom(ds, 'W18').map((s) => s.id)).toEqual(['W19', 'W20']);
+  });
+  it('finds stops in a town before stops whose direction label names it', () => {
+    expect(searchStops(ds, 'westwood').slice(0, 4).map((s) => s.id)).toEqual(['N19', 'W19', 'W20', 'N20']);
+    expect(searchStops(ds, 'westwood').map((s) => s.id)).toContain('N20');
   });
   it('links only stops with the same printed location, and links them both ways', () => {
     const byId = new Map(ds.stops.map((s) => [s.id, s]));

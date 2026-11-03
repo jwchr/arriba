@@ -496,6 +496,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
           {gate.status === 'published' && <><p className="gate-big">{t.gatePublished(gate.gate, gate.door)}</p><p className="muted small">{t.gatePublishedNote(fmtYmd(gate.effective, ctx.lang))}</p></>}
           {gate.status === 'unknown' && <p className="gate-big">{t.gateUnknown}</p>}
           <p className="small">{t.gateConfirm}</p>
+          {!ds.meta.demo && <p className="muted small" role="note">{t.gateConstruction}</p>}
           <p className="warn small" role="note">{t.ticketWarning}</p>
           <a className="link" href="https://www.njtransit.com/app" target="_blank" rel="noreferrer">{t.buyTicket} ↗</a>
         </div>

@@ -104,9 +104,9 @@ describe('direction guard', () => {
     expect(alightingStopFor(ds, 'D1', 'D4B')?.id).toBe('D4');
     expect(alightingStopFor(ds, 'PABT', 'D3', ['R165T'])).toBeUndefined();
   });
-  it('offers the terminal from the wrong side too, so the guard can send the rider across', () => {
-    expect(destinationsFrom(ds, 'D2').map((s) => s.id)).toEqual(['D1', 'PABT']);
-    expect(destinationsFrom(ds, 'D2B').map((s) => s.id)).toEqual(['D1', 'PABT']);
+  it('offers every stop a bus reaches, terminal first, then the wrong side so the guard can send the rider across', () => {
+    expect(destinationsFrom(ds, 'D2').map((s) => s.id)).toEqual(['PABT', 'D3', 'D4', 'D1']);
+    expect(destinationsFrom(ds, 'D2B').map((s) => s.id)).toEqual(['D1', 'PABT', 'D3', 'D4']);
   });
   it('finds stops by name, accents ignored, and by exact code', () => {
     expect(searchStops(ds, 'maple main').map((s) => s.id).sort()).toEqual(['D2', 'D2B']);
