@@ -469,9 +469,10 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
   const atPabt = boardStop?.terminal === 'PABT';
   const fare = boardStop && alightStop ? fareBetween(ds, boardStop.id, alightStop.id) : undefined;
   const gate = departureGate(ds, dep);
-  // Only the rider's part of the trip: boarding to getting off (or to the end when no stop is chosen).
+  // From the trip's first stop (read as printed) to where the rider gets off: a change before boarding
+  // still shifts the rider's times, a change after getting off does not.
   const rideEnd = times[alightIndex > dep.stopIndex ? alightIndex : times.length - 1];
-  const clockChange = rideEnd ? clockChangeBetween(dep.departs, rideEnd.at, ctx.tz) : undefined;
+  const clockChange = rideEnd && times[0] ? clockChangeBetween(times[0].at, rideEnd.at, ctx.tz) : undefined;
   return (
     <section>
       {/* A printed timetable gives no sign text, so a transcribed dataset's headsign is Arriba's own route-and-destination label, not what the sign reads. */}
