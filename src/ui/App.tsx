@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { demoDataset, demoUsualGates } from '../data/demo';
-import { alightingStopFor, checkDirection, destinationsFrom, searchStops } from '../domain/direction';
+import { checkDirection, destinationsFrom, returnLeg, searchStops } from '../domain/direction';
 import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, type Favorite } from '../domain/favorites';
 import { fareBetween } from '../domain/fare';
 import { gateFor, type GateAnswer } from '../domain/gate';
@@ -241,9 +241,9 @@ function arrivalAt(ds: Dataset, d: Departure, stopId: string): { at: number; est
 
 function legFor(ds: Dataset, f: Favorite, reversedView: boolean): Leg | undefined {
   if (!reversedView) return { fromStopId: f.fromStopId, toStopId: f.toStopId, routeIds: f.routeIds };
-  // Return trip: board where we got off; get off at the home stop or its twin across the street.
-  const back = alightingStopFor(ds, f.toStopId, f.fromStopId, f.routeIds);
-  return back ? { fromStopId: f.toStopId, toStopId: back.id, routeIds: f.routeIds } : undefined;
+  // Return trip: board where we got off, or across the street; get off at home or its twin.
+  const back = returnLeg(ds, f.fromStopId, f.toStopId, f.routeIds);
+  return back ? { ...back, routeIds: f.routeIds } : undefined;
 }
 
 function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed, onSearch, onGuide, onAllDay, onDeparture }: {
@@ -496,6 +496,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
           {gate.status === 'published' && <><p className="gate-big">{t.gatePublished(gate.gate, gate.door)}</p><p className="muted small">{t.gatePublishedNote(fmtYmd(gate.effective, ctx.lang))}</p></>}
           {gate.status === 'unknown' && <p className="gate-big">{t.gateUnknown}</p>}
           <p className="small">{t.gateConfirm}</p>
+          {!ds.meta.demo && <p className="muted small" role="note">{t.gateConstruction}</p>}
           <p className="warn small" role="note">{t.ticketWarning}</p>
           <a className="link" href="https://www.njtransit.com/app" target="_blank" rel="noreferrer">{t.buyTicket} ↗</a>
         </div>

@@ -82,28 +82,68 @@ export function alightingStopFor(ds: Dataset, fromStopId: string, toStopId: stri
     .sort((a, b) => a.d - b.d)[0]?.s;
 }
 
-/** Case- and accent-insensitive stop search by name or exact stop code. */
+/**
+ * The return trip of a saved commute from `fromStopId` (home) to `toStopId` (work): board at the work
+ * stop, or when no bus from there goes home, at the stop across the street (the named twin, or the nearest
+ * one within `radiusM` when stops have coordinates); get off at home or its twin. Undefined if none works.
+ */
+export function returnLeg(ds: Dataset, fromStopId: string, toStopId: string, routeIds?: string[], radiusM = 250): { fromStopId: string; toStopId: string } | undefined {
+  const work = ds.stops.find((s) => s.id === toStopId);
+  if (!work) return undefined;
+  const near = located(work)
+    ? ds.stops
+        .filter((s) => s.id !== work.id && located(s))
+        .map((s) => ({ s, d: distanceM(work, s as Located) }))
+        .filter(({ d }) => d <= radiusM)
+        .sort((a, b) => a.d - b.d)
+        .map(({ s }) => s)
+    : [];
+  for (const board of [work, twinOf(ds, work), ...near]) {
+    if (!board) continue;
+    const back = alightingStopFor(ds, board.id, fromStopId, routeIds, radiusM);
+    if (back) return { fromStopId: board.id, toStopId: back.id };
+  }
+  return undefined;
+}
+
+/**
+ * Case- and accent-insensitive stop search by name or exact stop code. An exact code ranks first, then
+ * names that match without their direction label ("Westwood - ..." before "... (to Westwood)").
+ */
 export function searchStops(ds: Dataset, query: string, limit = 20): Stop[] {
   const norm = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
   const q = norm(query.trim());
   if (!q) return [];
   const words = q.split(/\s+/);
+  const rank = (s: Stop) => {
+    if (s.code === query.trim()) return 0;
+    const place = norm(s.name.replace(/\s*\(to [^)]*\)$/i, ''));
+    if (words.every((w) => place.includes(w))) return 1;
+    return words.every((w) => norm(s.name).includes(w)) ? 2 : 3;
+  };
   return ds.stops
-    .filter((s) => s.code === query.trim() || words.every((w) => norm(s.name).includes(w)))
-    .sort((a, b) => Number(b.code === query.trim()) - Number(a.code === query.trim()) || a.name.localeCompare(b.name))
-    .slice(0, limit);
+    .map((s) => ({ s, r: rank(s) }))
+    .filter(({ r }) => r < 3)
+    .sort((a, b) => a.r - b.r || a.s.name.localeCompare(b.s.name))
+    .slice(0, limit)
+    .map(({ s }) => s);
 }
 
 /**
- * Destinations to offer a rider at `stopId`: the last stops of route patterns that a bus from here reaches,
- * plus those reached from the stop across the street, so the wrong-side guard can still point the rider over.
- * Ends that only buses going elsewhere reach (for example a short trip in the other direction) are left out.
+ * Destinations to offer a rider at `stopId`: every stop a bus from here reaches, then those only reached
+ * from the stop across the street, so the wrong-side guard can still point the rider over. Within each
+ * group terminals come first, then the dataset's stop order (route order for a printed timetable).
+ * Stops no bus from here or across the street reaches (a short trip the other way) are left out.
  */
 export function destinationsFrom(ds: Dataset, stopId: string): Stop[] {
-  const ends = new Set(ds.patterns.map((p) => p.stopIds[p.stopIds.length - 1]!));
-  const offered = (toStopId: string) => {
-    const c = checkDirection(ds, stopId, toStopId);
-    return c.ok || c.reason === 'wrong-side';
+  const group = (s: Stop) => {
+    if (s.id === stopId) return 2;
+    const c = checkDirection(ds, stopId, s.id);
+    return c.ok ? 0 : c.reason === 'wrong-side' ? 1 : 2;
   };
-  return ds.stops.filter((s) => ends.has(s.id) && s.id !== stopId && offered(s.id));
+  return ds.stops
+    .map((s, i) => ({ s, i, g: group(s) }))
+    .filter(({ g }) => g < 2)
+    .sort((a, b) => a.g - b.g || Number(!!b.s.terminal) - Number(!!a.s.terminal) || a.i - b.i)
+    .map(({ s }) => s);
 }
