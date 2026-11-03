@@ -238,3 +238,16 @@ describe("NJ Transit's printed fares and fare zones", () => {
     expect(fareBetween(demoDataset, a!.id, b!.id)).toBeUndefined();
   });
 });
+
+describe('first-ride guide', () => {
+  it('has the same sections and steps in English and Spanish, and names its sources', () => {
+    const { en, es } = strings;
+    expect(en.guide.sections.length).toBeGreaterThan(0);
+    expect(es.guide.sections.map((s) => s.steps.length)).toEqual(en.guide.sections.map((s) => s.steps.length));
+    for (const g of [en.guide, es.guide]) {
+      for (const s of g.sections) for (const x of s.steps) expect(x.trim().length, s.title).toBeGreaterThan(20);
+      expect(g.sources).toContain('njtransit.com');
+      expect(g.sources).toContain('165');
+    }
+  });
+});
