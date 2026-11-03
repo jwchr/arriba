@@ -404,9 +404,12 @@ function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title
   const list = departuresOn(ds, { stopId: leg.fromStopId, toStopId: leg.toStopId, routeIds: leg.routeIds, date });
   const rows = list.map((d) => ({ d, arr: arrivalAt(ds, d, leg.toStopId) }));
   const anyEstimated = rows.some((r) => r.d.estimated || r.arr?.estimated);
-  // The listed times straddle a clock change (2 AM on the DST nights): say so, since the list is in real departure order.
-  const instants = rows.flatMap(({ d, arr }) => (arr ? [d.departs, arr.at] : [d.departs]));
-  const dayClockChange = instants.length > 1 ? clockChangeBetween(Math.min(...instants), Math.max(...instants), tz) : undefined;
+  // Same rule as the trip screen, per row: a listed bus already running when the clocks change shows the new
+  // clock time. Only then is there anything to explain; other rows read exactly as printed.
+  const dayClockChange = rows.map(({ d, arr }) => {
+    const first = tripStopTimes(ds, d)[0];
+    return first ? clockChangeBetween(first.at, arr?.at ?? d.departs, tz) : undefined;
+  }).find(Boolean);
   const dayLabel = (d: string, i: number) => i === 0 ? t.today : i === 1 ? t.tomorrow :
     new Intl.DateTimeFormat(lang === 'es' ? 'es-US' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
       .format(new Date(Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8))));

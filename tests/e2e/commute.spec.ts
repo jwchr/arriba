@@ -293,6 +293,24 @@ test.describe('printed timetable data (route 165)', () => {
     await expect(page.getByRole('note').filter({ hasText: 'Clocks go' })).toHaveCount(0);
   });
 
+  test('the all-day timetable explains the clock change only where a listed bus runs through it', async ({ page }) => {
+    // Spring-forward day: at Oradell the 1:10 AM bus's printed 2:08 arrival shows 3:08 AM, so the note shows.
+    await page.goto('/?now=2027-03-14T00:30');
+    await saveCommute(page, 'river edge', /^River Edge .*\(to Westwood\)$/, /^Oradell - Kinderkamack Rd\. at New Milford Ave\./);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.getByRole('button', { name: /All day/ }).click();
+    await expect(page.locator('table.timetable .link-cell').first()).toBeVisible();
+    expect(await page.locator('table.timetable .link-cell').allTextContents()).toContain('3:03 AM');
+    await expect(page.getByRole('note').filter({ hasText: 'Clocks go ahead an hour at 2 AM on this day' })).toBeVisible();
+    // Same day, Weehawken to West New York: no bus runs through 2 AM there, every time reads as printed, no note.
+    await page.getByRole('button', { name: 'Back' }).click();
+    await saveCommute(page, '47/48th', /^Weehawken - Blvd\. East at 47\/48th St\. \(to Westwood\)$/, /^West New York .*\(to Westwood\)$/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.getByRole('article').nth(1).getByRole('button', { name: /All day/ }).click();
+    await expect(page.locator('table.timetable .link-cell').first()).toBeVisible();
+    await expect(page.getByRole('note').filter({ hasText: 'Clocks go' })).toHaveCount(0);
+  });
+
   test('banner, wrong-side guard without coordinates, return trip with published gate', async ({ page }) => {
     await page.goto('/?now=2026-11-04T07:50');
     await expect(page.locator('.demo-banner')).toHaveCount(0);
