@@ -213,6 +213,17 @@ test.describe('real data', () => {
 test.describe('printed timetable data (route 165)', () => {
   test.use({ serviceWorkers: 'block' });
 
+  test('a commute to an in-between stop reverses from across the street', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T07:50');
+    await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /^Hackensack \(Sears\) .*\(to New York\)$/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    const card = page.getByRole('article');
+    await expect(card.locator('.dep-time')).toHaveCount(3);
+    await page.getByRole('button', { name: /Reverse/ }).click();
+    await expect(card.locator('.leg')).toHaveText('Hackensack (Sears) - Main St. at Anderson St. (to Westwood) → Westwood - Broadway at Irvington St. (to Westwood)');
+    await expect(card.locator('.dep-time')).toHaveCount(3);
+  });
+
   test('banner, wrong-side guard without coordinates, return trip with published gate', async ({ page }) => {
     await page.goto('/?now=2026-11-04T07:50');
     await expect(page.locator('.demo-banner')).toHaveCount(0);

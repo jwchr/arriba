@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain ESM script without type declarations
 import { buildTimetableDataset } from '../../scripts/timetable-lib.mjs';
 import { demoDataset } from '../../src/data/demo';
-import { alightingStopFor, checkDirection, destinationsFrom, searchStops } from '../../src/domain/direction';
+import { alightingStopFor, checkDirection, destinationsFrom, returnLeg, searchStops } from '../../src/domain/direction';
 import { fareBetween } from '../../src/domain/fare';
 import { gateFor, publishedGateFor } from '../../src/domain/gate';
 import { isNjtHoliday, njtHolidaysIn } from '../../src/domain/holidays';
@@ -113,6 +113,13 @@ describe('twin stops without coordinates', () => {
     // From Port Authority every Westwood-bound stop is offered (Hackensack, River Edge...), not just trip ends.
     expect(destinationsFrom(ds, 'PABT').map((s) => s.id)).toEqual([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map((r) => `W${r}`));
     expect(destinationsFrom(ds, 'W18').map((s) => s.id)).toEqual(['W19', 'W20']);
+  });
+  it('reverses a commute to an in-between stop by boarding across the street, and says so when nothing goes back', () => {
+    expect(returnLeg(ds, 'N19', 'PABT')).toEqual({ fromStopId: 'PABT', toStopId: 'W19' });
+    expect(returnLeg(ds, 'N19', 'N11')).toEqual({ fromStopId: 'W11', toStopId: 'W19' }); // Hackensack (Sears), across Main St.
+    expect(returnLeg(ds, 'N19', 'N13')).toEqual({ fromStopId: 'W13', toStopId: 'W19' });
+    expect(returnLeg(ds, 'N19', 'N10')).toBeUndefined(); // State St. corners differ by direction: no named twin
+    expect(returnLeg(demoDataset, 'D2', 'D3')).toEqual({ fromStopId: 'D3B', toStopId: 'D2B' }); // by distance in the demo
   });
   it('finds stops in a town before stops whose direction label names it', () => {
     expect(searchStops(ds, 'westwood').slice(0, 4).map((s) => s.id)).toEqual(['N19', 'W19', 'W20', 'N20']);

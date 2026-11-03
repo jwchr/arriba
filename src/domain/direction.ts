@@ -83,6 +83,30 @@ export function alightingStopFor(ds: Dataset, fromStopId: string, toStopId: stri
 }
 
 /**
+ * The return trip of a saved commute from `fromStopId` (home) to `toStopId` (work): board at the work
+ * stop, or when no bus from there goes home, at the stop across the street (the named twin, or the nearest
+ * one within `radiusM` when stops have coordinates); get off at home or its twin. Undefined if none works.
+ */
+export function returnLeg(ds: Dataset, fromStopId: string, toStopId: string, routeIds?: string[], radiusM = 250): { fromStopId: string; toStopId: string } | undefined {
+  const work = ds.stops.find((s) => s.id === toStopId);
+  if (!work) return undefined;
+  const near = located(work)
+    ? ds.stops
+        .filter((s) => s.id !== work.id && located(s))
+        .map((s) => ({ s, d: distanceM(work, s as Located) }))
+        .filter(({ d }) => d <= radiusM)
+        .sort((a, b) => a.d - b.d)
+        .map(({ s }) => s)
+    : [];
+  for (const board of [work, twinOf(ds, work), ...near]) {
+    if (!board) continue;
+    const back = alightingStopFor(ds, board.id, fromStopId, routeIds, radiusM);
+    if (back) return { fromStopId: board.id, toStopId: back.id };
+  }
+  return undefined;
+}
+
+/**
  * Case- and accent-insensitive stop search by name or exact stop code. An exact code ranks first, then
  * names that match without their direction label ("Westwood - ..." before "... (to Westwood)").
  */
