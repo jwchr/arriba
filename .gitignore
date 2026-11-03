@@ -6,3 +6,5 @@ playwright-report/
 recordings/
 .env*
 *.zip
+# Local tool settings (Claude Code launch configs and the like).
+.claude/
