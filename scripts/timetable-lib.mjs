@@ -118,7 +118,7 @@ export function buildTimetableDataset(doc, { builtAt }) {
   for (const dir of Object.keys(DIRS)) {
     for (const ref of order[dir]) {
       const z = f.zones[dir][ref];
-      if (!z || z.length < 1 || z.length > 2) throw new Error(`no fare zone for ${dir} ${ref}`);
+      if (!z || z.length < 1 || z.length > 2 || (z.length === 2 && z[1] !== z[0] + 1)) throw new Error(`bad fare zone for ${dir} ${ref}`);
       const id = stopIdFor(dir, ref);
       const pair = [z[0], z[z.length - 1]];
       if (stopZones[id] && stopZones[id].join() !== pair.join()) throw new Error(`conflicting fare zones for ${id}`);

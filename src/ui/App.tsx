@@ -477,7 +477,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
           <div className="row-between"><span>{t.fareAdult}</span><strong>{money(fare.adult)}</strong></div>
           <div className="row-between"><span>{t.fareReduced}</span><strong>{money(fare.reduced)}</strong></div>
           {fare.zones.min !== fare.zones.max && <p className="warn small" role="note">{t.fareBoundary}</p>}
-          {!atPabt && <p className="small">{t.fareCash}</p>}
+          <p className={atPabt ? 'warn small' : 'small'}>{atPabt ? t.fareAtPabt : t.fareCash}</p>
           <p className="muted small">{t.fareNote(fmtYmd(ds.publishedFares.effective, ctx.lang))}</p>
         </div>
       )}

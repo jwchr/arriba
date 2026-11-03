@@ -233,7 +233,8 @@ test.describe('printed timetable data (route 165)', () => {
     await expect(page.locator('.fare-card')).toContainText('$8.45');
     await expect(page.locator('.fare-card')).toContainText('$3.85');
     await expect(page.locator('.fare-card')).toContainText('fares effective 7/1/2026');
-    await expect(page.locator('.fare-card')).not.toContainText('makes change'); // Port Authority needs a ticket, not cash
+    await expect(page.locator('.fare-card')).not.toContainText('makes change');
+    await expect(page.locator('.fare-card')).toContainText('you need a ticket or pass before you board');
     await page.screenshot({ path: 'test-results/printed-departure.png', fullPage: true });
   });
 
