@@ -296,6 +296,26 @@
    }
   ]
  },
+ "fares": {
+  "source": "NJ Transit printed timetable No. 165 (issued 7/1/26): 'Fare Information' cash fare tables and the route map's fare zone boundaries",
+  "effective": "20260701",
+  "boundaries": [
+   "New York-New Jersey line (between 1 and 2)",
+   "Broad Ave. at Fairview Ave. (between 6 and 7)",
+   "Kinderkamack Rd. at Main St. (between 12 and 14), or Garden State Parkway Interchange 165 Park & Ride (at 13)",
+   "Kinderkamack Rd. at Oradell Ave. (at 15 to Westwood; 15 to New York is at Church St.), or Pascack Rd. at Oradell Ave. (between 16 and 17)"
+  ],
+  "zonesNote": "Zone bands are counted by Arriba from New York (1) along the line, read from the map. A stop drawn on a boundary line (13), or at a place the map names as a zone change (15 to Westwood, Kinderkamack Rd. at Oradell Ave.), gets two adjacent bands, because the map does not say which side it is on.",
+  "zones": {
+   "toWestwood": { "1": [1], "2": [2], "3": [2], "4": [2], "5": [2], "6": [2], "7": [3], "8": [3], "9": [3], "10": [3], "11": [3], "12": [3], "13": [3, 4], "14": [4], "15": [4, 5], "16": [4], "17": [5], "18": [5], "19": [5], "20": [5] },
+   "toNewYork": { "20": [5], "19": [5], "18": [5], "17": [5], "16": [4], "15": [4], "14": [4], "13": [3, 4], "12": [3], "11": [3], "10": [3], "9": [3], "8": [3], "7": [3], "6": [2], "5": [2], "4": [2], "3": [2], "1": [1] }
+  },
+  "cashCents": {
+   "withinNewJersey": { "adult": { "1": 190, "2": 300, "3": 380, "4": 455 }, "reduced": { "1": 85, "2": 125, "3": 160, "4": 210 } },
+   "toFromNewYork": { "adult": { "2": 420, "3": 545, "4": 730, "5": 845 }, "reduced": { "2": 185, "3": 245, "4": 320, "5": 385 } }
+  },
+  "reducedMeans": "Children (5-11) & Sr. Citizens (62 & Older)"
+ },
  "notes": [
   "Times are service-day clock times; 24:xx and 25:xx are after midnight and belong to the service day that began the evening before.",
   "Printed timetable lists timepoints only, not every stop.",

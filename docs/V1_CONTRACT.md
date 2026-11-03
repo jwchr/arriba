@@ -14,7 +14,7 @@ Household tool for Jeff and Diego. Bergen County corridor to and from Port Autho
 | BUS-01/02 | Exact-bus lock keyed to trip + service date; tracked / not tracked / not reporting / needs confirmation states | M1 ✅ logic, M3 live |
 | GATE-01/03 | Port Authority gate and door per departure from NJ Transit DepartureVision; usual gate before posting; gate-change push | M1 ✅ logic, M3 live |
 | UX-10 | Stop alerts 3, 2 and 1 stops before getting off, sent by the server from the locked bus (Web Push) | M3 |
-| UX-09 | Ticket-before-boarding warning at Port Authority; Tap & Ride guidance in NJ; zone count only from a real fare table | M1 ✅ PABT warning, M4 rest |
+| UX-09 | Ticket-before-boarding warning at Port Authority; Tap & Ride guidance in NJ; zone count only from a real fare table | M1 ✅ PABT warning, M4 ✅ printed route 165 cash fare and zone count; Tap & Ride guidance rest |
 | UX-07 | First-time-rider guide, English and Spanish | M1 ✅ languages, M4 guide |
 | GATE-02 | Gate cards (floor, gate, door, nearest escalator or elevator, photo) for corridor gates | M4 |
 | MAP-01/02 | Geographic map (MapLibre + OpenStreetMap); Clean, dark, Turnpike styles | M3-M4 |

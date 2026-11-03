@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { demoDataset, demoUsualGates } from '../data/demo';
 import { alightingStopFor, checkDirection, destinationsFrom, searchStops } from '../domain/direction';
 import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, type Favorite } from '../domain/favorites';
+import { fareBetween } from '../domain/fare';
 import { gateFor, type GateAnswer } from '../domain/gate';
 import { isNjtHoliday } from '../domain/holidays';
 import { createLock, type TripLock } from '../domain/lock';
@@ -176,6 +177,12 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
 /** YYYYMMDD as month/day/year in English and day/month/year in Spanish, as each reader expects. */
 const fmtYmd = (d: string, lang: Lang) =>
   lang === 'es' ? `${+d.slice(6, 8)}/${+d.slice(4, 6)}/${d.slice(0, 4)}` : `${+d.slice(4, 6)}/${+d.slice(6, 8)}/${d.slice(0, 4)}`;
+
+/** Cents as dollars; a range when the zone count is uncertain. Same format in both languages. */
+const money = (c: { min: number; max: number }) => {
+  const d = (n: number) => `$${(n / 100).toFixed(2)}`;
+  return c.min === c.max ? d(c.min) : `${d(c.min)}–${d(c.max)}`;
+};
 
 interface Ctx { ds: Dataset; tz: string; now: number; t: Strings; lang: Lang; stopName: (id: string) => string; fromCache?: boolean | undefined; savedAt?: number | undefined }
 
@@ -433,6 +440,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
   // The printed Park/Ride note is about Parkway express (P, FP) trips only; other trips stop there as usual.
   const alightNote = alightStop?.noteId && (alightStop.noteId !== 'parkride-request' || ['P', 'FP'].includes(dep.pattern.variant ?? '')) ? t.stopNotes[alightStop.noteId] : undefined;
   const atPabt = boardStop?.terminal === 'PABT';
+  const fare = boardStop && alightStop ? fareBetween(ds, boardStop.id, alightStop.id) : undefined;
   // Usual-gate windows use service-day minutes (a 24:00 trip is 1440, not 0) and the service date's day type.
   const localMin = Math.round((ds.trips.find((x) => x.id === dep.tripId)?.times[dep.stopIndex] ?? 0) / 60);
   const wd = weekdayIndex(dep.serviceDate);
@@ -462,6 +470,17 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
         <p className="muted small">{t.scheduledOnlyHelp}</p>
         {(dep.estimated || (alightIndex > dep.stopIndex && times[alightIndex]?.estimated)) && <p className="muted small">{t.estimatedNote}</p>}
       </div>
+
+      {fare && ds.publishedFares && (
+        <div className="card fare-card">
+          <h2>{t.fareTitle} · {t.fareZones(fare.zones.min, fare.zones.max)}</h2>
+          <div className="row-between"><span>{t.fareAdult}</span><strong>{money(fare.adult)}</strong></div>
+          <div className="row-between"><span>{t.fareReduced}</span><strong>{money(fare.reduced)}</strong></div>
+          {fare.zones.min !== fare.zones.max && <p className="warn small" role="note">{t.fareBoundary}</p>}
+          <p className={atPabt ? 'warn small' : 'small'}>{atPabt ? t.fareAtPabt : t.fareCash}</p>
+          <p className="muted small">{t.fareNote(fmtYmd(ds.publishedFares.effective, ctx.lang))}</p>
+        </div>
+      )}
 
       {gate && (
         <div className="card gate-card" data-status={gate.status}>

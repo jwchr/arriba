@@ -9,6 +9,23 @@ export interface Dataset {
   calendars: Record<string, ServiceCalendar>;
   /** NJ Transit's published Port Authority gate rules (from a printed timetable), when no live gate is known. */
   publishedGates?: PublishedGates;
+  /** NJ Transit's printed cash fares and fare zones (from a printed timetable). Absent = no fare is shown. */
+  publishedFares?: PublishedFares;
+}
+
+/** Fares by number of zones traveled, as printed. Each time a rider crosses a zone boundary they pay for another zone. */
+export interface PublishedFares {
+  /** Where the fares were read, shown to the rider. */
+  source: string;
+  /** YYYYMMDD the printed fares took effect. */
+  effective: string;
+  /** Zone band per stop id, counted from New York = 1 along the line: [lo, hi], with lo < hi when the stop is drawn on a boundary. */
+  stopZones: Record<string, [number, number]>;
+  /** Stop ids in New York; a trip touching one uses the to/from New York table. */
+  newYorkStopIds: string[];
+  /** Cents by zones traveled ("2", "3", ...). "reduced" is children 5-11 and seniors 62 and older. */
+  withinNewJersey: { adult: Record<string, number>; reduced: Record<string, number> };
+  toFromNewYork: { adult: Record<string, number>; reduced: Record<string, number> };
 }
 
 /** Gate rules NJ Transit prints by service type and time of day. A rule applies by the departure's clock time at the terminal. */

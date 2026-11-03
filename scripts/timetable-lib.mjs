@@ -112,6 +112,28 @@ export function buildTimetableDataset(doc, { builtAt }) {
     }),
   };
 
+  // Fare zones are per map reference and direction, read from the printed map; a boundary stop keeps both bands.
+  const f = doc.fares;
+  const stopZones = {};
+  for (const dir of Object.keys(DIRS)) {
+    for (const ref of order[dir]) {
+      const z = f.zones[dir][ref];
+      if (!z || z.length < 1 || z.length > 2 || (z.length === 2 && z[1] !== z[0] + 1)) throw new Error(`bad fare zone for ${dir} ${ref}`);
+      const id = stopIdFor(dir, ref);
+      const pair = [z[0], z[z.length - 1]];
+      if (stopZones[id] && stopZones[id].join() !== pair.join()) throw new Error(`conflicting fare zones for ${id}`);
+      stopZones[id] = pair;
+    }
+  }
+  const publishedFares = {
+    source: f.source,
+    effective: f.effective,
+    stopZones,
+    newYorkStopIds: ['PABT'],
+    withinNewJersey: f.cashCents.withinNewJersey,
+    toFromNewYork: f.cashCents.toFromNewYork,
+  };
+
   return {
     meta: {
       demo: false,
@@ -127,5 +149,6 @@ export function buildTimetableDataset(doc, { builtAt }) {
     trips,
     calendars,
     publishedGates,
+    publishedFares,
   };
 }
