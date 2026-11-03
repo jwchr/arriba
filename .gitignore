@@ -6,5 +6,5 @@ playwright-report/
 recordings/
 .env*
 *.zip
-# Local tool settings (Claude Code launch configs and the like).
-.claude/
+# Local dev-server launch config for the Claude desktop app.
+.claude/launch.json
