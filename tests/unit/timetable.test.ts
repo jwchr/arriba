@@ -8,8 +8,8 @@ import { alightingStopFor, checkDirection, destinationsFrom, returnLeg, searchSt
 import { fareBetween } from '../../src/domain/fare';
 import { gateFor, publishedGateFor } from '../../src/domain/gate';
 import { isNjtHoliday, njtHolidaysIn } from '../../src/domain/holidays';
-import { departuresOn, timeBaseOf } from '../../src/domain/schedule';
-import { addDays, formatTime12, serviceTimeToInstant } from '../../src/domain/time';
+import { departuresOn, timeBaseOf, tripTimeAt } from '../../src/domain/schedule';
+import { formatTime12 } from '../../src/domain/time';
 import type { Dataset } from '../../src/domain/types';
 import { strings } from '../../src/ui/i18n';
 
@@ -267,35 +267,35 @@ describe('first-ride guide', () => {
 });
 
 describe('clock changes (DST) with printed wall-clock times', () => {
-  // Printed times are wall-clock times. The GTFS rule (noon minus 12 h) would show the Saturday-night
-  // 1:10 AM Westwood trip's later stops an hour early on the fall-back night; the app reads them as printed.
-  const base = timeBaseOf(ds);
+  // Printed times are wall-clock times. Each trip starts at its printed time on the clock and keeps its
+  // printed running times, so a bus running through the fall-back night is never shown later than it is.
+  const nights = { SAT: ['20261031', '20270313'], SUN: ['20261101', '20270314'], WKDY: ['20261030', '20270312'] } as Record<string, string[]>;
   const printed = (secs: number) => {
     const h = Math.floor((secs % 86400) / 3600);
     return `${h % 12 || 12}:${String(Math.floor((secs % 3600) / 60)).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
   };
-  const nights = { SAT: ['20261031', '20270313'], SUN: ['20261101', '20270314'], WKDY: ['20261030', '20270312'] } as Record<string, string[]>;
 
-  it('shows every printed time as printed on the nights the clocks change (a skipped 2 AM time moves forward)', () => {
-    expect(base).toBe('wall');
+  it('starts every trip at its printed time and keeps the printed running times on the nights the clocks change', () => {
+    expect(timeBaseOf(ds)).toBe('wall');
     let checked = 0;
     for (const trip of ds.trips)
-      for (const date of nights[trip.serviceId] ?? [])
-        for (const secs of trip.times) {
-          const springGap = addDays(date, Math.floor(secs / 86400)) === '20270314' && Math.floor(secs / 3600) % 24 === 2;
-          const shown = fmt(serviceTimeToInstant(date, secs, TZ, base));
-          expect(shown, `${trip.id} on ${date}`).toBe(springGap ? printed(secs + 3600) : printed(secs));
-          checked++;
-        }
+      for (const date of nights[trip.serviceId] ?? []) {
+        const at = trip.times.map((_, i) => tripTimeAt(ds, trip, date, i));
+        expect(fmt(at[0]!), `${trip.id} on ${date}`).toBe(printed(trip.times[0]!));
+        for (let i = 1; i < at.length; i++) expect(at[i]! - at[0]!, `${trip.id} on ${date} stop ${i}`).toBe((trip.times[i]! - trip.times[0]!) * 1000);
+        checked += at.length;
+      }
     expect(checked).toBeGreaterThan(1000);
-    expect(fmt(serviceTimeToInstant('20261031', 26 * 3600 + 8 * 60, TZ, base))).toBe('2:08 AM'); // WL6-SAT-2510 ends at Westwood
   });
 
-  it('keeps every trip moving forward in time on those nights', () => {
-    for (const trip of ds.trips)
-      for (const date of nights[trip.serviceId] ?? []) {
-        const at = trip.times.map((secs) => serviceTimeToInstant(date, secs, TZ, base));
-        for (let i = 1; i < at.length; i++) expect(at[i]!, `${trip.id} on ${date} stop ${i}`).toBeGreaterThanOrEqual(at[i - 1]!);
-      }
+  it('shows the one trip that runs into the changed hour on the safe side', () => {
+    const trip = ds.trips.find((t) => t.id === 'WL6-SAT-2510')!;
+    const shown = (date: string) => trip.times.map((_, i) => fmt(tripTimeAt(ds, trip, date, i)));
+    // Fall back: the bus leaves at 1:10 AM and runs on; printed 2:03 and 2:08 AM come an hour earlier on the clock.
+    expect(shown('20261031').slice(-3)).toEqual(['1:57 AM', '1:03 AM', '1:08 AM']);
+    // Spring forward: 2:03 AM does not exist; the bus gets there at 3:03 AM.
+    expect(shown('20270313').slice(-3)).toEqual(['1:57 AM', '3:03 AM', '3:08 AM']);
+    // An ordinary Saturday night reads exactly as printed.
+    expect(shown('20261107').slice(-3)).toEqual(['1:57 AM', '2:03 AM', '2:08 AM']);
   });
 });

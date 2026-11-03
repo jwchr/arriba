@@ -26,8 +26,9 @@ export function tzOffsetMinutes(instant: number, timeZone: string): number {
  */
 export function zonedWallTime(y: number, m: number, d: number, h: number, min: number, timeZone: string): number {
   const guess = Date.UTC(y, m - 1, d, h, min);
-  const before = guess - tzOffsetMinutes(guess - 12 * 3600_000, timeZone) * 60000;
-  const after = guess - tzOffsetMinutes(guess + 12 * 3600_000, timeZone) * 60000;
+  // Offsets a day either side: far enough to straddle the instant even in zones up to UTC±14.
+  const before = guess - tzOffsetMinutes(guess - 24 * 3600_000, timeZone) * 60000;
+  const after = guess - tzOffsetMinutes(guess + 24 * 3600_000, timeZone) * 60000;
   const shows = (t: number) => t + tzOffsetMinutes(t, timeZone) * 60000 === guess;
   const valid = [before, after].filter(shows);
   return valid.length ? Math.min(...valid) : before;
