@@ -324,6 +324,7 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
                     <span className="dep-main">
                       <span className="dep-time"><TimeText ctx={ctx} at={d.departs} estimated={d.estimated} /></span>
                       <span className="dep-sub">{arr ? <>{t.arrives} <TimeText ctx={ctx} at={arr.at} estimated={arr.estimated} /></> : d.pattern.headsign}</span>
+                      {(() => { const g = departureGate(ds, d); return g && <span className="dep-gate" data-status={g.status}>{gateLine(t, g)}</span>; })()}
                     </span>
                     <span className="dep-right">
                       <span className="dep-min">{t.inMin(minutesUntil(now, d.departs))}</span>
@@ -435,6 +436,23 @@ function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title
   );
 }
 
+/** The Port Authority gate answer for a departure boarding there (same answer on home and the trip screen); undefined elsewhere. */
+function departureGate(ds: Dataset, dep: Departure): GateAnswer | undefined {
+  const boardStop = ds.stops.find((s) => s.id === dep.pattern.stopIds[dep.stopIndex]);
+  if (boardStop?.terminal !== 'PABT') return undefined;
+  // Usual-gate windows use service-day minutes (a 24:00 trip is 1440, not 0) and the service date's day type.
+  const localMin = Math.round((ds.trips.find((x) => x.id === dep.tripId)?.times[dep.stopIndex] ?? 0) / 60);
+  const wd = weekdayIndex(dep.serviceDate);
+  return gateFor(dep.tripInstanceId, dep.pattern.id, localMin, wd === 5 ? 'saturday' : wd === 6 ? 'sunday' : 'weekday', [], ds.meta.demo ? demoUsualGates : [], ds.publishedGates, dep.pattern.variant);
+}
+
+/** One-line gate for a home departure row, always saying what kind of answer it is. */
+const gateLine = (t: Strings, g: GateAnswer) =>
+  g.status === 'posted' ? t.gatePosted(g.gate, g.door)
+    : g.status === 'usual' ? t.gateUsual(g.gate, g.door)
+      : g.status === 'published' ? `${t.gatePublished(g.gate, g.door)} · ${t.gateRuleTag}`
+        : t.gateUnknown;
+
 function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
   ctx: Ctx; dep: Departure; leg: Leg; lock?: TripLock; onLock: () => void; onUnlock: () => void;
 }) {
@@ -447,12 +465,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
   const alightNote = alightStop?.noteId && (alightStop.noteId !== 'parkride-request' || ['P', 'FP'].includes(dep.pattern.variant ?? '')) ? t.stopNotes[alightStop.noteId] : undefined;
   const atPabt = boardStop?.terminal === 'PABT';
   const fare = boardStop && alightStop ? fareBetween(ds, boardStop.id, alightStop.id) : undefined;
-  // Usual-gate windows use service-day minutes (a 24:00 trip is 1440, not 0) and the service date's day type.
-  const localMin = Math.round((ds.trips.find((x) => x.id === dep.tripId)?.times[dep.stopIndex] ?? 0) / 60);
-  const wd = weekdayIndex(dep.serviceDate);
-  const gate: GateAnswer | undefined = atPabt
-    ? gateFor(dep.tripInstanceId, dep.pattern.id, localMin, wd === 5 ? 'saturday' : wd === 6 ? 'sunday' : 'weekday', [], ds.meta.demo ? demoUsualGates : [], ds.publishedGates, dep.pattern.variant)
-    : undefined;
+  const gate = departureGate(ds, dep);
   return (
     <section>
       {/* A printed timetable gives no sign text, so a transcribed dataset's headsign is Arriba's own route-and-destination label, not what the sign reads. */}

@@ -80,9 +80,11 @@ main { flex: 1; padding-bottom: 24px; }
 .dep { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; margin: 6px 0; border-radius: 12px; }
 .dep-next { border: 2px solid var(--brand); }
 .dep-main { flex: 1; display: flex; flex-direction: column; }
-.dep-time { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.dep-time { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dep-next .dep-time { font-size: 1.6rem; }
 .dep-sub { color: var(--muted); font-size: 0.85rem; }
+.dep-gate { font-size: 0.85rem; font-weight: 700; }
+.dep-gate[data-status='unknown'] { font-weight: 600; color: var(--muted); }
 .dep-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .dep-min { font-weight: 700; }
 .badge-sched { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em; color: var(--muted); border: 1px dashed var(--muted); border-radius: 6px; padding: 1px 6px; }

@@ -44,6 +44,7 @@ test('reverse, gate card, exact-bus lock, all-day timetable, Spanish', async ({ 
   await page.getByRole('button', { name: /Reverse/ }).click();
   const card = page.getByRole('article');
   await expect(card.locator('.leg')).toHaveText('Port Authority Bus Terminal → Maple Ave & Main St (to Demo Terminal)'); // shown only when it differs from the name
+  await expect(card.locator('.dep-gate').first()).toHaveText('Usually gate 212, door 2'); // same answer as the trip screen
   await card.locator('.dep').first().click();
   await expect(page.locator('.sign-led')).toHaveText('165 DEMO TERMINAL');
   await expect(page.locator('.gate-card')).toContainText('Usually gate 212, door 2');
@@ -251,6 +252,9 @@ test.describe('printed timetable data (route 165)', () => {
     // Return trip: board at Port Authority, get off at the same corner's twin on the Westwood-bound side.
     await page.getByRole('button', { name: /Reverse/ }).click();
     await expect(card.locator('.leg')).toHaveText('New York - Port Authority Bus Terminal → Westwood - Broadway at Irvington St. (to Westwood)');
+    // Leaving Port Authority, each row names the gate and says it is the printed rule, not a posted gate.
+    await expect(card.locator('.dep-gate')).toHaveCount(3);
+    await expect(card.locator('.dep-gate').first()).toHaveText(/^Gate (212|311|312|310)(, door \d+)? · printed rule$/);
     await card.locator('.dep').first().click();
     await expect(page.locator('.sign-label')).toHaveText('Route and destination');
     await expect(page.locator('.gate-card')).toContainText(/Gate (212|311|312|310)/);
