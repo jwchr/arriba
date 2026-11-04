@@ -370,3 +370,35 @@ test('trip update on the printed timetable has no DEMO mark, and reads in Spanis
   await page.getByRole('button', { name: 'Compartir cómo va el viaje' }).click();
   await expect(page.getByTestId('share-text')).toHaveText(/^Pienso tomar el 165T? de las? \d{1,2}:\d\d a\. ?m\. desde Westwood - Broadway at Irvington St\.$/);
 });
+
+test('backup buses appear once the bus is late past the rider’s threshold, and never change the lock', async ({ page }) => {
+  await selectDemoTrip(page);
+  const lock = page.locator('.bus-lock');
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  const backups = lock.locator('.backup-buses');
+  await expect(backups.getByRole('button', { name: '10 min', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(backups.getByRole('heading', { name: 'Backup buses' })).toHaveCount(0);
+  // Move the demo clock past the scheduled time by more than 10 minutes.
+  await lock.locator('.lock-demo summary').click();
+  for (let i = 0; i < 3; i++) await lock.getByRole('button', { name: 'Advance 12 minutes' }).click();
+  await expect(backups.getByRole('heading', { name: 'Backup buses' })).toBeVisible();
+  await expect(backups).toContainText(/Your bus is \d+ min past its scheduled time and has not been confirmed here/);
+  const rows = backups.locator('.rescue-list li');
+  expect(await rows.count()).toBeGreaterThan(0);
+  await expect(rows.first()).toContainText(/(\d+ min left to catch it|1 min left to catch it|Due to leave now)/);
+  await expect(rows.first()).toContainText('Scheduled only');
+  await expect(backups).toContainText('Your Bus Lock stays on the bus you chose');
+  expect((await new AxeBuilder({ page }).include('.backup-buses').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations).toEqual([]);
+
+  // The threshold is the rider's choice, kept on this phone.
+  await backups.getByRole('button', { name: '15 min', exact: true }).click();
+  await expect(backups.getByRole('button', { name: '15 min', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => localStorage.getItem('arriba.backupAfter.v1'))).toBe('15');
+
+  // Opening a backup shows that trip; the lock stays on the original bus.
+  const lockedTime = await lock.locator('.small').first().textContent();
+  await rows.first().locator('button').click();
+  await expect(page.getByText('Another trip is locked. Return to it and unlock before choosing a different bus.')).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page.locator('.bus-lock .small').first()).toHaveText(lockedTime ?? '');
+});

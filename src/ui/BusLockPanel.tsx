@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { getScheduleProjection, type BusSession, type BusSessionEvent } from '../domain/busLock';
 import { tripStopTimes } from '../domain/schedule';
 import { formatTime12 } from '../domain/time';
 import type { Dataset } from '../domain/types';
 import type { Lang, Strings } from './i18n';
+import { BackupDeadlines } from './BackupDeadlines';
+import type { RescueOption } from '../domain/rescue';
 import { RideMode } from './RideMode';
 import { ShareUpdate } from './ShareUpdate';
 import { useScreenWakeLock } from './useScreenWakeLock';
@@ -21,10 +23,14 @@ interface Props {
   onEvent: (event: BusSessionEvent) => void;
   onAdvanceDemo: (minutes: number) => void;
   onUnlock: () => void;
+  /** Backup buses while waiting (issue #59): gate line, route badge, and opening one (never changing the lock). */
+  gateText: (o: RescueOption) => string | undefined;
+  badge: (routeId: string) => ReactNode;
+  onOpenBackup: (o: RescueOption) => void;
 }
 
 /** The view accepts evidence; it never polls NJ Transit or requests the rider's location. */
-export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake, onKeepAwake, onEvent, onAdvanceDemo, onUnlock }: Props) {
+export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake, onKeepAwake, onEvent, onAdvanceDemo, onUnlock, gateText, badge, onOpenBackup }: Props) {
   const b = t.busLock;
   const { departure: dep, lock } = session;
   const heading = useRef<HTMLHeadingElement>(null);
@@ -105,12 +111,15 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
             <button onClick={() => record('left')}>{b.left}</button>
           </div>
           {passed && <p className="warn small">{b.passedHelp}</p>}
+          <BackupDeadlines ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} gateText={gateText} badge={badge} onOpen={onOpenBackup} />
           {now < dep.departs && <p className="muted small">{b.beforeDue}</p>}
           <label className="lock-toggle"><input type="checkbox" checked={keepAwake} onChange={(e) => onKeepAwake(e.target.checked)} />{b.keepAwake}</label>
           <p className="small" data-testid="wake-status" role="status">{b.wake[wake.status]}</p>
           {keepAwake && wake.status === 'unavailable' && <button className="ghost" onClick={wake.retry}>{b.wakeRetry}</button>}
           <p className="muted small">{b.foregroundOnly}</p>
         </>}
+        {/* After NJ Transit cancels the trip the waiting controls go, but the backups are what matter. */}
+        {session.phase === 'waiting' && lock.status === 'cancelled' && <BackupDeadlines ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} gateText={gateText} badge={badge} onOpen={onOpenBackup} />}
         {session.phase === 'arrived' && <div className="lock-actions"><button className="primary" onClick={() => record('boarded')}>{b.boarded}</button><button onClick={() => record('left')}>{b.left}</button></div>}
         {session.phase === 'onboard' && <><RideMode ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} onEvent={onEvent} onAdvanceDemo={onAdvanceDemo} /><p className="small">{b.ridePrivacy}</p><button onClick={() => record('end')}>{b.stopRide}</button></>}
         {/* On board, ride mode carries its own share button (it may fill the screen). */}
