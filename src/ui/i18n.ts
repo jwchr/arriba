@@ -816,10 +816,10 @@ const es: Strings = {
     notSaved: 'Este navegador no deja que Dale guarde, así que estos planes duran solo hasta que cierres la página. No se comparten ni se suben.',
   },
   backupBuses: {
-    threshold: 'Mostrar autobuses de respaldo cuando el mío lleve de retraso',
+    threshold: 'Mostrar autobuses de respaldo si el mío se retrasa:',
     min: (n: number) => `${n} min`,
     title: 'Autobuses de respaldo',
-    lateIntro: (n: number) => `Tu autobús lleva ${n} min pasada su hora prevista y no se ha confirmado aquí. Otros autobuses del horario, el más próximo primero:`,
+    lateIntro: (n: number) => `Tu autobús lleva ${n} min de retraso según el horario y no se ha confirmado aquí. Otros autobuses del horario, el más próximo primero:`,
     passedIntro: 'Indicaste que tu autobús pasó sin parar. Otros autobuses del horario, el más próximo primero:',
     cancelledIntro: 'NJ Transit canceló tu autobús. Otros autobuses del horario, el más próximo primero:',
     left: (n: number) => (n <= 0 ? 'Debe salir ahora' : n === 1 ? 'Queda 1 min para alcanzarlo' : `Quedan ${n} min para alcanzarlo`),

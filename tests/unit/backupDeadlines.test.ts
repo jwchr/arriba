@@ -39,6 +39,19 @@ describe('backup deadlines while waiting (issue #59)', () => {
     expect(r.backups.map((b) => b.option.dep.departs)).toEqual([...r.backups.map((b) => b.option.dep.departs)].sort((a, b) => a - b));
   });
 
+  it('lists the next departures in order, even a slow one that arrives after faster later buses', () => {
+    // Port Authority to W19: a 4:00 PM lock, at 4:12 PM. Expected: the next four listed departures.
+    const w19 = ds.stops.find((s) => s.id === 'W19')!;
+    const out = nextDepartures(ds, { stopId: pabt.id, toStopId: w19.id, routeIds: [] }, zonedWallTime(2026, 11, 4, 16, 0, TZ), 1)[0]!;
+    const at = zonedWallTime(2026, 11, 4, 16, 12, TZ);
+    const s = reduceBusSession(createBusSession(out, out.departs - 5 * MIN, 's'), { type: 'start_waiting', now: out.departs - 5 * MIN });
+    const r = backupDeadlines(ds, s, out.pattern.stopIds.indexOf(w19.id), at, 10);
+    if (!r.show) throw new Error('expected backups');
+    const expected = nextDepartures(ds, { stopId: pabt.id, toStopId: w19.id, routeIds: [] }, at, 10)
+      .filter((d) => d.departs >= at && d.tripInstanceId !== out.tripInstanceId).slice(0, 4).map((d) => d.departs);
+    expect(r.backups.map((b) => b.option.dep.departs)).toEqual(expected);
+  });
+
   it('shows at once after a pass-up, and never changes the lock', () => {
     const s = session({ type: 'passed_without_stopping', now: dep.departs + MIN });
     const r = backupDeadlines(ds, s, alight, dep.departs + 2 * MIN, 15);

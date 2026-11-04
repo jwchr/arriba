@@ -39,7 +39,9 @@ export function backupDeadlines(ds: Dataset, session: BusSession, alightIndex: n
   if (!passed && !cancelled && (now < dep.departs || lateMin < lateAfterMin)) return { show: false };
   const from = dep.pattern.stopIds[dep.stopIndex]!;
   const to = dep.pattern.stopIds[alightIndex]!;
-  const found = rescueOptions(ds, from, to, now, dep.route.id, MAX_BACKUPS + 2, BACKUP_HORIZON_MS).options;
+  // rescueOptions ranks by arrival; take them all and rank by departure here, so a slow trip that
+  // leaves soon is never cut before a faster later one.
+  const found = rescueOptions(ds, from, to, now, dep.route.id, Number.POSITIVE_INFINITY, BACKUP_HORIZON_MS).options;
   const backups = found
     .filter((o) => o.dep.tripInstanceId !== dep.tripInstanceId && o.dep.departs >= now && o.dep.departs <= now + BACKUP_HORIZON_MS)
     .sort((a, b) => a.dep.departs - b.dep.departs || a.arrives - b.arrives)

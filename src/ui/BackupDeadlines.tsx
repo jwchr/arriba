@@ -1,6 +1,6 @@
 // Backup buses while waiting (issue #59): shown once the locked bus is late past the rider's chosen
 // threshold, or passed them. A choice only: opening one never changes the Bus Lock.
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { backupDeadlines, DEFAULT_LATE, LATE_CHOICES, type LateChoice } from '../domain/backupDeadlines';
 import type { BusSession } from '../domain/busLock';
 import type { RescueOption } from '../domain/rescue';
@@ -25,7 +25,10 @@ export function BackupDeadlines({ ds, session, alightIndex, now, t, lang, gateTe
   const b = t.backupBuses;
   const [late, setLate] = useState(readLate);
   const choose = (n: LateChoice) => { setLate(n); try { window.localStorage.setItem(KEY, String(n)); } catch { /* not saved */ } };
-  const state = backupDeadlines(ds, session, alightIndex, now, late);
+  // Minutes left round down to whole minutes, so working it out once a minute is enough (the clock
+  // ticks every second during a lock). The session's own changes (reports, lock status) re-run it.
+  const minute = Math.floor(now / 60_000);
+  const state = useMemo(() => backupDeadlines(ds, session, alightIndex, minute * 60_000, late), [ds, session, alightIndex, minute, late]);
   const name = (id: string) => ds.stops.find((s) => s.id === id)?.name ?? id;
   const clock = (at: number, estimated: boolean) => `${estimated ? '~' : ''}${formatTime12(at, ds.meta.timezone, lang)}`;
   return (
@@ -36,7 +39,7 @@ export function BackupDeadlines({ ds, session, alightIndex, now, t, lang, gateTe
       </div>
       {state.show && <section aria-labelledby="backup-buses-heading">
         <h3 id="backup-buses-heading">{b.title}</h3>
-        <p className="small">{state.reason === 'cancelled' ? b.cancelledIntro : state.reason === 'passed' ? b.passedIntro : b.lateIntro(state.lateMin)}</p>
+        <p className="small" role="status">{state.reason === 'cancelled' ? b.cancelledIntro : state.reason === 'passed' ? b.passedIntro : b.lateIntro(state.lateMin)}</p>
         {!state.backups.length && <p className="warn small" role="note">{b.none}</p>}
         <ol className="rescue-list">
           {state.backups.map(({ option: o, minutesLeft }) => {
