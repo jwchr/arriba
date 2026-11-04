@@ -71,6 +71,11 @@ export function clockChangeBetween(from: number, to: number, timeZone: string): 
   return b < a ? 'back' : b > a ? 'ahead' : undefined;
 }
 
+/** Local wall-clock hour (0-23) of an instant, correct on clock-change days. */
+export function localHour(instant: number, timeZone: string): number {
+  return Number(formatter(`hour|${timeZone}`, 'en-US', { timeZone, hour: '2-digit', hourCycle: 'h23' }).format(new Date(instant))) % 24;
+}
+
 /** YYYYMMDD of the local calendar date of `instant` in `timeZone`. */
 export function localYmd(instant: number, timeZone: string): string {
   const s = formatter(`ymd|${timeZone}`, 'en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(instant));

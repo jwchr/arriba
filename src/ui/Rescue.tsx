@@ -3,7 +3,7 @@
 // no other way exists.
 import type { ReactNode } from 'react';
 import { rescueOptions, type RescueOption } from '../domain/rescue';
-import { formatTime12, localYmd } from '../domain/time';
+import { formatTime12, localHour, localYmd } from '../domain/time';
 import type { Dataset } from '../domain/types';
 import type { Lang, Strings } from './i18n';
 
@@ -55,7 +55,8 @@ export function Rescue({ ds, t, lang, now, fromStopId, homeStopId, usualRouteId,
                   {gate && <span className="dep-gate">{gate}</span>}
                 </span>
                 <span className="dep-right">
-                  {o.lastOnLine && <span className="tag">{o.lastUnconfirmed ? r.lastUnconfirmed : r.lastOnLine}</span>}
+                  {o.lastOnLine && <span className="tag">{o.lastUnconfirmed ? r.lastUnconfirmed
+                    : localHour(o.dep.departs, ds.meta.timezone) >= 4 && localHour(o.dep.departs, ds.meta.timezone) < 18 ? r.lastToday : r.lastOnLine}</span>}
                   {o.sameLine && !o.lastOnLine && <span className="muted small">{r.sameLine}</span>}
                   <span className="badge-sched">{t.scheduledOnly}</span>
                 </span>

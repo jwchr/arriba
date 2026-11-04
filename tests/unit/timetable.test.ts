@@ -400,3 +400,21 @@ describe('"Get me the fuck home" rescue search (issue #32)', () => {
     expect(rescueOptions(ds, 'NOPE', 'PABT', now).options).toEqual([]);
   });
 });
+
+describe('rescue wording', () => {
+  it('uses "la" for one o’clock and "las" otherwise in Spanish', () => {
+    const es = strings.es.rescue;
+    expect(es.scheduleOnly('1:30 AM', false)).toContain('hasta la 1:30 AM.');
+    expect(es.scheduleOnly('5:30 PM', true)).toContain('hasta las 5:30 PM, más el último');
+    expect(es.arrives('1:10 AM', 'X')).toBe('llega a la 1:10 AM a X');
+    expect(es.arrives('~11:05 PM', 'X')).toBe('llega a las ~11:05 PM a X');
+    expect(strings.en.rescue.scheduleOnly('5:30 PM', false)).not.toContain('last tonight');
+  });
+  it('reads the local hour correctly on a clock-change night', async () => {
+    const { localHour, zonedWallTime } = await import('../../src/domain/time');
+    expect(localHour(zonedWallTime(2026, 11, 1, 3, 0, TZ), TZ)).toBe(3);
+    expect(localHour(zonedWallTime(2027, 3, 14, 3, 30, TZ), TZ)).toBe(3);
+    expect(localHour(zonedWallTime(2026, 11, 4, 0, 15, TZ), TZ)).toBe(0);
+  });
+});
+
