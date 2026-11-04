@@ -473,9 +473,9 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
         {editing && leg && title !== fav.label && <p className="leg">{title}</p>}
         {/* One compact row of actions, so the next buses sit right under the signs. */}
         <div className="commute-controls">
-          {!editing && leg && !plan && !planning && <button ref={planButton} className="chip leave-set" onClick={() => setPlanning(true)}>⏱ {t.leave.set}</button>}
-          {!editing && leg && <button className="chip rescue-chip" onClick={() => onRescue(leg, to?.terminal ? 'other' : 'home', rows[0]?.d.route.id)}>{to?.terminal ? t.rescue.otherWays : t.rescue.title}</button>}
-          <button className="chip commute-reverse" aria-pressed={rev} onClick={onReverse}>⇄ {t.reverse}</button>
+          {!editing && leg && !plan && !planning && <button ref={planButton} className="chip leave-set" onClick={() => setPlanning(true)}><span aria-hidden="true">⏱ </span>{t.leave.set}</button>}
+          {!editing && leg && <button className="chip rescue-chip" onClick={() => onRescue(leg, to?.terminal ? 'other' : 'home', leg.routeIds.length === 1 ? leg.routeIds[0] : undefined)}>{to?.terminal ? t.rescue.otherWays : t.rescue.title}</button>}
+          <button className="chip commute-reverse" aria-pressed={rev} onClick={onReverse}><span aria-hidden="true">⇄ </span>{t.reverse}</button>
         </div>
       </div>
       {!leg && !editing ? <p className="warn" role="alert">{t.noReturnStop}</p> : editing ? (

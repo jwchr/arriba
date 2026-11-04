@@ -43,6 +43,8 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
+/* Keep a focused control from scrolling under the sticky header. */
+html { scroll-padding-top: 80px; }
 body { background: var(--backdrop); background-attachment: fixed; background-color: var(--bg); min-height: 100dvh; }
 body { font: 16px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-text-size-adjust: 100%; }
 button { font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; min-height: 44px; cursor: pointer; }
@@ -73,7 +75,11 @@ main { flex: 1; padding-bottom: 24px; }
 /* Riders who ask for less transparency, or a forced-colors mode, get plain solid surfaces. */
 @media (prefers-reduced-transparency: reduce) {
   body { background: var(--bg); }
-  .card, .top, .dep { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .card, .top, .dep, .commute-controls .chip:not([aria-pressed='true']) { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (forced-colors: active) {
+  body { background: Canvas; }
+  .card, .top, .dep { background: Canvas; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
 }
 .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .muted { color: var(--muted); }
