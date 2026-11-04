@@ -5,17 +5,20 @@ import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorit
 import { fareBetween } from '../domain/fare';
 import { gateFor, type GateAnswer } from '../domain/gate';
 import { isNjtHoliday } from '../domain/holidays';
-import { createLock, type TripLock } from '../domain/lock';
+import { createBusSession, reduceBusSession, type BusSession, type BusSessionEvent } from '../domain/busLock';
 import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule';
 import { addDays, clockChangeBetween, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
 import type { Dataset, Departure, Stop } from '../domain/types';
 import { strings, type Lang, type Strings } from './i18n';
 import { RiderGuide } from './RiderGuide';
 import { TicketGuide } from './TicketGuide';
+import { BusLockPanel } from './BusLockPanel';
+import { LastReturnCard } from './LastReturnCard';
 
 type Theme = 'system' | 'light' | 'dark';
 interface Settings { lang: Lang; theme: Theme; count: 3 | 5 }
 interface Leg { fromStopId: string; toStopId: string; routeIds: string[] }
+interface ActiveLock { dep: Departure; leg: Leg; session: BusSession }
 type Screen =
   | { name: 'home' }
   | { name: 'search' }
@@ -33,7 +36,7 @@ const readSettings = (): Settings => {
 };
 
 /** `?now=2026-11-04T07:50` pins the clock (New York wall time) for demos and tests. */
-function useNow(tz: string): number {
+function useNow(tz: string, intervalMs = 30_000): number {
   const pinned = useMemo(() => {
     const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(new URLSearchParams(location.search).get('now') ?? '');
     return m ? zonedWallTime(+m[1]!, +m[2]!, +m[3]!, +m[4]!, +m[5]!, tz) : undefined;
@@ -41,9 +44,9 @@ function useNow(tz: string): number {
   const [now, setNow] = useState(() => pinned ?? Date.now());
   useEffect(() => {
     if (pinned !== undefined) return;
-    const id = setInterval(() => setNow(Date.now()), 30_000);
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
     return () => clearInterval(id);
-  }, [pinned]);
+  }, [pinned, intervalMs]);
   return pinned ?? now;
 }
 
@@ -115,14 +118,27 @@ function LoadScreen({ failed, onRetry }: { failed: boolean; onRetry: () => void 
 
 function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | undefined; savedAt?: number | undefined }) {
   const tz = ds.meta.timezone;
-  const now = useNow(tz);
+  const [activeLock, setActiveLock] = useState<ActiveLock | undefined>();
+  const [demoAdvanceMs, setDemoAdvanceMs] = useState(0);
+  const [keepAwake, setKeepAwake] = useState(true);
+  const now = useNow(tz, activeLock ? 1000 : 30_000);
+  const lockNow = now + (ds.meta.demo ? demoAdvanceMs : 0);
   const [settings, setSettings] = useState<Settings>(readSettings);
   const [favorites, setFavorites] = useState<Favorite[]>(() => loadFavorites(store));
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
-  const [lock, setLock] = useState<TripLock | undefined>();
   const [reversedIds, setReversedIds] = useState<Set<string>>(() => new Set());
   const toggleReversed = (id: string) => setReversedIds((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const t = strings[settings.lang];
+
+  const lockOnScreen = screen.name === 'departure' && activeLock?.dep.tripInstanceId === screen.dep.tripInstanceId && activeLock.dep.stopIndex === screen.dep.stopIndex;
+  const lockEvent = (event: BusSessionEvent) => setActiveLock((current) => current ? { ...current, session: reduceBusSession(current.session, event) } : current);
+  useEffect(() => {
+    setActiveLock((current) => {
+      if (!current) return current;
+      const session = reduceBusSession(current.session, { type: 'tick', now: lockNow });
+      return session === current.session ? current : { ...current, session };
+    });
+  }, [lockNow]);
 
   useEffect(() => saveFavorites(store, favorites), [favorites]);
   useEffect(() => {
@@ -148,6 +164,11 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
       <FeedStatus ctx={ctx} />
       {ds.meta.transcribed && isNjtHoliday(localYmd(now, tz)) && <p className="status-line" data-level="warn" role="note">{t.holidayToday}</p>}
       <main>
+        {activeLock && !lockOnScreen && <aside className="lock-return">
+          <button className="primary wide" onClick={() => setScreen({ name: 'departure', dep: activeLock.dep, leg: activeLock.leg })}>
+            {t.busLock.resume} · {activeLock.dep.route.shortName} · {formatTime12(activeLock.dep.departs, tz, settings.lang)}
+          </button>
+        </aside>}
         {screen.name === 'home' && (
           <Home ctx={ctx} favorites={favorites} count={settings.count} setFavorites={setFavorites} reversedIds={reversedIds} toggleReversed={toggleReversed}
             onSearch={() => setScreen({ name: 'search' })}
@@ -163,9 +184,12 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
         )}
         {screen.name === 'departure' && (
           <DepartureDetail ctx={ctx} dep={screen.dep} leg={screen.leg}
-            lock={lock?.tripInstanceId === screen.dep.tripInstanceId ? lock : undefined}
-            onLock={() => setLock(createLock(screen.dep.tripInstanceId, now))}
-            onUnlock={() => setLock(undefined)} />
+            busSession={lockOnScreen ? activeLock?.session : undefined} anotherLock={!!activeLock && !lockOnScreen}
+            lockNow={lockNow} keepAwake={keepAwake} onKeepAwake={setKeepAwake} onLockEvent={lockEvent}
+            onAdvanceDemo={(minutes) => { if (ds.meta.demo) setDemoAdvanceMs((value) => value + minutes * 60_000); }}
+            onLock={() => { if (!activeLock) setActiveLock({ dep: screen.dep, leg: screen.leg, session: createBusSession(screen.dep, lockNow) }); }}
+            onReturn={(dep, leg) => setScreen({ name: 'departure', dep, leg })}
+            onUnlock={() => { setActiveLock(undefined); setDemoAdvanceMs(0); }} />
         )}
         {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} onGuide={() => setScreen({ name: 'guide' })} />}
         {screen.name === 'guide' && <RiderGuide t={t} />}
@@ -463,8 +487,11 @@ const gateLine = (t: Strings, g: GateAnswer) =>
       : g.status === 'published' ? `${t.gatePublished(g.gate, g.door)} · ${t.gateRuleTag}`
         : t.gateUnknown;
 
-function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
-  ctx: Ctx; dep: Departure; leg: Leg; lock?: TripLock; onLock: () => void; onUnlock: () => void;
+function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keepAwake, onKeepAwake, onLockEvent, onAdvanceDemo, onLock, onUnlock, onReturn }: {
+  ctx: Ctx; dep: Departure; leg: Leg; busSession?: BusSession; anotherLock: boolean; lockNow: number;
+  keepAwake: boolean; onKeepAwake: (value: boolean) => void; onLockEvent: (event: BusSessionEvent) => void;
+  onAdvanceDemo: (minutes: number) => void; onLock: () => void; onUnlock: () => void;
+  onReturn: (dep: Departure, leg: Leg) => void;
 }) {
   const { ds, t, stopName } = ctx;
   const times = tripStopTimes(ds, dep);
@@ -492,6 +519,8 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
       {alightNote && <p className="warn small" role="note">{alightNote}</p>}
       {ds.meta.transcribed && isNjtHoliday(dep.serviceDate) && <p className="warn small" role="note">{t.holidayOn}</p>}
       {clockChange && <p className="warn small" role="note">{clockChange === 'back' ? t.clockBackTrip : t.clockAheadTrip}</p>}
+      {busSession && <BusLockPanel ds={ds} session={busSession} now={lockNow} t={t} lang={ctx.lang}
+        keepAwake={keepAwake} onKeepAwake={onKeepAwake} onEvent={onLockEvent} onAdvanceDemo={onAdvanceDemo} onUnlock={onUnlock} />}
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>
         <div className="row-between">
@@ -504,6 +533,12 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
         <p className="muted small">{t.scheduledOnlyHelp}</p>
         {(dep.estimated || (alightIndex > dep.stopIndex && times[alightIndex]?.estimated)) && <p className="muted small">{t.estimatedNote}</p>}
       </div>
+
+      {!busSession && <div className="card">
+        {anotherLock ? <p className="small">{t.busLock.anotherLock}</p> : <button className="primary wide" onClick={onLock}>{t.lockBus}</button>}
+      </div>}
+
+      <LastReturnCard ds={ds} outbound={dep} toStopId={leg.toStopId} t={t} lang={ctx.lang} onOpen={onReturn} />
 
       {fare && ds.publishedFares && (
         <div className="card fare-card">
@@ -531,16 +566,6 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
       )}
 
       <TicketGuide t={t} defaultOpen={atPabt} />
-
-      <div className="card">
-        {lock ? (
-          <>
-            <h2>{t.lockedTitle}</h2>
-            <p className="lock-status" data-status={lock.status}>{t.lockStatus[lock.status]}</p>
-            <button onClick={onUnlock}>{t.unlockBus}</button>
-          </>
-        ) : <button className="primary wide" onClick={onLock}>{t.lockBus}</button>}
-      </div>
 
       <h2>{t.stops}</h2>
       <ol className="stop-list">

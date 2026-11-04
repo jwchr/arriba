@@ -122,6 +122,36 @@ main { flex: 1; padding-bottom: 24px; }
 .lock-status { font-weight: 700; }
 .lock-status[data-status='vanished'], .lock-status[data-status='needs_confirmation'] { color: var(--alert); }
 
+/* Bus Lock keeps actions reachable without confusing observed evidence with timetable progress. */
+.bus-lock { border: 2px solid var(--brand); overflow-wrap: anywhere; }
+.lock-heading { align-items: baseline; }
+.lock-heading h2 { margin: 0; font-size: 1.35rem; scroll-margin-top: 64px; }
+.lock-route { font-weight: 800; margin-top: 6px; }
+.lock-waiting { border-block: 1px solid var(--line); padding: 12px 0; margin: 12px 0; }
+.lock-phase { font-weight: 800; }
+.lock-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+.lock-actions button { min-height: 52px; white-space: normal; }
+.lock-toggle { display: flex; gap: 10px; align-items: center; min-height: 48px; font-size: 0.9rem; }
+.lock-toggle input { accent-color: var(--brand); width: 20px; height: 20px; flex-shrink: 0; }
+.lock-local { background: var(--bg); border-left: 3px solid var(--muted); padding: 8px 10px; margin-top: 10px; }
+.lock-facts { display: grid; grid-template-columns: 1fr 1.7fr; gap: 12px; margin: 12px 0; }
+.lock-facts dt { color: var(--muted); font-size: 0.8rem; }
+.lock-facts dd { margin: 4px 0 0; font-weight: 700; }
+.lock-location { border-left: 3px solid var(--brand); padding: 2px 10px; margin: 14px 0; }
+.lock-location h3 { font-size: 1rem; margin: 4px 0; }
+.coordinates { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.lock-estimate { border: 2px dashed var(--warn-ink); color: var(--warn-ink); background: var(--warn-bg); padding: 12px; border-radius: 10px; margin: 14px 0; }
+.lock-estimate-label { font-size: 0.75rem; font-weight: 900; letter-spacing: 0.04em; }
+.lock-history, .lock-demo { border-top: 1px solid var(--line); padding: 10px 0; }
+.lock-history summary, .lock-demo summary { cursor: pointer; min-height: 34px; font-weight: 700; }
+.lock-history ol { list-style: none; padding: 0; margin: 4px 0; max-height: 280px; overflow-y: auto; }
+.lock-history li { padding: 9px 0; border-bottom: 1px solid var(--line); }
+.lock-history li > span { display: block; color: var(--muted); font-size: 0.85rem; }
+.lock-return { margin-bottom: 10px; }
+@media (max-width: 360px) {
+  .lock-actions, .lock-facts { grid-template-columns: 1fr; }
+}
+
 .stop-list { list-style: none; padding: 0; margin: 0; border-left: 4px solid var(--brand); }
 .stop-list li { display: flex; gap: 10px; align-items: baseline; padding: 8px 0 8px 12px; position: relative; }
 .stop-list li[data-role='before'] { opacity: 0.5; }
@@ -164,3 +194,5 @@ main { flex: 1; padding-bottom: 24px; }
 .ticket-notes { padding-left: 1.4em; margin: 8px 0 0; }
 .ticket-notes li { margin: 6px 0; }
 .ticket-notes li::marker { font-weight: 800; color: var(--brand-text); }
+.last-return .return-time { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.last-return .return-option { margin-top: 1rem; }
