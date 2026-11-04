@@ -6,6 +6,7 @@ import { fareBetween } from '../domain/fare';
 import { gateFor, type GateAnswer } from '../domain/gate';
 import { isNjtHoliday } from '../domain/holidays';
 import { createBusSession, reduceBusSession, type BusSession, type BusSessionEvent } from '../domain/busLock';
+import { forgetLock, loadLock, saveLock, type SavedLock } from '../domain/lockStore';
 import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule';
 import { addDays, clockChangeBetween, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
 import type { Dataset, Departure, Stop } from '../domain/types';
@@ -122,6 +123,8 @@ function LoadScreen({ failed, onRetry }: { failed: boolean; onRetry: () => void 
 function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | undefined; savedAt?: number | undefined }) {
   const tz = ds.meta.timezone;
   const [activeLock, setActiveLock] = useState<ActiveLock | undefined>();
+  /** A lock saved on this phone before a refresh or close, offered back (never resumed silently). */
+  const [resumable, setResumable] = useState<SavedLock<Leg> | undefined>();
   const [demoAdvanceMs, setDemoAdvanceMs] = useState(0);
   const [keepAwake, setKeepAwake] = useState(true);
   const now = useNow(tz, activeLock ? 1000 : 30_000);
@@ -165,6 +168,9 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
   const toggleReversed = (id: string) => setReversedIds((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const t = strings[settings.lang];
 
+  // Offer a lock saved before the app was closed; keep the current lock saved on this phone as it changes.
+  useEffect(() => { setResumable(loadLock<Leg>(store, ds, now)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (activeLock) saveLock(store, ds, activeLock, now); }, [activeLock]); // eslint-disable-line react-hooks/exhaustive-deps
   const lockOnScreen = screen.name === 'departure' && activeLock?.dep.tripInstanceId === screen.dep.tripInstanceId && activeLock.dep.stopIndex === screen.dep.stopIndex;
   const lockEvent = (event: BusSessionEvent) => setActiveLock((current) => current ? { ...current, session: reduceBusSession(current.session, event) } : current);
   useEffect(() => {
@@ -199,6 +205,13 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
       <FeedStatus ctx={ctx} />
       {ds.meta.transcribed && isNjtHoliday(localYmd(now, tz)) && <p className="status-line" data-level="warn" role="note">{t.holidayToday}</p>}
       <main>
+        {resumable && !activeLock && <aside className="lock-return" role="note">
+          <p>{t.busLock.resumePrompt(formatTime12(resumable.dep.departs, tz, settings.lang), resumable.dep.route.shortName, stopName(resumable.dep.pattern.stopIds[resumable.dep.stopIndex]!))}</p>
+          <div className="row-between">
+            <button className="primary" onClick={() => { setActiveLock({ dep: resumable.dep, leg: resumable.leg, session: resumable.session }); setScreen({ name: 'departure', dep: resumable.dep, leg: resumable.leg }); setResumable(undefined); }}>{t.busLock.resumeYes}</button>
+            <button onClick={() => { forgetLock(store); setResumable(undefined); }}>{t.busLock.resumeNo}</button>
+          </div>
+        </aside>}
         {activeLock && !lockOnScreen && <aside className="lock-return">
           <button className="primary wide" onClick={() => setScreen({ name: 'departure', dep: activeLock.dep, leg: activeLock.leg })}>
             {t.busLock.resume} · {activeLock.dep.route.shortName} · {formatTime12(activeLock.dep.departs, tz, settings.lang)}
@@ -223,11 +236,11 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             busSession={lockOnScreen ? activeLock?.session : undefined} anotherLock={!!activeLock && !lockOnScreen}
             lockNow={lockNow} keepAwake={keepAwake} onKeepAwake={setKeepAwake} onLockEvent={lockEvent}
             onAdvanceDemo={(minutes) => { if (ds.meta.demo) setDemoAdvanceMs((value) => value + minutes * 60_000); }}
-            onLock={() => { if (!activeLock) setActiveLock({ dep: screen.dep, leg: screen.leg, session: createBusSession(screen.dep, lockNow) }); }}
+            onLock={() => { if (!activeLock) { setResumable(undefined); setActiveLock({ dep: screen.dep, leg: screen.leg, session: createBusSession(screen.dep, lockNow) }); } }}
             onReturn={(dep, leg) => setScreen({ name: 'departure', dep, leg })}
             onRescue={() => setScreen({ name: 'rescue', fromStopId: screen.leg.fromStopId, homeStopId: screen.leg.toStopId, usualRouteId: screen.dep.route.id,
               label: ds.stops.find((s) => s.id === screen.leg.toStopId)?.terminal ? 'other' : 'home' })}
-            onUnlock={() => { setActiveLock(undefined); setDemoAdvanceMs(0); }} />
+            onUnlock={() => { setActiveLock(undefined); forgetLock(store); setDemoAdvanceMs(0); }} />
         )}
         {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} onGuide={() => setScreen({ name: 'guide' })} />}
         {screen.name === 'guide' && <RiderGuide t={t} />}
