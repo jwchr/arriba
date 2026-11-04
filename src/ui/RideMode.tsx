@@ -3,6 +3,7 @@
 // what it cannot know, with scheduled times labeled as timetable. Foreground only: no background alerts.
 import { useEffect, useState } from 'react';
 import type { BusSession, BusSessionEvent } from '../domain/busLock';
+import { distanceM } from '../domain/direction';
 import { rideGuide, STAGE_RANK, type RideStage } from '../domain/rideGuide';
 import { tripStopTimes } from '../domain/schedule';
 import { formatTime12 } from '../domain/time';
@@ -75,14 +76,19 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
   const after = guide.basis === 'gps' ? guide.reachedIndex : dep.stopIndex;
   const upcoming = times.map((x, i) => ({ ...x, i })).filter((x) => x.i > after && x.i <= alightIndex);
 
-  // Invented demo only: a minute later, the simulated bus reports from the next stop's coordinates.
+  // Invented demo only: the simulated bus reports from the next stop's coordinates after the time a bus
+  // would take at about 10 m/s, so the ride guide's speed check sees a believable trip.
   function demoNextStop() {
     if (!ds.meta.demo) return;
-    const next = guide && guide.basis === 'gps' ? guide.reachedIndex + 1 : dep.stopIndex + 1;
-    const stop = ds.stops.find((s) => s.id === dep.pattern.stopIds[Math.min(next, alightIndex)]);
+    const from = guide && guide.basis === 'gps' ? guide.reachedIndex : dep.stopIndex;
+    const next = Math.min(from + 1, alightIndex);
+    const a = ds.stops.find((s) => s.id === dep.pattern.stopIds[from]);
+    const stop = ds.stops.find((s) => s.id === dep.pattern.stopIds[next]);
     if (stop?.lat === undefined || stop.lon === undefined) return;
-    const later = now + 60_000;
-    onAdvanceDemo(1);
+    const metres = a?.lat !== undefined && a.lon !== undefined ? distanceM({ lat: a.lat, lon: a.lon }, { lat: stop.lat, lon: stop.lon }) : 600;
+    const minutes = Math.max(1, Math.ceil(metres / 10 / 60));
+    const later = now + minutes * 60_000;
+    onAdvanceDemo(minutes);
     onEvent({ type: 'observation', obs: { tripInstanceId: dep.tripInstanceId, vehicleId: session.lock.vehicleId ?? 'DEMO-BUS', observedAt: later, lat: stop.lat, lon: stop.lon }, source: 'demo', receivedAt: later });
   }
 
