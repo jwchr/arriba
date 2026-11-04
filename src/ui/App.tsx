@@ -369,6 +369,27 @@ function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed
 // Only remove the dataset's trailing direction hint, never place names or other parentheses.
 const stopPlace = (name: string): string => name.replace(/\s+\(to [^)]+\)$/i, '');
 
+// The printed dataset explicitly uses "Town (landmark) - stop"; other sources keep their full place name.
+function commutePlace(stop: Stop | undefined, name: string, printed: boolean, t: Strings): { name: string; detail: string } {
+  if (stop?.terminal === 'PABT') return { name: t.commuteNewYork, detail: t.commutePabt };
+  const place = stopPlace(name);
+  const split = printed ? place.indexOf(' - ') : -1;
+  if (split < 1) return { name: place, detail: '' };
+  const town = place.slice(0, split);
+  const landmark = /^(.+?)\s+(\([^()]+\))$/.exec(town);
+  return { name: landmark?.[1] ?? town, detail: `${landmark ? `${landmark[2]} · ` : ''}${place.slice(split + 3)}` };
+}
+
+function HighwayPlace({ place, label, end }: { place: { name: string; detail: string }; label: string; end: 'from' | 'to' }) {
+  return <div className="commute-place" data-end={end}>
+    <div className="highway-sign">
+      <span className="highway-label">{label}</span>
+      <strong className="highway-name">{place.name}</strong>
+    </div>
+    {place.detail && <p className="commute-stop">{place.detail}</p>}
+  </div>;
+}
+
 function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, onMove, onRemove, onRename, onAllDay, onDeparture }: {
   ctx: Ctx; fav: Favorite; count: number; editing: boolean; rev: boolean; onReverse: () => void; first: boolean; last: boolean;
   onMove: (d: -1 | 1) => void; onRemove: () => void; onRename: (s: string) => void;
@@ -385,27 +406,28 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
   const fromId = leg?.fromStopId ?? (rev ? fav.toStopId : fav.fromStopId);
   const from = ds.stops.find((s) => s.id === fromId);
   const to = leg && ds.stops.find((s) => s.id === leg.toStopId);
-  const origin = from?.terminal === 'PABT' ? t.commutePabt : stopPlace(stopName(fromId));
-  const heading = customName ? fav.label : origin;
-  const destination = leg && (to?.terminal === 'PABT' ? t.commuteToPabt : t.commuteTo(stopPlace(stopName(leg.toStopId))));
+  const origin = commutePlace(from, stopName(fromId), !!ds.meta.transcribed, t);
+  const destination = leg && commutePlace(to, stopName(leg.toStopId), !!ds.meta.transcribed, t);
   const fullLeg = title || `${stopName(fromId)} → ${stopName(rev ? fav.fromStopId : fav.toStopId)}`;
   return (
     <article className="card fav" aria-label={customName ? `${fav.label}: ${fullLeg}` : fullLeg}>
       <div className="commute-header">
-        <div className={editing ? 'commute-edit' : 'commute-sign'}>
-          {editing ? (
+        {editing ? (
+          <div className="commute-edit">
             <label className="rename">{t.rename}
               <input defaultValue={fav.label} onBlur={(e) => onRename(e.currentTarget.value)} />
             </label>
-          ) : <>
-            {!customName && <p className="commute-sign-label">{t.commuteFrom}</p>}
-            <h2 className="commute-led">{heading}</h2>
-          </>}
-        </div>
+          </div>
+        ) : <>
+          {customName ? <div className="commute-sign"><h2 className="commute-led">{fav.label}</h2></div>
+            : <h2 className="sr-only">{fullLeg}</h2>}
+          <div className="commute-places">
+            <HighwayPlace place={origin} label={t.commuteFrom} end="from" />
+            {destination && <HighwayPlace place={destination} label={t.commuteToLabel} end="to" />}
+          </div>
+        </>}
         {editing && leg && title !== fav.label && <p className="leg">{title}</p>}
-        {!editing && customName && <p className="leg commute-origin">{t.commuteFrom} {origin}</p>}
         <div className="commute-controls">
-          {!editing && destination && <p className="commute-direction"><span aria-hidden="true">→ </span>{destination}</p>}
           <button className="chip commute-reverse" aria-pressed={rev} onClick={onReverse}>⇄ {t.reverse}</button>
         </div>
       </div>
