@@ -229,7 +229,7 @@ test('a lock survives a reload: offered back, never resumed silently, original t
   await page.locator('.dep').first().click();
   await page.getByRole('button', { name: 'Lock onto this bus' }).click();
   await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
-  await expect(page.locator('.bus-lock')).toContainText('kept on this phone, so closing Dale does not lose them');
+  await expect(page.locator('.bus-lock')).toContainText('kept on this phone until you unlock or end the ride');
 
   await page.reload();
   const offer = page.locator('.lock-return[role="note"]');
