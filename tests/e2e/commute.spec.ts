@@ -663,15 +663,19 @@ test.describe('saved backup plans (issue #62)', () => {
     await box.getByLabel('Plan', { exact: true }).fill('Take the 167 to Hackensack, Diego picks me up');
     await box.getByRole('button', { name: 'Save' }).click();
     await expect(box.locator('.backup-plan')).toHaveText('Take the 167 to Hackensack, Diego picks me up');
+    await expect(box.getByRole('button', { name: 'Edit' })).toBeFocused();
     await expect(box.locator('.backup-note')).toHaveText('Text Diego first.\nWait inside.');
 
     // Removing asks first.
     await box.getByRole('button', { name: 'Remove' }).click();
+    await expect(box.getByRole('button', { name: 'Yes, remove' })).toBeFocused();
     await box.getByRole('button', { name: 'Keep it' }).click();
     await expect(box.locator('.backup')).toHaveCount(1);
+    await expect(box.getByRole('button', { name: 'Remove' })).toBeFocused();
     await box.getByRole('button', { name: 'Remove' }).click();
     await box.getByRole('button', { name: 'Yes, remove' }).click();
     await expect(box.locator('.backup')).toHaveCount(0);
+    await expect(box.getByRole('button', { name: 'Add a backup plan' })).toBeFocused();
     await expect(box).toContainText('Write down what you would do if the bus never comes');
   });
 });

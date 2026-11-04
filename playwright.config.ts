@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // PW_PORT gives each concurrent run (another session, a reviewer's worktree) its own preview server,
-// so a run never tests another branch's build. Reuse only when asked (PW_REUSE=1), e.g. a dev loop.
-const port = Number(process.env.PW_PORT ?? 4173);
+// so a run never tests another branch's build. Reuse only when asked (PW_REUSE=1), e.g. while
+// `npm run preview` is already running on that port; otherwise a busy port fails the run.
+const port = Number.parseInt(process.env.PW_PORT ?? '', 10) || 4173;
 
 export default defineConfig({
   testDir: 'tests/e2e',

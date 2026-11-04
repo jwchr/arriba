@@ -321,7 +321,7 @@ const en = {
     empty: 'Write down what you would do if the bus never comes: another route, a place someone can pick you up, who to call.',
     add: 'Add a backup plan',
     planLabel: 'Plan',
-    planExample: 'Take the 167 to Hackensack, get picked up there',
+    planHint: 'For example: another way to a place near home, or someone who can pick you up there.',
     placeLabel: 'Drop-off or pickup place (optional)',
     noteLabel: 'Notes (optional)',
     placeIs: (place: string) => `Drop-off or pickup: ${place}`,
@@ -334,6 +334,7 @@ const en = {
     yesRemove: 'Yes, remove',
     keep: 'Keep it',
     local: 'Kept on this phone only. Not shared or uploaded.',
+    notSaved: 'This browser is not letting Dale save, so these plans last only until you close the page. Not shared or uploaded.',
   },
   lastReturn: {
     leavesIn: (h: number, m: number) => `Leaves in ${h ? `${h} h ` : ''}${m} min (scheduled).`,
@@ -787,7 +788,7 @@ const es: Strings = {
     empty: 'Anota qué harías si el autobús nunca llega: otra ruta, un lugar donde alguien te pueda recoger, a quién llamar.',
     add: 'Agregar un plan de respaldo',
     planLabel: 'Plan',
-    planExample: 'Tomar el 167 a Hackensack y que me recojan ahí',
+    planHint: 'Por ejemplo: otra manera de llegar a un lugar cerca de casa, o alguien que pueda recogerte ahí.',
     placeLabel: 'Lugar para bajarte o que te recojan (opcional)',
     noteLabel: 'Notas (opcional)',
     placeIs: (place: string) => `Para bajarte o que te recojan: ${place}`,
@@ -800,6 +801,7 @@ const es: Strings = {
     yesRemove: 'Sí, quitarlo',
     keep: 'Conservarlo',
     local: 'Se guarda solo en este teléfono. No se comparte ni se sube.',
+    notSaved: 'Este navegador no deja que Dale guarde, así que estos planes duran solo hasta que cierres la página. No se comparten ni se suben.',
   },
   lastReturn: {
     leavesIn: (h: number, m: number) => `Sale en ${h ? `${h} h ` : ''}${m} min (según el horario).`,

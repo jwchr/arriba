@@ -5,6 +5,8 @@ import { cleanBackupPlan, loadBackupPlans, MAX_NOTE, MAX_PLACE, MAX_PLAN, MAX_PL
 import type { Strings } from './i18n';
 
 const store = (() => { try { return window.localStorage; } catch { return undefined; } })();
+/** Whether this browser actually lets Dale save (private modes and blocked site data may not). */
+const canStore = (() => { try { store?.setItem('arriba.probe', '1'); store?.removeItem('arriba.probe'); return !!store; } catch { return false; } })();
 
 export function BackupPlans({ t }: { t: Strings }) {
   const b = t.backups;
@@ -12,18 +14,27 @@ export function BackupPlans({ t }: { t: Strings }) {
   // 'new', a plan id being edited, or undefined when no form is open.
   const [editing, setEditing] = useState<string | undefined>();
   const [confirming, setConfirming] = useState<string | undefined>();
-  const addButton = useRef<HTMLButtonElement>(null);
   const update = (fn: (l: BackupPlan[]) => BackupPlan[]) => setPlans((l) => { const next = fn(l); saveBackupPlans(store, next); return next; });
-  const close = () => { setEditing(undefined); requestAnimationFrame(() => addButton.current?.focus()); };
+  // Every action says where focus goes next; the effect moves it once the new controls exist.
+  const root = useRef<HTMLElement>(null);
+  const [focusNext, setFocusNext] = useState<string | undefined>();
+  useEffect(() => {
+    if (!focusNext) return;
+    const el = root.current?.querySelector<HTMLElement>(`[data-focus="${CSS.escape(focusNext)}"]`) ?? root.current?.querySelector<HTMLElement>('[data-focus="heading"]');
+    el?.focus();
+    setFocusNext(undefined);
+  }, [focusNext]);
+  const closeNew = () => { setEditing(undefined); setFocusNext('add'); };
+  const closeEdit = (id: string) => { setEditing(undefined); setFocusNext(`edit-${id}`); };
 
   return (
-    <section className="card backups" aria-labelledby="backups-heading">
-      <h2 id="backups-heading">{b.title}</h2>
+    <section className="card backups" aria-labelledby="backups-heading" ref={root}>
+      <h2 id="backups-heading" tabIndex={-1} data-focus="heading">{b.title}</h2>
       <p className="muted small" role="note">{b.notDale}</p>
       {!plans.length && editing === undefined && <p className="small">{b.empty}</p>}
       <ol className="backup-list">
         {plans.map((p) => editing === p.id
-          ? <li key={p.id}><PlanForm t={t} plan={p} onSave={(np) => { update((l) => upsertBackupPlan(l, np)); close(); }} onCancel={close} /></li>
+          ? <li key={p.id}><PlanForm t={t} plan={p} onSave={(np) => { update((l) => upsertBackupPlan(l, np)); closeEdit(p.id); }} onCancel={() => closeEdit(p.id)} /></li>
           : <li key={p.id} className="backup">
             <p className="backup-plan">{p.plan}</p>
             {p.place && <p className="small">{b.placeIs(p.place)}</p>}
@@ -31,19 +42,19 @@ export function BackupPlans({ t }: { t: Strings }) {
             {confirming === p.id
               ? <div className="edit-row" role="group" aria-label={b.confirmRemove}>
                 <span className="small">{b.confirmRemove}</span>
-                <button className="danger" onClick={() => { update((l) => removeBackupPlan(l, p.id)); setConfirming(undefined); requestAnimationFrame(() => addButton.current?.focus()); }}>{b.yesRemove}</button>
-                <button className="ghost" onClick={() => setConfirming(undefined)}>{b.keep}</button>
+                <button className="danger" data-focus={`yes-${p.id}`} onClick={() => { update((l) => removeBackupPlan(l, p.id)); setConfirming(undefined); setFocusNext('add'); }}>{b.yesRemove}</button>
+                <button className="ghost" onClick={() => { setConfirming(undefined); setFocusNext(`remove-${p.id}`); }}>{b.keep}</button>
               </div>
               : <div className="edit-row">
-                <button className="ghost" onClick={() => { setConfirming(undefined); setEditing(p.id); }}>{b.edit}</button>
-                <button className="ghost" onClick={() => setConfirming(p.id)}>{b.remove}</button>
+                <button className="ghost" data-focus={`edit-${p.id}`} onClick={() => { setConfirming(undefined); setEditing(p.id); }}>{b.edit}</button>
+                <button className="ghost" data-focus={`remove-${p.id}`} onClick={() => { setConfirming(p.id); setFocusNext(`yes-${p.id}`); }}>{b.remove}</button>
               </div>}
           </li>)}
       </ol>
       {editing === 'new'
-        ? <PlanForm t={t} onSave={(np) => { update((l) => upsertBackupPlan(l, np)); close(); }} onCancel={close} />
-        : plans.length < MAX_PLANS && <button ref={addButton} className="ghost" onClick={() => setEditing('new')}>＋ {b.add}</button>}
-      <p className="muted small">{b.local}</p>
+        ? <PlanForm t={t} onSave={(np) => { update((l) => upsertBackupPlan(l, np)); closeNew(); }} onCancel={closeNew} />
+        : plans.length < MAX_PLANS && <button data-focus="add" className="ghost" onClick={() => setEditing('new')}>＋ {b.add}</button>}
+      <p className="muted small" role={canStore ? undefined : 'note'}>{canStore ? b.local : b.notSaved}</p>
     </section>
   );
 }
@@ -55,6 +66,7 @@ function PlanForm({ t, plan, onSave, onCancel }: { t: Strings; plan?: BackupPlan
   const [note, setNote] = useState(plan?.note ?? '');
   const [bad, setBad] = useState(false);
   const errorId = useId();
+  const hintId = useId();
   const first = useRef<HTMLInputElement>(null);
   useEffect(() => { first.current?.focus(); }, []);
   function save() {
@@ -64,7 +76,8 @@ function PlanForm({ t, plan, onSave, onCancel }: { t: Strings; plan?: BackupPlan
   }
   return (
     <div className="backup-form">
-      <label>{b.planLabel}<input ref={first} value={text} maxLength={MAX_PLAN} placeholder={b.planExample} aria-invalid={bad || undefined} aria-describedby={bad ? errorId : undefined} onChange={(e) => setText(e.currentTarget.value)} /></label>
+      <label>{b.planLabel}<input ref={first} value={text} maxLength={MAX_PLAN} aria-invalid={bad || undefined} aria-describedby={bad ? `${hintId} ${errorId}` : hintId} onChange={(e) => setText(e.currentTarget.value)} /></label>
+      <p className="muted small" id={hintId}>{b.planHint}</p>
       <label>{b.placeLabel}<input value={place} maxLength={MAX_PLACE} onChange={(e) => setPlace(e.currentTarget.value)} /></label>
       <label>{b.noteLabel}<textarea value={note} maxLength={MAX_NOTE} rows={3} onChange={(e) => setNote(e.currentTarget.value)} /></label>
       {bad && <p className="warn small" role="alert" id={errorId}>{b.needPlan}</p>}
