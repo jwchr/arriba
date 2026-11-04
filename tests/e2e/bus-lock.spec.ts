@@ -449,3 +449,52 @@ test('missed stop / wrong bus: the rider says where they are and gets scheduled 
   await expect(page.locator('#root')).not.toHaveAttribute('inert', '');
   await expect(page.getByText('Another trip is locked. Return to it and unlock before choosing a different bus.')).toBeVisible();
 });
+
+test('report history: last week’s own reports show for the same bus, labeled as past, and can be cleared', async ({ page }) => {
+  // Last Wednesday: the rider waits, the bus arrives, and they say there were seats.
+  await page.goto('/?now=2026-10-28T06:10');
+  await page.getByRole('button', { name: 'Find a stop' }).first().click();
+  await page.getByRole('searchbox').fill('irvington');
+  await page.getByRole('button', { name: /Irvington St\. \(to New York\)/ }).click();
+  await page.getByRole('button', { name: /Port Authority Bus Terminal/ }).click();
+  await page.getByRole('button', { name: 'Save to my commutes' }).click();
+  await page.locator('.dep').first().click();
+  await expect(page.locator('.past-reports')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Lock onto this bus' }).click();
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await page.locator('.lock-capacity .chip').first().click();
+  await expect(page.locator('.lock-capacity .chip').first()).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('arriba.history.v1') ?? '')).toContain('"capacity":"seats"');
+  // Today's ride is never shown as past.
+  await expect(page.locator('.past-reports')).toHaveCount(0);
+
+  // A week later, the same scheduled bus.
+  await page.goto('/?now=2026-11-04T06:10');
+  await page.locator('.dep').first().click();
+  const card = page.locator('.past-reports');
+  await expect(card.getByRole('heading', { name: 'Your past reports for this bus' })).toBeVisible();
+  await expect(card).toContainText('What you reported for this scheduled bus at this stop on weekdays: 1 past ride, 10/28/2026.');
+  await expect(card).toContainText('You pressed "Bus arrived" once, 4 min before the scheduled time.');
+  await expect(card).toContainText('How full it looked to you: seats 1, standing room 0, full 0.');
+  await expect(card).toContainText("not today's bus, not NJ Transit data, and not shared");
+  expect(await page.evaluate(() => localStorage.getItem('arriba.history.v1'))).not.toMatch(/lat|lon/);
+
+  // Settings: how many are kept, and clearing asks first.
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByText(/^2 reports from your past rides kept on this phone/)).toBeVisible();
+  await page.getByRole('button', { name: 'Clear my report history' }).click();
+  await page.getByRole('button', { name: 'Keep them' }).click();
+  await page.getByRole('button', { name: 'Clear my report history' }).click();
+  await page.getByRole('button', { name: 'Yes, clear' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Your report history is cleared.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page.locator('.past-reports')).toHaveCount(0);
+});
+
+test('report history is never kept from the invented demo', async ({ page }) => {
+  await selectDemoTrip(page);
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  expect(await page.evaluate(() => localStorage.getItem('arriba.history.v1'))).toBeNull();
+});

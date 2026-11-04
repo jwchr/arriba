@@ -367,6 +367,30 @@ const en = {
     startOver: 'Start over',
     close: 'Close',
   },
+  history: {
+    title: 'Your past reports for this bus',
+    dayType: { weekday: 'on weekdays', saturday: 'on Saturdays', sunday: 'on Sundays' } as Record<'weekday' | 'saturday' | 'sunday', string>,
+    basis: (days: string, rides: number, first: string, last: string) =>
+      `What you reported for this scheduled bus at this stop ${days}: ${rides} past ride${rides === 1 ? '' : 's'}, ${first === last ? first : `${first} to ${last}`}.`,
+    arrived: (count: number, median: number, min: number, max: number) => {
+      const rel = (n: number) => (n === 0 ? 'at the scheduled time' : n > 0 ? `${n} min after the scheduled time` : `${-n} min before the scheduled time`);
+      const short = (n: number) => (n === 0 ? 'the scheduled time' : n > 0 ? `${n} min after` : `${-n} min before`);
+      return count === 1 ? `You pressed "Bus arrived" once, ${rel(median)}.`
+        : `You pressed "Bus arrived" ${count} times: typically ${rel(median)}${min === max ? '' : ` (from ${short(min)} to ${short(max)})`}.`;
+    },
+    noBus: (n: number) => `You reported no bus yet ${n === 1 ? 'once' : `${n} times`}.`,
+    passed: (n: number) => `It passed you without stopping ${n === 1 ? 'once' : `${n} times`}.`,
+    capacity: (seats: number, standing: number, full: number) => `How full it looked to you: seats ${seats}, standing room ${standing}, full ${full}.`,
+    few: 'Only a few rides so far: too few to show a pattern.',
+    note: "Past personal observations kept on this phone: not today's bus, not NJ Transit data, and not shared.",
+    settingsTitle: 'Your report history',
+    count: (n: number) => `${n} report${n === 1 ? '' : 's'} from your past rides kept on this phone for up to 180 days. Not shared or uploaded.`,
+    clear: 'Clear my report history',
+    confirm: 'Clear all your past reports from this phone?',
+    yes: 'Yes, clear',
+    no: 'Keep them',
+    cleared: 'Your report history is cleared.',
+  },
   lastReturn: {
     leavesIn: (h: number, m: number) => `Leaves in ${h ? `${h} h ` : ''}${m} min (scheduled).`,
     alreadyLeft: 'This listed trip has already left.',
@@ -864,6 +888,30 @@ const es: Strings = {
     keep: 'Tu parada sigue siendo la misma y tu Bus Lock no cambia. Solo horarios; Dale no puede ver dónde estás.',
     startOver: 'Empezar de nuevo',
     close: 'Cerrar',
+  },
+  history: {
+    title: 'Tus reportes anteriores de este autobús',
+    dayType: { weekday: 'entre semana', saturday: 'los sábados', sunday: 'los domingos' } as Record<'weekday' | 'saturday' | 'sunday', string>,
+    basis: (days: string, rides: number, first: string, last: string) =>
+      `Lo que reportaste de este autobús del horario en esta parada ${days}: ${rides} ${rides === 1 ? 'viaje anterior' : 'viajes anteriores'}, ${first === last ? first : `del ${first} al ${last}`}.`,
+    arrived: (count: number, median: number, min: number, max: number) => {
+      const rel = (n: number) => (n === 0 ? 'a la hora prevista' : n > 0 ? `${n} min después de la hora prevista` : `${-n} min antes de la hora prevista`);
+      const short = (n: number) => (n === 0 ? 'la hora prevista' : n > 0 ? `${n} min después` : `${-n} min antes`);
+      return count === 1 ? `Marcaste «Llegó el autobús» una vez, ${rel(median)}.`
+        : `Marcaste «Llegó el autobús» ${count} veces: por lo general ${rel(median)}${min === max ? '' : ` (de ${short(min)} a ${short(max)})`}.`;
+    },
+    noBus: (n: number) => `Reportaste que no había llegado ${n === 1 ? 'una vez' : `${n} veces`}.`,
+    passed: (n: number) => `Pasó sin parar ${n === 1 ? 'una vez' : `${n} veces`}.`,
+    capacity: (seats: number, standing: number, full: number) => `Qué tan lleno te pareció: con asientos ${seats}, de pie ${standing}, lleno ${full}.`,
+    few: 'Todavía son pocos viajes: muy pocos para ver un patrón.',
+    note: 'Observaciones personales anteriores guardadas en este teléfono: no son del autobús de hoy, no son datos de NJ Transit y no se comparten.',
+    settingsTitle: 'Tu historial de reportes',
+    count: (n: number) => `${n} ${n === 1 ? 'reporte' : 'reportes'} de tus viajes anteriores, guardados en este teléfono hasta 180 días. No se comparten ni se suben.`,
+    clear: 'Borrar mi historial de reportes',
+    confirm: '¿Borrar todos tus reportes anteriores de este teléfono?',
+    yes: 'Sí, borrar',
+    no: 'Conservarlos',
+    cleared: 'Tu historial de reportes está borrado.',
   },
   lastReturn: {
     leavesIn: (h: number, m: number) => `Sale en ${h ? `${h} h ` : ''}${m} min (según el horario).`,

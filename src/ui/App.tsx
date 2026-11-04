@@ -8,6 +8,7 @@ import { gateFor, type GateAnswer } from '../domain/gate';
 import { isNjtHoliday } from '../domain/holidays';
 import { createBusSession, reduceBusSession, type BusSession, type BusSessionEvent } from '../domain/busLock';
 import { forgetLock, loadLock, saveLock, type SavedLock } from '../domain/lockStore';
+import { clearHistory, loadHistory, recordSession, summarize, type PastReport } from '../domain/reportHistory';
 import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule';
 import { addDays, clockChangeBetween, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
 import type { Dataset, Departure, Stop } from '../domain/types';
@@ -20,6 +21,7 @@ import { RiderGuide } from './RiderGuide';
 import { TicketGuide } from './TicketGuide';
 import { BusLockPanel } from './BusLockPanel';
 import { LastReturnCard } from './LastReturnCard';
+import { PastReports } from './PastReports';
 
 type Theme = 'system' | 'light' | 'dark';
 interface Settings { lang: Lang; theme: Theme; count: 3 | 5 }
@@ -188,6 +190,12 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
     });
   }, [lockNow]);
 
+  // The rider's own reports, kept on this phone across rides (issue #57); never for the demo.
+  const [pastReports, setPastReports] = useState<PastReport[]>(() => loadHistory(store, Date.now()));
+  useEffect(() => {
+    if (!activeLock || ds.meta.demo) return;
+    setPastReports((h) => { const next = recordSession(store, ds, activeLock.session, lockNow); return next.length === h.length ? h : next; });
+  }, [activeLock?.session.reports]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => saveFavorites(store, favorites), [favorites]);
   useEffect(() => {
     try { store?.setItem('arriba.settings.v1', JSON.stringify(settings)); } catch { /* ignore */ }
@@ -239,7 +247,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             onDeparture={(dep) => setScreen({ name: 'departure', dep, leg: screen.leg })} />
         )}
         {screen.name === 'departure' && (
-          <DepartureDetail ctx={ctx} dep={screen.dep} leg={screen.leg}
+          <DepartureDetail ctx={ctx} dep={screen.dep} leg={screen.leg} pastReports={pastReports}
             busSession={lockOnScreen ? activeLock?.session : undefined} anotherLock={!!activeLock && !lockOnScreen}
             lockNow={lockNow} keepAwake={keepAwake} onKeepAwake={setKeepAwake} onLockEvent={lockEvent}
             onAdvanceDemo={(minutes) => { if (ds.meta.demo) setDemoAdvanceMs((value) => value + minutes * 60_000); }}
@@ -251,7 +259,8 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
               label: ds.stops.find((s) => s.id === screen.leg.toStopId)?.terminal ? 'other' : 'home' })}
             onUnlock={() => { setActiveLock(undefined); if (!ds.meta.demo) forgetLock(store); setDemoAdvanceMs(0); }} />
         )}
-        {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} onGuide={() => setScreen({ name: 'guide' })} />}
+        {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} onGuide={() => setScreen({ name: 'guide' })}
+          historyCount={pastReports.length} onClearHistory={() => { clearHistory(store); setPastReports([]); }} />}
         {screen.name === 'guide' && <RiderGuide t={t} />}
         {screen.name === 'boarding' && (
           <BoardingCheck ds={ds} dep={screen.dep} toStopId={screen.leg.toStopId} t={t} lang={settings.lang}
@@ -681,8 +690,8 @@ const gateLine = (t: Strings, g: GateAnswer) =>
       : g.status === 'published' ? `${t.gatePublished(g.gate, g.door)} · ${t.gateRuleTag}`
         : t.gateUnknown;
 
-function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keepAwake, onKeepAwake, onLockEvent, onAdvanceDemo, onLock, onUnlock, onReturn, onRescue, onBoarding, onOpenBackup }: {
-  ctx: Ctx; dep: Departure; leg: Leg; busSession?: BusSession; anotherLock: boolean; lockNow: number;
+function DepartureDetail({ ctx, dep, leg, pastReports, busSession, anotherLock, lockNow, keepAwake, onKeepAwake, onLockEvent, onAdvanceDemo, onLock, onUnlock, onReturn, onRescue, onBoarding, onOpenBackup }: {
+  ctx: Ctx; dep: Departure; leg: Leg; pastReports: PastReport[]; busSession?: BusSession; anotherLock: boolean; lockNow: number;
   keepAwake: boolean; onKeepAwake: (value: boolean) => void; onLockEvent: (event: BusSessionEvent) => void;
   onAdvanceDemo: (minutes: number) => void; onLock: () => void; onUnlock: () => void;
   onReturn: (dep: Departure, leg: Leg) => void;
@@ -717,6 +726,12 @@ function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keep
       {alightNote && <p className="warn small" role="note">{alightNote}</p>}
       {ds.meta.transcribed && isNjtHoliday(dep.serviceDate) && <p className="warn small" role="note">{t.holidayOn}</p>}
       {clockChange && <p className="warn small" role="note">{clockChange === 'back' ? t.clockBackTrip : t.clockAheadTrip}</p>}
+      {(() => {
+        // Past rides only: today's ride (this lock) is shown in the panel, not here.
+        const summary = summarize(ds, pastReports, dep, busSession?.id);
+        const wd = weekdayIndex(dep.serviceDate);
+        return summary && <PastReports summary={summary} dayType={wd === 5 ? 'saturday' : wd === 6 ? 'sunday' : 'weekday'} t={t} fmtDate={(d) => fmtYmd(d, ctx.lang)} />;
+      })()}
       {busSession && <BusLockPanel ds={ds} session={busSession} alightIndex={alightIndex} now={lockNow} t={t} lang={ctx.lang}
         keepAwake={keepAwake} onKeepAwake={onKeepAwake} onEvent={onLockEvent} onAdvanceDemo={onAdvanceDemo} onUnlock={onUnlock}
         gateText={(o) => { const g = departureGate(ds, o.dep); return g && gateLine(t, g); }}
@@ -786,8 +801,12 @@ function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keep
   );
 }
 
-function SettingsScreen({ ctx, settings, setSettings, onGuide }: { ctx: Ctx; settings: Settings; setSettings: (s: Settings) => void; onGuide: () => void }) {
+function SettingsScreen({ ctx, settings, setSettings, onGuide, historyCount, onClearHistory }: {
+  ctx: Ctx; settings: Settings; setSettings: (s: Settings) => void; onGuide: () => void; historyCount: number; onClearHistory: () => void;
+}) {
   const { t, ds } = ctx;
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [cleared, setCleared] = useState(false);
   const opt = <K extends keyof Settings>(k: K, v: Settings[K], label: string) => (
     <button className="chip" aria-pressed={settings[k] === v} onClick={() => setSettings({ ...settings, [k]: v })}>{label}</button>
   );
@@ -802,6 +821,16 @@ function SettingsScreen({ ctx, settings, setSettings, onGuide }: { ctx: Ctx; set
       <div className="choice-list">{opt('count', 3, '3')}{opt('count', 5, '5')}</div>
       <h2>{t.guide.title}</h2>
       <button className="ghost" onClick={onGuide}>{t.guideOpen}</button>
+      <h2>{t.history.settingsTitle}</h2>
+      <p className="small">{t.history.count(historyCount)}</p>
+      {historyCount > 0 && (confirmClear
+        ? <div className="edit-row" role="group" aria-label={t.history.confirm}>
+          <span className="small">{t.history.confirm}</span>
+          <button className="danger" autoFocus onClick={() => { onClearHistory(); setConfirmClear(false); setCleared(true); }}>{t.history.yes}</button>
+          <button className="ghost" onClick={() => setConfirmClear(false)}>{t.history.no}</button>
+        </div>
+        : <button className="ghost" onClick={() => { setCleared(false); setConfirmClear(true); }}>{t.history.clear}</button>)}
+      <p className="small" role="status">{cleared ? t.history.cleared : ''}</p>
       <h2>{t.dataSource}</h2>
       <p className="small">{ds.meta.source} · {ds.meta.feedVersion}</p>
       <p className="small muted">{dataNotice(ds, t)}</p>
