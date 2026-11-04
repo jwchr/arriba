@@ -202,3 +202,18 @@ test('ride mode on the printed timetable gives scheduled times only, never a sto
   await expect(ride.getByRole('button', { name: /Move the demo bus/ })).toHaveCount(0);
   await expect(ride.locator('li[data-role="alight"]')).toContainText('Port Authority Bus Terminal');
 });
+
+test('capacity: one local answer from a rider who saw the bus, with honest limits', async ({ page }) => {
+  await selectDemoTrip(page);
+  const panel = page.locator('.bus-lock');
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await expect(panel.getByRole('button', { name: 'Looked full' })).toHaveCount(0); // not seen yet
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await panel.getByRole('button', { name: 'Seats available' }).click();
+  await panel.getByRole('button', { name: 'Standing room only' }).click();
+  await expect(panel.getByRole('button', { name: 'Standing room only' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.getByRole('status').filter({ hasText: 'You reported: Standing room only' })).toBeVisible();
+  await expect(panel).toContainText('Dale has no history of how full this bus usually is');
+  await expect(panel.locator('.lock-history li').filter({ hasText: 'How full it was' })).toHaveCount(1);
+  await expect(panel.locator('.lock-history li').filter({ hasText: 'How full it was' })).toContainText('Standing room only');
+});

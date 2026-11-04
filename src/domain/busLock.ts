@@ -4,7 +4,9 @@ import { createLock, reduceLock, type TripLock, type VehicleObservation } from '
 import type { Departure, TripInstanceId } from './types';
 
 export type RiderPhase = 'viewing' | 'waiting' | 'arrived' | 'onboard' | 'left' | 'ended';
-export type RiderReportKind = 'no_bus' | 'arrived' | 'boarded' | 'left' | 'passed_without_stopping';
+export type RiderReportKind = 'no_bus' | 'arrived' | 'boarded' | 'left' | 'passed_without_stopping' | 'capacity';
+/** A rider's own look at how full the bus was (issue #33). Not an official occupancy reading. */
+export type CapacityLevel = 'seats' | 'standing' | 'full';
 export type PositionSource = 'official' | 'demo';
 
 export interface PositionRecord extends VehicleObservation {
@@ -24,6 +26,8 @@ export interface RiderReport {
   reportedAt: number;
   /** The rider's wait began here. Required for no_bus; late check-ins do not cover earlier time. */
   waitingSince?: number;
+  /** Only on a capacity report: what this rider saw. */
+  capacity?: CapacityLevel;
 }
 
 export interface BusSession {
@@ -63,7 +67,8 @@ export function createBusSession(dep: Departure, now: number, sessionId?: string
 }
 
 export type BusSessionEvent =
-  | { type: 'start_waiting' | RiderReportKind | 'end' | 'tick' | 'confirm_pending' | 'reject_pending'; now: number }
+  | { type: 'start_waiting' | Exclude<RiderReportKind, 'capacity'> | 'end' | 'tick' | 'confirm_pending' | 'reject_pending'; now: number }
+  | { type: 'capacity'; level: CapacityLevel; now: number }
   | { type: 'observation'; obs: VehicleObservation; source: PositionSource; receivedAt: number }
   | { type: 'official_cancellation'; tripInstanceId: TripInstanceId; now: number };
 
@@ -83,7 +88,7 @@ function historyWith(history: PositionRecord[], record: PositionRecord): Positio
   return [...history, record].sort((a, b) => a.observedAt - b.observedAt).slice(-MAX_POSITION_HISTORY);
 }
 
-function riderReport(s: BusSession, kind: RiderReportKind, now: number, phase: RiderPhase = s.phase): BusSession {
+function riderReport(s: BusSession, kind: RiderReportKind, now: number, phase: RiderPhase = s.phase, capacity?: CapacityLevel): BusSession {
   const stopId = s.departure.pattern.stopIds[s.departure.stopIndex];
   if (!stopId) return s;
   const report: RiderReport = {
@@ -94,6 +99,7 @@ function riderReport(s: BusSession, kind: RiderReportKind, now: number, phase: R
     kind,
     reportedAt: now,
     ...(s.waitingSince === undefined ? {} : { waitingSince: s.waitingSince }),
+    ...(capacity === undefined ? {} : { capacity }),
   };
   // Repeated "still no bus" taps refresh one observation, never create extra votes.
   const reports = s.reports.filter((r) => !(r.sessionId === report.sessionId && r.stopId === report.stopId && r.kind === report.kind));
@@ -173,6 +179,13 @@ export function reduceBusSession(session: BusSession, event: BusSessionEvent): B
     case 'arrived':
       return session.phase === 'waiting' && now >= session.lastActionAt
         ? riderReport(session, 'arrived', now, 'arrived') : session;
+    case 'capacity': {
+      // Only someone who saw the bus can say how full it was: after it arrived, on board, or as it passed by.
+      const sawIt = session.phase === 'arrived' || session.phase === 'onboard'
+        || (session.phase === 'waiting' && session.reports.some((r) => r.kind === 'passed_without_stopping'));
+      return sawIt && ['seats', 'standing', 'full'].includes(event.level) && now >= session.lastActionAt
+        ? riderReport(session, 'capacity', now, session.phase, event.level) : session;
+    }
     case 'boarded':
       return (session.phase === 'waiting' || session.phase === 'arrived') && now >= session.lastActionAt
         ? riderReport(session, 'boarded', now, 'onboard') : session;

@@ -244,3 +244,37 @@ describe('downstream warning selection', () => {
     expect(activeDownstreamReports([missing, left], dep.tripInstanceId, 3, dep.departs + REPORT_TTL_MS)).toEqual([]);
   });
 });
+
+describe('capacity observations (issue #33)', () => {
+  const capacity = (s: BusSession, level: 'seats' | 'standing' | 'full', now: number) => reduceBusSession(s, { type: 'capacity', level, now });
+  const arrived = () => reduceBusSession(waiting(), { type: 'arrived', now: dep.departs });
+
+  it('come only from a rider who saw the bus: arrived, on board, or passed by', () => {
+    expect(capacity(waiting(), 'full', dep.departs).reports).toHaveLength(0);
+    expect(capacity(arrived(), 'standing', dep.departs + MIN).reports.at(-1)).toMatchObject({ kind: 'capacity', capacity: 'standing', reportedAt: dep.departs + MIN });
+    const onboard = reduceBusSession(arrived(), { type: 'boarded', now: dep.departs + MIN });
+    expect(capacity(onboard, 'seats', dep.departs + 2 * MIN).reports.at(-1)).toMatchObject({ kind: 'capacity', capacity: 'seats' });
+    const passed = reduceBusSession(waiting(), { type: 'passed_without_stopping', now: dep.departs });
+    expect(capacity(passed, 'full', dep.departs + MIN).reports.at(-1)).toMatchObject({ kind: 'capacity', capacity: 'full' });
+  });
+
+  it('keep one answer per session: a new tap replaces the old one', () => {
+    const s = capacity(capacity(arrived(), 'seats', dep.departs + MIN), 'full', dep.departs + 2 * MIN);
+    expect(s.reports.filter((r) => r.kind === 'capacity')).toEqual([expect.objectContaining({ capacity: 'full', reportedAt: dep.departs + 2 * MIN })]);
+  });
+
+  it('are ignored after the session ends, for unknown levels, and for earlier times', () => {
+    const left = reduceBusSession(arrived(), { type: 'left', now: dep.departs + MIN });
+    expect(capacity(left, 'full', dep.departs + 2 * MIN)).toBe(left);
+    const a = arrived();
+    expect(reduceBusSession(a, { type: 'capacity', level: 'empty' as never, now: dep.departs + MIN })).toBe(a);
+    expect(capacity(a, 'full', dep.departs - MIN)).toBe(a);
+  });
+
+  it('never count as a no-bus or pass-up warning downstream, and never supersede one', () => {
+    const noBus = report({ sessionId: 'reporter-A', kind: 'no_bus', reportedAt: dep.departs + MIN, waitingSince: START });
+    const crowd = report({ sessionId: 'reporter-B', kind: 'capacity', capacity: 'full', reportedAt: dep.departs + 2 * MIN });
+    expect(activeDownstreamReports([noBus, crowd], dep.tripInstanceId, 3, dep.departs + 3 * MIN)).toEqual([noBus]);
+    expect(activeDownstreamReports([crowd], dep.tripInstanceId, 3, dep.departs + 3 * MIN)).toEqual([]);
+  });
+});
