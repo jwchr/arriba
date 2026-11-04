@@ -216,4 +216,6 @@ test('capacity: one local answer from a rider who saw the bus, with honest limit
   await expect(panel).toContainText('Dale has no history of how full this bus usually is');
   await expect(panel.locator('.lock-history li').filter({ hasText: 'How full it was' })).toHaveCount(1);
   await expect(panel.locator('.lock-history li').filter({ hasText: 'How full it was' })).toContainText('Standing room only');
+  const { violations } = await new AxeBuilder({ page }).include('.lock-capacity').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  expect(violations.map((v) => v.id)).toEqual([]);
 });

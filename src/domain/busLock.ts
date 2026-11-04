@@ -98,7 +98,8 @@ function riderReport(s: BusSession, kind: RiderReportKind, now: number, phase: R
     stopIndex: s.departure.stopIndex,
     kind,
     reportedAt: now,
-    ...(s.waitingSince === undefined ? {} : { waitingSince: s.waitingSince }),
+    // A crowding answer does not need to say when this rider started waiting.
+    ...(s.waitingSince === undefined || kind === 'capacity' ? {} : { waitingSince: s.waitingSince }),
     ...(capacity === undefined ? {} : { capacity }),
   };
   // Repeated "still no bus" taps refresh one observation, never create extra votes.

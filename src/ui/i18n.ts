@@ -496,7 +496,7 @@ const es: Strings = {
     reportsEmpty: 'Todavía no has registrado una observación.',
     report: { no_bus: 'No vi el autobús', arrived: 'Llegó el autobús', boarded: 'Subí', left: 'Me fui de la parada; observación terminada', passed_without_stopping: 'Pasó sin parar', capacity: 'Qué tan lleno iba' },
     capacityQ: '¿Qué tan lleno iba? (opcional)',
-    capacity: { seats: 'Había asientos', standing: 'Solo de pie', full: 'Parecía lleno' },
+    capacity: { seats: 'Había asientos', standing: 'Solo había lugar de pie', full: 'Parecía lleno' },
     capacityYou: (level: string, time: string) => `Reportaste: ${level}, ${time}`,
     capacityLimits: 'Tu respuesta se queda en este teléfono durante esta visita. Dale no tiene historial de qué tan lleno suele ir este autobús, y los datos de ocupación de NJ Transit no están conectados.',
     coverage: (start: string, end: string) => `No lo has visto desde las ${start}; última revisión: ${end}`,

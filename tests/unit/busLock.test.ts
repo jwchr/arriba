@@ -251,7 +251,9 @@ describe('capacity observations (issue #33)', () => {
 
   it('come only from a rider who saw the bus: arrived, on board, or passed by', () => {
     expect(capacity(waiting(), 'full', dep.departs).reports).toHaveLength(0);
-    expect(capacity(arrived(), 'standing', dep.departs + MIN).reports.at(-1)).toMatchObject({ kind: 'capacity', capacity: 'standing', reportedAt: dep.departs + MIN });
+    const one = capacity(arrived(), 'standing', dep.departs + MIN).reports.at(-1);
+    expect(one).toMatchObject({ kind: 'capacity', capacity: 'standing', reportedAt: dep.departs + MIN });
+    expect(one).not.toHaveProperty('waitingSince'); // no wait-start time on a crowding answer
     const onboard = reduceBusSession(arrived(), { type: 'boarded', now: dep.departs + MIN });
     expect(capacity(onboard, 'seats', dep.departs + 2 * MIN).reports.at(-1)).toMatchObject({ kind: 'capacity', capacity: 'seats' });
     const passed = reduceBusSession(waiting(), { type: 'passed_without_stopping', now: dep.departs });
