@@ -91,7 +91,7 @@ export function StripMap({ ds, session, alightIndex, now, t, lang }: { ds: Datas
   const delay = progress.delayMin;
   const pace = delay === undefined ? p.byTimetable : delay === 0 ? p.onTime : delay > 0 ? p.behind(delay) : p.ahead(-delay);
   const source = progress.basis === 'timetable' ? p.noEvidence
-    : progress.basis === 'tap' ? p.fromTap(name([...state.milestones].sort((a, b) => a.at - b.at).at(-1)?.index ?? dep.stopIndex), clock(progress.observedAt!))
+    : progress.basis === 'tap' ? p.fromTap(((l) => (l.detail ? `${l.town}, ${l.detail}` : l.town))(stopLabel(name([...state.milestones].sort((a, b) => a.at - b.at).at(-1)?.index ?? dep.stopIndex))), clock(progress.observedAt!))
       : progress.basis === 'bus_gps' ? (busIsDemo ? p.fromDemoBus : p.fromBus(Math.max(0, Math.round((now - progress.observedAt!) / 1000))))
         : p.fromPhone(Math.max(0, Math.round((now - progress.observedAt!) / 1000)));
   const first = dep.stopIndex;
