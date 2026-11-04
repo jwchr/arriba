@@ -74,7 +74,7 @@ export function Recovery({ sessionId, ds, dep, alightIndex, now, t, lang, gateTe
       </> : result && <>
         <h4 id={`recovery-step-${dep.tripInstanceId}`} tabIndex={-1} ref={step}>{r.waysBack(name(dest))}</h4>
         <p className="small">{r.from(name(at))}</p>
-        {!result.options.length && <p className="warn small" role="note">{result.otherSideUnknown === 'here' ? r.otherSideUnknown(name(at)) : result.otherSideUnknown === 'destination' ? r.otherSideUnknown(name(dest)) : r.none}</p>}
+        {!result.options.length && <p className="warn small" role="note">{result.otherSideUnknown === 'here' ? r.otherSideUnknown(name(at)) : result.otherSideUnknown === 'destination' ? r.otherSideUnknownDest(name(dest)) : r.none}</p>}
         <ol className="rescue-list">
           {result.options.map((o) => {
             const gate = gateText(o);
