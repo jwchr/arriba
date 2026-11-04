@@ -1,11 +1,11 @@
 :root {
-  --bg: #f6f7f4;
+  --bg: #f3f6fc;
   --surface: #ffffff;
-  --text: #15201a;
-  --muted: #5b675f;
-  --line: #d9ded8;
-  --brand: #0b6b3a; /* evergreen fill behind white text */
-  --brand-text: #0b6b3a; /* evergreen as text on the page */
+  --text: #14243a;
+  --muted: #53657b;
+  --line: #d4ddec;
+  --brand: #0057a8; /* transit blue fill behind white text */
+  --brand-text: #0057a8; /* transit blue as text on the page */
   --brand-ink: #ffffff;
   --accent: #ffd23f; /* sign yellow */
   --express: #b8860b;
@@ -21,14 +21,14 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #0e1411; --surface: #18201b; --text: #e8efe9; --muted: #9fb0a5; --line: #2b362f;
-    --brand: #1d7a46; --brand-text: #5cc98b; --alert: #ff6b6b; --warn-bg: #3a2f0b; --warn-ink: #ffe08a; --express: #e2b33c; --focus: #82b1ff;
+    --bg: #091421; --surface: #13243a; --text: #eef4fc; --muted: #acbdd2; --line: #2b405b;
+    --brand: #2a70be; --brand-text: #86bfff; --alert: #ff6b6b; --warn-bg: #3a2f0b; --warn-ink: #ffe08a; --express: #e2b33c; --focus: #9ccaff;
     color-scheme: dark;
   }
 }
 :root[data-theme='dark'] {
-  --bg: #0e1411; --surface: #18201b; --text: #e8efe9; --muted: #9fb0a5; --line: #2b362f;
-  --brand: #1d7a46; --brand-text: #5cc98b; --alert: #ff6b6b; --warn-bg: #3a2f0b; --warn-ink: #ffe08a; --express: #e2b33c; --focus: #82b1ff;
+  --bg: #091421; --surface: #13243a; --text: #eef4fc; --muted: #acbdd2; --line: #2b405b;
+  --brand: #2a70be; --brand-text: #86bfff; --alert: #ff6b6b; --warn-bg: #3a2f0b; --warn-ink: #ffe08a; --express: #e2b33c; --focus: #9ccaff;
   color-scheme: dark;
 }
 
@@ -72,10 +72,13 @@ main { flex: 1; padding-bottom: 24px; }
 .fav-list { list-style: none; margin: 0; padding: 0; }
 .fav h2 { margin: 0; font-size: 1.05rem; }
 .commute-header { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 8px; min-width: 0; }
-.commute-sign { padding: 13px 14px; background: #10110e; border: 1px solid #444437; border-radius: 9px; box-shadow: inset 0 2px 8px #0009, 0 1px 0 #ffffff12; min-width: 0; }
+.commute-sign { padding: 13px 14px; background: #090e15; border: 1px solid #34445b; border-radius: 9px; box-shadow: inset 0 2px 8px #0009, 0 1px 0 #ffffff12; min-width: 0; }
+.commute-sign-label { margin: 0 0 6px; color: #bac7d6; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 .fav .commute-led { color: #ffc45a; font-family: 'Arial Narrow', 'Roboto Condensed', ui-monospace, monospace; font-size: 1.2rem; font-weight: 900; line-height: 1.4; letter-spacing: 0.035em; text-transform: uppercase; overflow-wrap: anywhere; }
-.commute-sign .leg { color: #e4c995; margin: 9px 0 0; line-height: 1.5; overflow-wrap: anywhere; }
-.commute-reverse { align-self: flex-end; flex-shrink: 0; }
+.commute-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+.commute-direction { flex: 1 1 10rem; min-width: 0; margin: 0; color: var(--brand-text); font-size: 0.85rem; font-weight: 700; line-height: 1.4; text-transform: uppercase; overflow-wrap: anywhere; }
+.commute-origin { margin: 0; overflow-wrap: anywhere; }
+.commute-reverse { margin-left: auto; flex-shrink: 0; }
 .commute-edit, .commute-edit .rename, .commute-edit input { min-width: 0; max-width: 100%; }
 /* Real, selectable text with a fine LED texture; solid amber is the baseline fallback. */
 @supports ((background-clip: text) or (-webkit-background-clip: text)) {
@@ -83,7 +86,7 @@ main { flex: 1; padding-bottom: 24px; }
 }
 @media (forced-colors: active) {
   .commute-sign { background: Canvas; border-color: CanvasText; box-shadow: none; }
-  .fav .commute-led, .commute-sign .leg { color: CanvasText; background: none; -webkit-text-fill-color: currentColor; }
+  .fav .commute-led, .commute-sign-label { color: CanvasText; background: none; -webkit-text-fill-color: currentColor; }
 }
 .leg { color: var(--muted); font-size: 0.9rem; margin: 4px 0 8px; }
 .edit-row { display: flex; gap: 8px; flex-wrap: wrap; }

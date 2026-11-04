@@ -320,6 +320,9 @@ function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed
   );
 }
 
+// Only remove the dataset's trailing direction hint, never place names or other parentheses.
+const stopPlace = (name: string): string => name.replace(/\s+\(to [^)]+\)$/i, '');
+
 function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, onMove, onRemove, onRename, onAllDay, onDeparture }: {
   ctx: Ctx; fav: Favorite; count: number; editing: boolean; rev: boolean; onReverse: () => void; first: boolean; last: boolean;
   onMove: (d: -1 | 1) => void; onRemove: () => void; onRename: (s: string) => void;
@@ -332,20 +335,33 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
   const anyEstimated = rows.some((r) => r.d.estimated || r.arr?.estimated);
   const title = leg ? `${stopName(leg.fromStopId)} → ${stopName(leg.toStopId)}` : '';
   const defaultLabel = `${stopName(fav.fromStopId)} → ${stopName(fav.toStopId)}`;
-  // A generated heading follows Reverse; a rider's own commute name stays theirs.
-  const heading = leg && fav.label === defaultLabel ? title : fav.label;
+  const customName = fav.label !== defaultLabel;
+  const fromId = leg?.fromStopId ?? (rev ? fav.toStopId : fav.fromStopId);
+  const from = ds.stops.find((s) => s.id === fromId);
+  const to = leg && ds.stops.find((s) => s.id === leg.toStopId);
+  const origin = from?.terminal === 'PABT' ? t.commutePabt : stopPlace(stopName(fromId));
+  const heading = customName ? fav.label : origin;
+  const destination = leg && (to?.terminal === 'PABT' ? t.commuteToPabt : t.commuteTo(stopPlace(stopName(leg.toStopId))));
+  const fullLeg = title || `${stopName(fromId)} → ${stopName(rev ? fav.fromStopId : fav.toStopId)}`;
   return (
-    <article className="card fav" aria-label={heading}>
+    <article className="card fav" aria-label={customName ? `${fav.label}: ${fullLeg}` : fullLeg}>
       <div className="commute-header">
         <div className={editing ? 'commute-edit' : 'commute-sign'}>
           {editing ? (
             <label className="rename">{t.rename}
               <input defaultValue={fav.label} onBlur={(e) => onRename(e.currentTarget.value)} />
             </label>
-          ) : <h2 className="commute-led">{heading}</h2>}
-          {leg && title !== (editing ? fav.label : heading) && <p className="leg">{title}</p>}
+          ) : <>
+            {!customName && <p className="commute-sign-label">{t.commuteFrom}</p>}
+            <h2 className="commute-led">{heading}</h2>
+          </>}
         </div>
-        <button className="chip commute-reverse" aria-pressed={rev} onClick={onReverse}>⇄ {t.reverse}</button>
+        {editing && leg && title !== fav.label && <p className="leg">{title}</p>}
+        {!editing && customName && <p className="leg commute-origin">{t.commuteFrom} {origin}</p>}
+        <div className="commute-controls">
+          {!editing && destination && <p className="commute-direction"><span aria-hidden="true">→ </span>{destination}</p>}
+          <button className="chip commute-reverse" aria-pressed={rev} onClick={onReverse}>⇄ {t.reverse}</button>
+        </div>
       </div>
       {!leg && !editing ? <p className="warn" role="alert">{t.noReturnStop}</p> : editing ? (
         <div className="edit-row">
