@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type Ref } from 'react';
 import { demoDataset, demoUsualGates } from '../data/demo';
 import { checkDirection, destinationsFrom, returnLeg, searchStops } from '../domain/direction';
 import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, setLeavePlan, type Favorite } from '../domain/favorites';
@@ -415,6 +415,10 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
   const rows = ahead.slice(0, count).map((o) => ({ d: o.dep, arr: o.arrives }));
   const plan = fav.leave?.[rev ? 'back' : 'out'];
   const [planning, setPlanning] = useState(false);
+  // After the form closes, focus returns to the control that opened it.
+  const planButton = useRef<HTMLButtonElement>(null);
+  const closedForm = useRef(false);
+  useEffect(() => { if (!planning && closedForm.current) planButton.current?.focus(); closedForm.current = planning; }, [planning]);
   const soonest = earliestArrival(ahead.slice(0, count), now, plan);
   const anyEstimated = rows.some((r) => r.d.estimated || r.arr?.estimated);
   const title = leg ? `${stopName(leg.fromStopId)} → ${stopName(leg.toStopId)}` : '';
@@ -458,8 +462,8 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
         <>
           {leg && (planning
             ? <LeavePlanForm ctx={ctx} plan={plan} onDone={(p) => { if (p !== 'cancel') onLeavePlan(p); setPlanning(false); }} />
-            : plan ? <LeaveBy ctx={ctx} plan={plan} options={ahead} onEdit={() => setPlanning(true)} />
-              : <button className="link leave-set" onClick={() => setPlanning(true)}>{t.leave.set}</button>)}
+            : plan ? <LeaveBy ctx={ctx} plan={plan} options={ahead} onEdit={() => setPlanning(true)} editRef={planButton} />
+              : <button ref={planButton} className="link leave-set" onClick={() => setPlanning(true)}>{t.leave.set}</button>)}
           {!leg ? null : deps.length === 0 ? <p className="muted">{t.noMoreToday}</p> : (
             <ul className="deps">
               {rows.map(({ d, arr }, i) => (
@@ -494,7 +498,7 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
 }
 
 /** Leave-by countdown and arrive-by line for one direction of a saved commute (issue #54). Scheduled times only. */
-function LeaveBy({ ctx, plan, options, onEdit }: { ctx: Ctx; plan: LeavePlan; options: LeaveOption[]; onEdit: () => void }) {
+function LeaveBy({ ctx, plan, options, onEdit, editRef }: { ctx: Ctx; plan: LeavePlan; options: LeaveOption[]; onEdit: () => void; editRef: Ref<HTMLButtonElement> }) {
   const { t, now, tz, lang } = ctx;
   const l = t.leave;
   const clock = (at: number, estimated = false) => `${estimated ? '~' : ''}${formatTime12(at, tz, lang)}`;
@@ -505,7 +509,7 @@ function LeaveBy({ ctx, plan, options, onEdit }: { ctx: Ctx; plan: LeavePlan; op
     <div className="leave-by">
       <div className="row-between">
         <p className="leave-count"><strong>{advice.kind === 'leave_in' ? l.leaveIn(advice.minutes) : advice.kind === 'leave_now' ? l.leaveNow : l.none}</strong></p>
-        <button className="ghost" onClick={onEdit}>{l.edit}</button>
+        <button ref={editRef} className="ghost" onClick={onEdit}>{l.edit}</button>
       </div>
       {advice.kind === 'leave_in' && <p className="small">{l.forBus(clock(advice.dep.departs, advice.dep.estimated), plan.walkMin, plan.cushionMin)}</p>}
       {advice.kind === 'leave_now' && <p className="small">{l.spareLeft(clock(advice.dep.departs, advice.dep.estimated), advice.spareMin, plan.cushionMin)}</p>}
@@ -525,6 +529,7 @@ function LeavePlanForm({ ctx, plan, onDone }: { ctx: Ctx; plan?: LeavePlan; onDo
   const [cushion, setCushion] = useState(String(plan?.cushionMin ?? 2));
   const [by, setBy] = useState(plan?.arriveBy ?? '');
   const [bad, setBad] = useState(false);
+  const errorId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, []);
   function save() {
@@ -536,10 +541,10 @@ function LeavePlanForm({ ctx, plan, onDone }: { ctx: Ctx; plan?: LeavePlan; onDo
   return (
     <div className="leave-form">
       <h3 tabIndex={-1} ref={heading}>{l.formTitle}</h3>
-      <label>{l.walk}<input type="number" inputMode="numeric" min={0} max={MAX_WALK_MIN} value={walk} onChange={(e) => setWalk(e.currentTarget.value)} /></label>
-      <label>{l.cushion}<input type="number" inputMode="numeric" min={0} max={MAX_CUSHION_MIN} value={cushion} onChange={(e) => setCushion(e.currentTarget.value)} /></label>
+      <label>{l.walk}<input type="number" inputMode="numeric" min={0} max={MAX_WALK_MIN} value={walk} aria-invalid={bad || undefined} aria-describedby={bad ? errorId : undefined} onChange={(e) => setWalk(e.currentTarget.value)} /></label>
+      <label>{l.cushion}<input type="number" inputMode="numeric" min={0} max={MAX_CUSHION_MIN} value={cushion} aria-invalid={bad || undefined} aria-describedby={bad ? errorId : undefined} onChange={(e) => setCushion(e.currentTarget.value)} /></label>
       <label>{l.arriveBy}<input type="time" value={by} onChange={(e) => setBy(e.currentTarget.value)} /></label>
-      {bad && <p className="warn small" role="alert">{l.invalid}</p>}
+      {bad && <p className="warn small" role="alert" id={errorId}>{l.invalid}</p>}
       <p className="muted small">{l.help}</p>
       <div className="edit-row">
         <button className="primary" onClick={save}>{l.save}</button>

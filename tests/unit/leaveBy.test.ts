@@ -95,6 +95,16 @@ describe('earliest-arrival pick (issue #54)', () => {
   });
 });
 
+describe('leave-by wording', () => {
+  it('reads long waits in hours, and the Spanish singular', async () => {
+    const { strings } = await import('../../src/ui/i18n');
+    expect(strings.en.leave.leaveIn(245)).toBe('Leave in 4 h 5 min');
+    expect(strings.es.leave.leaveIn(59)).toBe('Sal en 59 min');
+    expect(strings.es.leave.spareLeft('7:52 a. m.', 1, 3)).toBe('para el autobús de las 7:52 a. m. · solo te queda 1 de tus 3 min de margen');
+    expect(strings.es.leave.spareLeft('1:10 a. m.', 2, 3)).toBe('para el autobús de la 1:10 a. m. · solo te quedan 2 de tus 3 min de margen');
+  });
+});
+
 describe('stored leave plans', () => {
   it('keeps valid plans and drops bad ones, without losing the commute', () => {
     expect(cleanLeavePlan({ walkMin: 5, cushionMin: 2, arriveBy: '08:45' })).toEqual({ walkMin: 5, cushionMin: 2, arriveBy: '08:45' });

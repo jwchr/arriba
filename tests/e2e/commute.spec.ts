@@ -589,6 +589,7 @@ test.describe('leave-by countdown (issue #54)', () => {
     await card.getByLabel('Spare minutes').fill('3');
     await card.getByLabel('Arrive by (optional)').fill('09:00');
     await card.getByRole('button', { name: 'Save' }).click();
+    await expect(card.getByRole('button', { name: 'Walking time' })).toBeFocused();
 
     const leave = card.locator('.leave-by');
     // The 6:53 is too soon to walk to; the 7:00 AM means leaving by 6:52 (5 min walk + 3 spare). The latest bus scheduled in by 9:00 is the 7:52 (8:37 AM).
