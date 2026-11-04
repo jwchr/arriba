@@ -331,17 +331,22 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
   const rows = deps.map((d) => ({ d, arr: leg ? arrivalAt(ds, d, leg.toStopId) : undefined }));
   const anyEstimated = rows.some((r) => r.d.estimated || r.arr?.estimated);
   const title = leg ? `${stopName(leg.fromStopId)} → ${stopName(leg.toStopId)}` : '';
+  const defaultLabel = `${stopName(fav.fromStopId)} → ${stopName(fav.toStopId)}`;
+  // A generated heading follows Reverse; a rider's own commute name stays theirs.
+  const heading = leg && fav.label === defaultLabel ? title : fav.label;
   return (
-    <article className="card fav" aria-label={fav.label}>
-      <div className="row-between">
-        {editing ? (
-          <label className="rename">{t.rename}
-            <input defaultValue={fav.label} onBlur={(e) => onRename(e.currentTarget.value)} />
-          </label>
-        ) : <h2>{fav.label}</h2>}
-        <button className="chip" aria-pressed={rev} onClick={onReverse}>⇄ {t.reverse}</button>
+    <article className="card fav" aria-label={heading}>
+      <div className="commute-header">
+        <div className={editing ? 'commute-edit' : 'commute-sign'}>
+          {editing ? (
+            <label className="rename">{t.rename}
+              <input defaultValue={fav.label} onBlur={(e) => onRename(e.currentTarget.value)} />
+            </label>
+          ) : <h2 className="commute-led">{heading}</h2>}
+          {leg && title !== (editing ? fav.label : heading) && <p className="leg">{title}</p>}
+        </div>
+        <button className="chip commute-reverse" aria-pressed={rev} onClick={onReverse}>⇄ {t.reverse}</button>
       </div>
-      {leg && title !== fav.label && <p className="leg">{title}</p>}
       {!leg && !editing ? <p className="warn" role="alert">{t.noReturnStop}</p> : editing ? (
         <div className="edit-row">
           <button onClick={() => onMove(-1)} disabled={first}>↑ {t.moveUp}</button>
