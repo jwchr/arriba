@@ -215,8 +215,8 @@ main { flex: 1; padding-bottom: 24px; }
 .stop-list li[data-role='alight']::before { content: ''; position: absolute; left: -12px; top: 12px; width: 16px; height: 16px; border-radius: 50%; background: var(--alert-fill); box-shadow: 0 0 0 4px rgba(198, 40, 40, 0.25); }
 .stop-time { width: 76px; flex: none; font-variant-numeric: tabular-nums; color: var(--muted); }
 .stop-name { flex: 1; }
-.tag { font-size: 0.72rem; font-weight: 800; background: var(--brand); color: #fff; border-radius: 6px; padding: 2px 6px; }
-.tag-alight { background: var(--alert-fill); }
+.tag { font-size: 0.72rem; font-weight: 800; background: var(--brand); color: var(--brand-ink); border-radius: 6px; padding: 2px 6px; }
+.tag-alight { background: var(--alert-fill); color: #fff; }
 
 @media (prefers-reduced-motion: no-preference) {
   .stop-list li[data-role='alight']::before { animation: pulse 1.6s ease-out infinite; }

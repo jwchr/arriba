@@ -75,3 +75,28 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await audit(page, 'load error');
   });
 }
+
+// Each style (owner request 2026-11-04, D46) on the main screens: home with a commute, a trip, the timetable, Settings.
+for (const [skin, colorScheme] of [['clean', 'light'], ['clean', 'dark'], ['parkway', 'dark'], ['nyc', 'dark'], ['turnpike', 'light']] as const) {
+  test(`style ${skin} (${colorScheme}) passes axe on the main screens`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme });
+    await page.addInitScript((s) => { try { localStorage.setItem('arriba.settings.v1', JSON.stringify({ skin: s })); } catch { /* ignore */ } }, skin);
+    await page.goto('/?now=2026-11-04T17:10');
+    await expect(page.locator('html')).toHaveAttribute('data-skin', skin);
+    await expect(page.locator('.skin-backdrop')).toHaveCount(skin === 'clean' ? 0 : 1);
+    await page.getByRole('button', { name: /Find a stop/i }).first().click();
+    await page.getByRole('searchbox').fill('irvington');
+    await page.getByRole('button', { name: /Irvington St\. \(to New York\)/ }).click();
+    await page.getByRole('button', { name: /Port Authority Bus Terminal/ }).click();
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await audit(page, `${skin} home`);
+    await page.locator('.dep').first().click();
+    await audit(page, `${skin} trip`);
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('button', { name: /All day/ }).click();
+    await audit(page, `${skin} timetable`);
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByRole('button', { name: { clean: 'Clean', parkway: 'Parkway', nyc: 'NYC night', turnpike: 'Turnpike' }[skin] })).toHaveAttribute('aria-pressed', 'true');
+    await audit(page, `${skin} settings`);
+  });
+}
