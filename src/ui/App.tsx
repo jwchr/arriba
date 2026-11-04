@@ -128,7 +128,17 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
   const lockNow = now + (ds.meta.demo ? demoAdvanceMs : 0);
   const [settings, setSettings] = useState<Settings>(readSettings);
   const [favorites, setFavorites] = useState<Favorite[]>(() => loadFavorites(store));
-  const [screen, setScreen] = useState<Screen>({ name: 'home' });
+  // A short history: Back returns to the screen the rider came from; going home starts over.
+  const [stack, setStack] = useState<Screen[]>([{ name: 'home' }]);
+  const screen = stack[stack.length - 1]!;
+  const setScreen = (s: Screen) => setStack((st) => {
+    if (s.name === 'home') return [s];
+    const top = st[st.length - 1]!;
+    // Tapping Settings (or search, or the guide) again while already there does not stack copies.
+    if (top.name === s.name && ['settings', 'search', 'guide'].includes(s.name)) return st;
+    return [...st, s].slice(-20);
+  });
+  const back = () => setStack((st) => (st.length > 1 ? st.slice(0, -1) : st));
   const [reversedIds, setReversedIds] = useState<Set<string>>(() => new Set());
   const toggleReversed = (id: string) => setReversedIds((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const t = strings[settings.lang];
@@ -158,7 +168,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
     <div className="app">
       <header className="top">
         {screen.name !== 'home' ? (
-          <button className="icon-btn" onClick={() => setScreen({ name: 'home' })} aria-label={t.back}>‹</button>
+          <button className="icon-btn" onClick={back} aria-label={t.back}>‹</button>
         ) : <span className="wordmark" role="img" aria-label="Dale">DALE<span className="bang" aria-hidden="true">!</span></span>}
         <button className="icon-btn" onClick={() => setScreen({ name: 'settings' })} aria-label={t.settings}>⚙</button>
       </header>

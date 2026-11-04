@@ -74,6 +74,8 @@ test('reverse, gate card, exact-bus lock, all-day timetable, Spanish', async ({ 
   // Spanish everywhere, 12-hour clock kept.
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Español' }).click();
+  await page.getByRole('button', { name: 'Atrás' }).click(); // back to the timetable it came from
+  await expect(page.locator('table.timetable')).toBeVisible();
   await page.getByRole('button', { name: 'Atrás' }).click();
   await expect(page.getByRole('button', { name: /Invertir/ })).toBeVisible();
   await expect(page.getByRole('article').locator('.dep-time').first()).toHaveText(/^\d{1,2}:\d{2} (a|p)\.? ?m\.?$/i);
@@ -414,6 +416,8 @@ test.describe('Get me home (issue #32)', () => {
     await page.locator('.dep').first().click();
     await page.getByRole('button', { name: 'Other buses there' }).click(); // heading into New York
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Other buses there');
+    await page.getByRole('button', { name: 'Back' }).click(); // back to the trip it came from
+    await expect(page.locator('.trip-ticket')).toBeVisible();
     await page.getByRole('button', { name: 'Back' }).click();
     await page.getByRole('button', { name: /Reverse/ }).click();
     await page.locator('.dep').first().click();
@@ -430,4 +434,17 @@ test.describe('Get me home (issue #32)', () => {
     await items.first().click();
     await expect(page.locator('.trip-ticket')).toBeVisible();
   });
+});
+
+test('Back returns to the screen the rider came from, and home starts over', async ({ page }) => {
+  await page.goto(URL);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click(); // a second tap does not stack a copy
+  await page.getByRole('button', { name: 'First time riding? How it works' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your first ride');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Settings');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Save your stop once');
+  await expect(page.getByRole('button', { name: 'Back' })).toHaveCount(0); // home has no Back
 });
