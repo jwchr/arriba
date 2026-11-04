@@ -417,7 +417,14 @@ test('missed stop / wrong bus: the rider says where they are and gets scheduled 
   await dialog.getByRole('button', { name: 'Start over' }).click();
   await dialog.getByRole('button', { name: "I'm on the wrong bus" }).click();
   await expect(dialog.getByRole('heading', { name: 'Where are you now?' })).toBeFocused();
-  await expect(dialog).toContainText('Dale cannot see which bus you are on');
+  await expect(dialog).toContainText('These are the stops of route 165');
+  await dialog.getByRole('button', { name: "My stop isn't listed" }).click();
+  await expect(dialog).toContainText('Dale only knows the stops of route 165 here');
+  // Leaving full screen keeps the rider's place in the steps.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.ride-mode .recovery h4')).toHaveText('Where are you now?');
+  await page.locator('.ride-mode').getByRole('button', { name: 'Full screen' }).click();
   await dialog.locator('.recovery .chip').first().click();
   await expect(dialog.getByRole('heading', { name: /^Ways back to / })).toBeFocused();
   await expect(dialog).toContainText('Your stop stays the same and your Bus Lock does not change');

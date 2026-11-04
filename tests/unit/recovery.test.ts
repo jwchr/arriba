@@ -45,4 +45,16 @@ describe('missed stop and wrong bus (issue #60)', () => {
     }
     expect(found).toBeGreaterThan(0);
   });
+
+  it('says the gap is in its data, not that there is no way back, where it has no stop for the other direction', () => {
+    // Missing W19 on an outbound 165 leaves W20 (end of the line), whose inbound stop is a different place.
+    const out = nextDepartures(ds, { stopId: pabt.id, toStopId: 'W19', routeIds: [] }, now, 5).find((d) => d.pattern.stopIds.includes('W20'))!;
+    const w19 = out.pattern.stopIds.indexOf('W19');
+    expect(recoveryStops(ds, out, w19, 'missed')).toEqual(['W20']);
+    const r = recoveryOptions(ds, 'W20', 'W19', out.arrivesEnd);
+    expect(r.options).toEqual([]);
+    expect(r.otherSideUnknown).toBe(true);
+    // A stop with a twin and buses back is not flagged.
+    expect(recoveryOptions(ds, 'W12', 'W8', out.arrivesEnd).otherSideUnknown).toBe(false);
+  });
 });

@@ -163,7 +163,7 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
       <p className="muted small">{r.ticket}</p>
       <p className="muted small">{r.foreground}</p>
       {ds.meta.demo && guide.basis !== 'timetable_only' && <button onClick={demoNextStop}>{r.demoNext}</button>}
-      <Recovery ds={ds} dep={dep} alightIndex={alightIndex} now={now} t={t} lang={lang} gateText={gateText} badge={badge} onOpen={onOpenTrip} />
+      <Recovery sessionId={session.id} ds={ds} dep={dep} alightIndex={alightIndex} now={now} t={t} lang={lang} gateText={gateText} badge={badge} onOpen={onOpenTrip} />
       <ShareUpdate ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} />
       <button className="primary wide ride-off" onClick={() => onEvent({ type: 'end', now })}>{r.gotOff}</button>
     </div>
