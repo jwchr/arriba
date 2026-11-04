@@ -519,7 +519,7 @@ function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keep
       {alightNote && <p className="warn small" role="note">{alightNote}</p>}
       {ds.meta.transcribed && isNjtHoliday(dep.serviceDate) && <p className="warn small" role="note">{t.holidayOn}</p>}
       {clockChange && <p className="warn small" role="note">{clockChange === 'back' ? t.clockBackTrip : t.clockAheadTrip}</p>}
-      {busSession && <BusLockPanel ds={ds} session={busSession} now={lockNow} t={t} lang={ctx.lang}
+      {busSession && <BusLockPanel ds={ds} session={busSession} alightIndex={alightIndex} now={lockNow} t={t} lang={ctx.lang}
         keepAwake={keepAwake} onKeepAwake={onKeepAwake} onEvent={onLockEvent} onAdvanceDemo={onAdvanceDemo} onUnlock={onUnlock} />}
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>

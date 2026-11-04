@@ -80,7 +80,7 @@ Official MyBus describes light/medium/heavy/no-data occupancy. Availability in t
 
 After explicit boarding, show the destination, upcoming actual stops and large 3/2/1-stop warnings, followed by an instruction for when to request the stop and where to get off. At the destination, show a prominent arrival card. Provide English and Spanish, large text, non-color cues and optional sound/vibration where supported. Do not obstruct ticket display or make warnings impossible to dismiss.
 
-An exact stop count needs the complete trip stop sequence, not only printed timepoints. If GPS or matching becomes uncertain, show that prominently; a timetable estimate must not confidently tell someone to pull the cord at a particular location. Full-screen guidance works while the app is open; background delivery needs the planned supported notification path and actual-phone verification.
+Implemented as `src/domain/rideGuide.ts` and `RideMode` (issue #34): the countdown needs fresh `tracked` GPS within 400 m of the trip's line, and a dataset that is not a printed transcription; a bus within 60 m of a stop counts as at it. Otherwise the view states the reason (no GPS, old GPS, vehicle in question, off route, printed timepoints only) and shows scheduled times labeled as timetable. An exact stop count needs the complete trip stop sequence, not only printed timepoints. If GPS or matching becomes uncertain, show that prominently; a timetable estimate must not confidently tell someone to pull the cord at a particular location. Full-screen guidance works while the app is open; background delivery needs the planned supported notification path and actual-phone verification.
 
 ## Data and release gates
 

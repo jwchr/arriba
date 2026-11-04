@@ -4,11 +4,14 @@ import { tripStopTimes } from '../domain/schedule';
 import { formatTime12 } from '../domain/time';
 import type { Dataset } from '../domain/types';
 import type { Lang, Strings } from './i18n';
+import { RideMode } from './RideMode';
 import { useScreenWakeLock } from './useScreenWakeLock';
 
 interface Props {
   ds: Dataset;
   session: BusSession;
+  /** Where the rider gets off in the trip's stop list; not after the boarding stop when no destination is set. */
+  alightIndex: number;
   now: number;
   t: Strings;
   lang: Lang;
@@ -20,7 +23,7 @@ interface Props {
 }
 
 /** The view accepts evidence; it never polls NJ Transit or requests the rider's location. */
-export function BusLockPanel({ ds, session, now, t, lang, keepAwake, onKeepAwake, onEvent, onAdvanceDemo, onUnlock }: Props) {
+export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake, onKeepAwake, onEvent, onAdvanceDemo, onUnlock }: Props) {
   const b = t.busLock;
   const { departure: dep, lock } = session;
   const heading = useRef<HTMLHeadingElement>(null);
@@ -103,7 +106,7 @@ export function BusLockPanel({ ds, session, now, t, lang, keepAwake, onKeepAwake
           <p className="muted small">{b.foregroundOnly}</p>
         </>}
         {session.phase === 'arrived' && <div className="lock-actions"><button className="primary" onClick={() => record('boarded')}>{b.boarded}</button><button onClick={() => record('left')}>{b.left}</button></div>}
-        {session.phase === 'onboard' && <><p className="small">{b.ridePrivacy}</p><button onClick={() => record('end')}>{b.stopRide}</button></>}
+        {session.phase === 'onboard' && <><RideMode ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} onEvent={onEvent} onAdvanceDemo={onAdvanceDemo} /><p className="small">{b.ridePrivacy}</p><button onClick={() => record('end')}>{b.stopRide}</button></>}
         <p className="muted small">{b.noBusMeaning}</p>
         <p className="lock-local small" role="note">{b.localOnly}</p>
       </div>

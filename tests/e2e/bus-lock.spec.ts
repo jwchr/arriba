@@ -142,3 +142,61 @@ test('Spanish Bus Lock fits a narrow screen and passes accessibility checks', as
   expect(violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) }))).toEqual([]);
   await page.screenshot({ path: 'test-results/bus-lock-es.png', fullPage: true });
 });
+
+test('ride mode counts down 3, 2, 1 stops from fresh demo GPS and says when it cannot', async ({ page }) => {
+  await selectDemoTrip(page);
+  const panel = page.locator('.bus-lock');
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+  const ride = panel.locator('.ride-mode');
+  await expect(ride.getByRole('heading', { level: 3 })).toHaveText('Riding to Port Authority Bus Terminal');
+  await expect(ride.locator('.ride-message')).toHaveText(/No GPS from this bus yet, so Dale can’t count stops/);
+  await expect(ride.locator('.ride-message')).not.toContainText('stops to');
+
+  await ride.getByRole('button', { name: 'Move the demo bus to the next stop' }).click();
+  await expect(ride.locator('.ride-message')).toHaveText('2 stops to Port Authority Bus Terminal');
+  await expect(ride).toContainText('Counted from invented demo GPS.');
+  await ride.getByRole('button', { name: 'Move the demo bus to the next stop' }).click();
+  await expect(ride.locator('.ride-message')).toHaveText('Next stop is yours: Port Authority Bus Terminal. Press the signal strip now.');
+  await ride.getByRole('button', { name: 'Move the demo bus to the next stop' }).click();
+  await expect(ride.locator('.ride-message')).toHaveText('This is your stop: Port Authority Bus Terminal. Get off when the bus stops.');
+
+  // Old GPS: no confident instruction.
+  await page.getByText('Try Bus Lock · invented demo only', { exact: true }).click();
+  await page.getByRole('button', { name: 'Advance 3 minutes' }).click();
+  await expect(ride.locator('.ride-message')).toHaveText(/GPS is old, so Dale can’t tell which stop it is at/);
+  await ride.getByRole('button', { name: 'Make smaller' }).click();
+  await expect(ride).not.toHaveAttribute('data-large', 'true');
+  await expect(ride).toContainText('Your ticket stays in the NJ Transit app');
+  const { violations } = await new AxeBuilder({ page }).include('.ride-mode').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  expect(violations.map((v) => `${v.id}: ${v.nodes.map((x) => x.target.join(' ')).join(' | ')}`)).toEqual([]);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Español' }).click();
+  await page.getByRole('button', { name: 'Atrás' }).click();
+  await page.locator('.dep').first().click();
+  await expect(page.locator('.ride-mode h3')).toHaveText('Vas a Port Authority Bus Terminal');
+  const es = await new AxeBuilder({ page }).include('.ride-mode').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  expect(es.violations.map((v) => v.id)).toEqual([]);
+});
+
+test('ride mode on the printed timetable gives scheduled times only, never a stop count', async ({ page }) => {
+  await page.goto('/?now=2026-11-04T07:50');
+  await page.getByRole('button', { name: 'Find a stop' }).first().click();
+  await page.getByRole('searchbox').fill('irvington');
+  await page.getByRole('button', { name: /Irvington St\. \(to New York\)/ }).click();
+  await page.getByRole('button', { name: /Port Authority Bus Terminal/ }).click();
+  await page.getByRole('button', { name: 'Save to my commutes' }).click();
+  await page.locator('.dep').first().click();
+  await page.getByRole('button', { name: 'Lock onto this bus' }).click();
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+  const ride = page.locator('.ride-mode');
+  await expect(ride.locator('.ride-message')).toContainText('The printed timetable lists main stops only');
+  await expect(ride.locator('.ride-message')).not.toContainText('Press the signal strip');
+  await expect(ride).toContainText('Coming up: listed stops only (scheduled times)');
+  await expect(ride).toContainText('(timetable, not GPS)');
+  await expect(ride.getByRole('button', { name: /Move the demo bus/ })).toHaveCount(0);
+  await expect(ride.locator('li[data-role="alight"]')).toContainText('Port Authority Bus Terminal');
+});
