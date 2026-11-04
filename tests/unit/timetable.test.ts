@@ -419,3 +419,13 @@ describe('rescue wording', () => {
   });
 });
 
+
+describe('Spanish times use "la 1" and "las 2"', () => {
+  it('in Bus Lock and ride mode as well as the rescue screen', () => {
+    const es = strings.es;
+    expect(es.busLock.waitSince('1:05 a.m.')).toBe('Esperando desde la 1:05 a.m.');
+    expect(es.busLock.waitSince('7:50 a.m.')).toBe('Esperando desde las 7:50 a.m.');
+    expect(es.busLock.coverage('1:05 a.m.', '1:20 a.m.')).toContain('desde la 1:05 a.m.');
+    expect(es.ride.fromGps('1:10 a.m.', 5)).toContain('a la 1:10 a.m.');
+  });
+});
