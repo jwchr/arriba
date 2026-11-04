@@ -40,6 +40,9 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
   const minutesPast = Math.max(0, Math.floor((now - dep.departs) / 60_000));
   const terminal = session.phase === 'left' || session.phase === 'ended';
   const passed = session.reports.some((report) => report.kind === 'passed_without_stopping');
+  // Capacity: only from someone who saw the bus (arrived, on board, or it passed them by).
+  const canReportCapacity = !terminal && (session.phase === 'arrived' || session.phase === 'onboard' || (waiting && passed));
+  const capacityReport = session.reports.find((report) => report.kind === 'capacity');
 
   useEffect(() => {
     heading.current?.focus({ preventScroll: true });
@@ -107,6 +110,16 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
         </>}
         {session.phase === 'arrived' && <div className="lock-actions"><button className="primary" onClick={() => record('boarded')}>{b.boarded}</button><button onClick={() => record('left')}>{b.left}</button></div>}
         {session.phase === 'onboard' && <><RideMode ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} onEvent={onEvent} onAdvanceDemo={onAdvanceDemo} /><p className="small">{b.ridePrivacy}</p><button onClick={() => record('end')}>{b.stopRide}</button></>}
+        {canReportCapacity && <div className="lock-capacity">
+          <p className="small">{b.capacityQ}</p>
+          <div className="choice-list">
+            {(['seats', 'standing', 'full'] as const).map((level) => (
+              <button key={level} className="chip" aria-pressed={capacityReport?.capacity === level} onClick={() => onEvent({ type: 'capacity', level, now })}>{b.capacity[level]}</button>
+            ))}
+          </div>
+          {capacityReport?.capacity && <p className="small" role="status">{b.capacityYou(b.capacity[capacityReport.capacity], clock(capacityReport.reportedAt))}</p>}
+          <p className="muted small">{b.capacityLimits}</p>
+        </div>}
         <p className="muted small">{b.noBusMeaning}</p>
         <p className="lock-local small" role="note">{b.localOnly}</p>
       </div>
@@ -145,7 +158,7 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
         <summary>{b.reportHistory} ({session.reports.length})</summary>
         {!session.reports.length && <p className="muted small">{b.reportsEmpty}</p>}
         <ol>{session.reports.slice().reverse().map((report, i) => <li key={`${report.reportedAt}-${report.kind}-${i}`}>
-          <strong>{b.report[report.kind]}</strong><span>{clock(report.reportedAt)}</span>
+          <strong>{b.report[report.kind]}{report.capacity ? `: ${b.capacity[report.capacity]}` : ''}</strong><span>{clock(report.reportedAt)}</span>
           {report.kind === 'no_bus' && report.waitingSince !== undefined && <p className="small">{b.coverage(clock(report.waitingSince), clock(report.reportedAt))}</p>}
         </li>)}</ol>
       </details>
