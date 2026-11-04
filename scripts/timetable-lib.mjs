@@ -1,4 +1,4 @@
-// Build an Arriba dataset from a hand-checked transcription of an NJ Transit PRINTED timetable
+// Build an Dale dataset from a hand-checked transcription of an NJ Transit PRINTED timetable
 // (data/t0165/transcription.json). This is not NJ Transit's data feed; the dataset says so in
 // meta.transcribed and the app shows a banner. The real GTFS build is scripts/gtfs-lib.mjs.
 
@@ -137,7 +137,7 @@ export function buildTimetableDataset(doc, { builtAt }) {
   return {
     meta: {
       demo: false,
-      source: `NJ Transit printed timetable No. ${doc.document.number} (issued ${usDate(doc.document.issued)}), transcribed by Arriba`,
+      source: `NJ Transit printed timetable No. ${doc.document.number} (issued ${usDate(doc.document.issued)}), transcribed by Dale`,
       feedVersion: `t${doc.document.number.padStart(4, '0')}-${doc.document.issued}`,
       builtAt,
       timezone: 'America/New_York',

@@ -1,4 +1,4 @@
-# Arriba: development rules for Claude
+# Dale: development rules for Claude (repository and URL path still `arriba`)
 
 **Goal:** the most useful, trustworthy North Jersey to Manhattan NJ Transit bus app with the least engineering.
 Read `docs/V1_CONTRACT.md` (what V1 is) and `docs/HANDOFF.md` (where things stand) at the start of every session and after compaction. The 805-line master spec v1.3 is an archive; do not load it unless an issue links to a section of it.
@@ -23,8 +23,8 @@ Read `docs/V1_CONTRACT.md` (what V1 is) and `docs/HANDOFF.md` (where things stan
 
 ## Autonomous development (copied from VPM and Life Dashboard policy, 2026-10-30/31)
 - **Safety holds:** pause only the affected operation on a credible security, privacy, cost, irreversible-action or data-integrity concern; one `🚨 ACTION REQUIRED — SAFETY HOLD` note naming the single owner decision needed; a new run never clears a hold by itself.
-- **Merging:** a PR merges only with green CI on the exact head and a clean review of that head by a reviewer that did not write it. For Arriba the reviewer is a separate Claude session or subagent; Codex review quota is reserved for VPM and Life Dashboard except PRs labeled `security`. Every finding is fixed or answered. Squash merge with the expected head SHA. A merge is not a deployment claim; check the Pages URL separately.
+- **Merging:** a PR merges only with green CI on the exact head and a clean review of that head by a reviewer that did not write it. For Dale the reviewer is a separate Claude session or subagent; Codex review quota is reserved for VPM and Life Dashboard except PRs labeled `security`. Every finding is fixed or answered. Squash merge with the expected head SHA. A merge is not a deployment claim; check the Pages URL separately.
 - **Queue:** at most one implementation PR in flight. Never create an issue just to fill an empty queue, never duplicate an issue that already has a branch or PR, and claim before building (one issue comment).
 - **Models:** Sonnet/high for docs, tests and mechanical changes (`routine-sonnet` subagent); Opus/high for data pipeline, lock, gate, privacy and architecture. No paid credits or new services without the owner.
-- **Unattended runs:** none yet. A scheduled Arriba steward starts only after Life Dashboard issue #13 proves a full unattended cycle (owner decision 10).
+- **Unattended runs:** none yet. A scheduled Dale steward starts only after Life Dashboard issue #13 proves a full unattended cycle (owner decision 10).
 - State plainly what is built, tested, deployed and unverified. Owner wants short, plain answers; escalate only real blockers (credentials, money, device testing, product decisions).

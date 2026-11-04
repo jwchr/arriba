@@ -1,6 +1,6 @@
 {
-  "name": "Arriba",
-  "short_name": "Arriba",
+  "name": "Dale",
+  "short_name": "Dale",
   "description": "Independent North Jersey to Manhattan bus commuter app. Not affiliated with NJ Transit.",
   "start_url": "./",
   "scope": "./",

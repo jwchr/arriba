@@ -44,6 +44,7 @@ export function reversed(f: Favorite): Pick<Favorite, 'fromStopId' | 'toStopId' 
   return { fromStopId: f.toStopId, toStopId: f.fromStopId, routeIds: f.routeIds };
 }
 
+// Storage keys keep the app's first name (Arriba) so saved commutes survive the rename to Dale.
 const KEY = 'arriba.favorites.v1';
 
 /** Browser storage can be missing or throw (private mode); favorites then live for the session only. */

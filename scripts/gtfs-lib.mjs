@@ -1,4 +1,4 @@
-// Build Arriba's compact corridor dataset from an NJ Transit GTFS feed (zip or folder).
+// Build Dale's compact corridor dataset from an NJ Transit GTFS feed (zip or folder).
 // Pure functions; scripts/build-gtfs.mjs handles files. No route tables are typed by hand.
 
 /** RFC 4180 CSV to array of objects. Handles BOM, quotes, embedded commas/newlines, CRLF. */
@@ -85,7 +85,7 @@ export function parseGtfsTime(s) {
 
 /**
  * Fill blank intermediate times linearly between known ones (GTFS allows blanks at non-timepoints).
- * A filled value is Arriba's estimate, not NJ Transit data: buildDataset records those indices in
+ * A filled value is Dale's estimate, not NJ Transit data: buildDataset records those indices in
  * trip.estimated so the app labels them (NJ Transit's terms require using the data as-is).
  */
 export function interpolate(times) {
