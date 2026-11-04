@@ -86,7 +86,7 @@ const en = {
   lockedTitle: 'Locked onto this trip',
   nearMe: {
     button: 'Stops near me',
-    explain: 'Uses your location once, on this phone, to list nearby stops. It is not saved or sent anywhere.',
+    explain: 'Uses your location once, on this phone, to list nearby stops. Dale does not save it or send it anywhere.',
     asking: 'Asking your phone for your location…',
     results: (accuracy: number) => `Nearest stops. Your phone says your location is good to about ${accuracy} m. Distances are straight lines, not walking routes.`,
     rough: 'Your location is rough, so the first stop listed may not be the closest. Check the stop name and side of the street.',
@@ -427,7 +427,7 @@ const es: Strings = {
   lockedTitle: 'Siguiendo este viaje',
   nearMe: {
     button: 'Paradas cerca de mí',
-    explain: 'Usa tu ubicación una vez, en este teléfono, para mostrar paradas cercanas. No se guarda ni se envía a ningún lado.',
+    explain: 'Usa tu ubicación una vez, en este teléfono, para mostrar paradas cercanas. Dale no la guarda ni la envía a ningún lado.',
     asking: 'Pidiéndole tu ubicación al teléfono…',
     results: (accuracy: number) => `Paradas más cercanas. Tu teléfono dice que tu ubicación tiene un margen de unos ${accuracy} m. Las distancias son en línea recta, no rutas a pie.`,
     rough: 'Tu ubicación es aproximada, así que la primera parada puede no ser la más cercana. Revisa el nombre de la parada y el lado de la calle.',

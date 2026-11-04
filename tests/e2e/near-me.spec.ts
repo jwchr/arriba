@@ -10,7 +10,7 @@ test.describe('with location allowed', () => {
   test('suggests nearby demo stops; the rider picks one and the direction guard still applies', async ({ page }) => {
     await page.goto('/?now=2026-11-04T07:50&demo');
     await page.getByRole('button', { name: /find a stop/i }).first().click();
-    await expect(page.locator('.near-me')).toContainText('It is not saved or sent anywhere.');
+    await expect(page.locator('.near-me')).toContainText('Dale does not save it or send it anywhere.');
     await page.getByRole('button', { name: 'Stops near me' }).click();
     const list = page.locator('.near-me .results li');
     await expect(list).toHaveCount(2);
@@ -41,7 +41,29 @@ test('location turned off: says so and points to search by name', async ({ page,
   await page.goto('/?now=2026-11-04T07:50&demo');
   await page.getByRole('button', { name: /find a stop/i }).first().click();
   await page.getByRole('button', { name: 'Stops near me' }).click();
-  await expect(page.locator('.near-me')).toContainText(/Location is turned off for this site|could not find your location/);
+  await expect(page.locator('.near-me')).toContainText('Location is turned off for this site');
+});
+
+test('a browser that never answers: gives up after a while and the button still works', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'geolocation', { value: { getCurrentPosition: () => undefined }, configurable: true });
+  });
+  await page.clock.install();
+  await page.goto('/?now=2026-11-04T07:50&demo');
+  await page.getByRole('button', { name: /find a stop/i }).first().click();
+  await page.getByRole('button', { name: 'Stops near me' }).click();
+  await expect(page.locator('.near-me')).toContainText('Asking your phone');
+  await expect(page.getByRole('button', { name: 'Stops near me' })).toBeEnabled();
+  await page.clock.runFor(21_000);
+  await expect(page.locator('.near-me')).toContainText('could not find your location');
+});
+
+test('a browser without location: says so', async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'geolocation', { value: undefined, configurable: true }); });
+  await page.goto('/?now=2026-11-04T07:50&demo');
+  await page.getByRole('button', { name: /find a stop/i }).first().click();
+  await page.getByRole('button', { name: 'Stops near me' }).click();
+  await expect(page.locator('.near-me')).toContainText('This browser cannot share a location');
 });
 
 test('printed timetable: not offered, and says why', async ({ page }) => {
