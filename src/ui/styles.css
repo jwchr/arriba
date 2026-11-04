@@ -324,7 +324,7 @@ main { flex: 1; padding-bottom: 24px; }
 .strip-stop { width: 100%; min-height: 0; padding: 0; border: 0; background: none; border-radius: 8px; display: flex; flex-direction: column; align-items: center; color: #e9edf3; position: relative; z-index: 1; }
 .strip-name { height: 100px; width: var(--stop-w); position: relative; display: block; }
 /* Names slant up from each dot, the way line maps over train doors are printed. */
-.strip-name { font-size: 1em; font-weight: 700; line-height: 1.1; text-align: left; white-space: nowrap; }
+.strip-name { font-size: 1em; font-weight: 700; line-height: 1.1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .strip-name { writing-mode: horizontal-tb; }
 .strip-name > small { display: block; font-weight: 500; font-size: 0.86em; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; max-width: 12em; }
 .strip-stop .strip-name { transform-origin: 0 100%; transform: translate(calc(var(--stop-w) / 2 + 2px), 0) rotate(-50deg); width: 12em; height: auto; position: absolute; bottom: 52px; left: 0; }

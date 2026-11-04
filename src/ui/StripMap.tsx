@@ -17,7 +17,8 @@ const kept = new Map<string, { milestones: Milestone[]; follow: boolean }>();
 
 /** "Hackensack - Main St. at Anderson St. (to New York)" → town and detail, without the direction hint. */
 export function stopLabel(name: string): { town: string; detail: string } {
-  const plain = name.replace(/\s+\(to [^)]+\)$/i, '');
+  // The strip is narrow: the terminal goes by the name riders use, as on the commute signs.
+  const plain = name.replace(/\s+\(to [^)]+\)$/i, '').replace(/Port Authority Bus Terminal/g, 'Port Authority');
   const i = plain.indexOf(' - ');
   return i > 0 ? { town: plain.slice(0, i), detail: plain.slice(i + 3) } : { town: plain, detail: '' };
 }
@@ -148,6 +149,8 @@ export function StripMap({ ds, session, alightIndex, now, t, lang }: { ds: Datas
         <p className="muted small">{p.followPrivacy}</p>
         {/* Not a live region: the accuracy changes with every fix, which would be read out each time. */}
         {state.follow && <p className="small">{gps === 'on' && phone ? p.gpsOn(Math.round(phone.accuracyM)) : p.gps[gps]}</p>}
+        {/* Only the state is announced (asking, on, off, errors), once each, never the accuracy. */}
+        <span className="sr-only" role="status">{state.follow ? p.gps[gps] : ''}</span>
       </> : <p className="muted small" role="note">{p.noLocations}</p>}
     </div>
   );
