@@ -236,11 +236,13 @@ test('full-screen ride: keep the screen on, Escape exits, "I got off" ends the r
   expect(violations.map((v) => v.id)).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.ride-mode h3')).toBeFocused(); // focus stays with the ride
   await page.locator('.ride-mode').getByRole('button', { name: 'Full screen' }).click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'I got off' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('.bus-lock .lock-phase')).toHaveText('Session ended');
+  await expect(page.locator('#bus-lock-heading')).toBeFocused();
 });
 
 test('a lock survives a reload: offered back, never resumed silently, original times kept', async ({ page }) => {

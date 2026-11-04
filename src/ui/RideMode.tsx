@@ -58,7 +58,9 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
   // Full screen steps aside while the rider must decide about a changed vehicle (the buttons are below).
   const showFull = full && hasDestination && session.lock.status !== 'needs_confirmation';
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { if (showFull) heading.current?.focus(); }, [showFull]);
+  // Focus follows the view: into the dialog when it opens, onto the in-page heading when it closes.
+  const opened = useRef(false);
+  useEffect(() => { if (showFull || opened.current) heading.current?.focus(); opened.current = true; }, [showFull]);
   // While full screen, the rest of the app is unreachable (inert) and does not scroll underneath.
   useEffect(() => {
     if (!showFull) return;
