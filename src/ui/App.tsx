@@ -11,6 +11,7 @@ import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule'
 import { addDays, clockChangeBetween, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
 import type { Dataset, Departure, Stop } from '../domain/types';
 import { strings, type Lang, type Strings } from './i18n';
+import { BoardingCheck } from './BoardingCheck';
 import { NearMe } from './NearMe';
 import { Rescue } from './Rescue';
 import { RiderGuide } from './RiderGuide';
@@ -29,6 +30,7 @@ type Screen =
   | { name: 'departure'; dep: Departure; leg: Leg }
   | { name: 'settings' }
   | { name: 'guide' }
+  | { name: 'boarding'; dep: Departure; leg: Leg }
   | { name: 'rescue'; fromStopId: string; homeStopId: string; usualRouteId?: string; label: 'home' | 'other' };
 
 const store = (() => { try { return window.localStorage; } catch { return undefined; } })();
@@ -240,12 +242,17 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             onAdvanceDemo={(minutes) => { if (ds.meta.demo) setDemoAdvanceMs((value) => value + minutes * 60_000); }}
             onLock={() => { if (!activeLock) { setResumable(undefined); setActiveLock({ dep: screen.dep, leg: screen.leg, session: createBusSession(screen.dep, lockNow) }); } }}
             onReturn={(dep, leg) => setScreen({ name: 'departure', dep, leg })}
+            onBoarding={() => setScreen({ name: 'boarding', dep: screen.dep, leg: screen.leg })}
             onRescue={() => setScreen({ name: 'rescue', fromStopId: screen.leg.fromStopId, homeStopId: screen.leg.toStopId, usualRouteId: screen.dep.route.id,
               label: ds.stops.find((s) => s.id === screen.leg.toStopId)?.terminal ? 'other' : 'home' })}
             onUnlock={() => { setActiveLock(undefined); if (!ds.meta.demo) forgetLock(store); setDemoAdvanceMs(0); }} />
         )}
         {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} onGuide={() => setScreen({ name: 'guide' })} />}
         {screen.name === 'guide' && <RiderGuide t={t} />}
+        {screen.name === 'boarding' && (
+          <BoardingCheck ds={ds} dep={screen.dep} toStopId={screen.leg.toStopId} t={t} lang={settings.lang}
+            gate={(() => { const g = departureGate(ds, screen.dep); return g && gateLine(t, g); })()} />
+        )}
         {screen.name === 'rescue' && (
           <Rescue ds={ds} t={t} lang={settings.lang} now={now} fromStopId={screen.fromStopId} homeStopId={screen.homeStopId} usualRouteId={screen.usualRouteId} label={screen.label}
             gateText={(o) => { const g = departureGate(ds, o.dep); return g && gateLine(t, g); }}
@@ -592,12 +599,13 @@ const gateLine = (t: Strings, g: GateAnswer) =>
       : g.status === 'published' ? `${t.gatePublished(g.gate, g.door)} · ${t.gateRuleTag}`
         : t.gateUnknown;
 
-function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keepAwake, onKeepAwake, onLockEvent, onAdvanceDemo, onLock, onUnlock, onReturn, onRescue }: {
+function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keepAwake, onKeepAwake, onLockEvent, onAdvanceDemo, onLock, onUnlock, onReturn, onRescue, onBoarding }: {
   ctx: Ctx; dep: Departure; leg: Leg; busSession?: BusSession; anotherLock: boolean; lockNow: number;
   keepAwake: boolean; onKeepAwake: (value: boolean) => void; onLockEvent: (event: BusSessionEvent) => void;
   onAdvanceDemo: (minutes: number) => void; onLock: () => void; onUnlock: () => void;
   onReturn: (dep: Departure, leg: Leg) => void;
   onRescue: () => void;
+  onBoarding: () => void;
 }) {
   const { ds, t, stopName } = ctx;
   const times = tripStopTimes(ds, dep);
@@ -628,6 +636,7 @@ function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keep
       {clockChange && <p className="warn small" role="note">{clockChange === 'back' ? t.clockBackTrip : t.clockAheadTrip}</p>}
       {busSession && <BusLockPanel ds={ds} session={busSession} alightIndex={alightIndex} now={lockNow} t={t} lang={ctx.lang}
         keepAwake={keepAwake} onKeepAwake={onKeepAwake} onEvent={onLockEvent} onAdvanceDemo={onAdvanceDemo} onUnlock={onUnlock} />}
+      <button className="boarding-open" onClick={onBoarding}>{t.boarding.open}</button>
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>
         <div className="row-between">
