@@ -146,12 +146,18 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
   // marker goes into the browser history; no stop, trip or location is put in the URL or state.
   const depth = useRef(stack.length);
   depth.current = stack.length;
+  // Our own history.back() (consuming the marker on the way home) must not pop a screen the rider
+  // opens before its popstate arrives.
+  const ownPop = useRef(false);
   useEffect(() => {
     if (stack.length > 1 && !history.state?.dale) history.pushState({ dale: true }, '');
-    if (stack.length === 1 && history.state?.dale) history.back();
+    if (stack.length === 1 && history.state?.dale) { ownPop.current = true; history.back(); }
   }, [stack.length]);
   useEffect(() => {
-    const onPop = () => { if (depth.current > 1) back(); };
+    const onPop = () => {
+      if (ownPop.current) { ownPop.current = false; if (depth.current > 1 && !history.state?.dale) history.pushState({ dale: true }, ''); return; }
+      if (depth.current > 1) back();
+    };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
