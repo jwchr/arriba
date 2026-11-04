@@ -12,7 +12,7 @@ import type { Dataset, Stop } from './types';
  */
 export type RideStage = 'riding' | 'three' | 'two' | 'one' | 'request' | 'last_next' | 'arrived' | 'passed';
 
-export type UncertainReason = 'no_gps' | 'stale_gps' | 'identity' | 'cancelled' | 'off_route' | 'ambiguous' | 'behind';
+export type UncertainReason = 'no_gps' | 'stale_gps' | 'identity' | 'cancelled' | 'off_route' | 'ambiguous' | 'inconsistent' | 'behind';
 
 export type RideGuide =
   /** Fresh, unambiguous matched-bus GPS on a trip whose every stop is listed: an honest stop count. */
@@ -28,6 +28,8 @@ export const OFF_ROUTE_M = 400;
 export const AT_STOP_M = 60;
 /** Another, non-adjacent part of the route this close to the best match makes the position ambiguous. */
 export const AMBIGUOUS_M = 100;
+/** A recent fix at most this far ahead along the route is treated as jitter in the newest one; more is a disagreement. */
+export const JITTER_M = 100;
 
 type Located = Stop & { lat: number; lon: number };
 const located = (s: Stop | undefined): s is Located => typeof s?.lat === 'number' && typeof s?.lon === 'number';
@@ -89,20 +91,30 @@ export function rideGuide(
   if (!here) return { basis: 'uncertain', reason: 'ambiguous' };
   if (here.offM > OFF_ROUTE_M) return { basis: 'uncertain', reason: 'off_route' };
 
-  // Forward only: the furthest fresh, unambiguous fix of this vehicle on this trip so far.
+  // Distance along the route for a fractional stop index, to compare fixes in metres.
+  const cum = [0];
+  for (let i = 1; i < line.length; i++) cum.push(cum[i - 1]! + dist(line[i - 1]!, line[i]!));
+  const metres = (q: number) => { const i = Math.min(Math.floor(q), line.length - 2); return cum[i]! + (q - i) * (cum[i + 1]! - cum[i]!); };
+  // Small backward jitter in the newest fix is absorbed by a slightly further recent fix; a recent fix
+  // much further ahead means the readings disagree, and neither is trusted for a count.
   let reach = { progress: here.progress, pos: last as { lat: number; lon: number } };
   for (const o of history) {
-    if (o.vehicleId !== last.vehicleId || o.tripInstanceId !== last.tripInstanceId || o.observedAt > last.observedAt) continue;
-    if (now - o.observedAt > DEFAULT_TIMING.vanishAfterMs) continue;
+    if (o.vehicleId !== last.vehicleId || o.tripInstanceId !== last.tripInstanceId || o.observedAt >= last.observedAt) continue;
+    if (now - o.observedAt > DEFAULT_TIMING.staleAfterMs) continue;
     const h = progressAlong(line, from, to, o);
-    if (h && h.offM <= OFF_ROUTE_M && h.progress > reach.progress) reach = { progress: h.progress, pos: o };
+    if (!h || h.offM > OFF_ROUTE_M) continue;
+    const ahead = metres(h.progress) - metres(here.progress);
+    if (ahead > JITTER_M) return { basis: 'uncertain', reason: 'inconsistent' };
+    if (h.progress > reach.progress) reach = { progress: h.progress, pos: o };
   }
   const p = reach.progress;
   const near = (k: number) => k >= 0 && k < line.length && dist(reach.pos, line[k]!) <= AT_STOP_M;
 
   if (p < boardIndex && !near(boardIndex)) return { basis: 'uncertain', reason: 'behind' };
   const base = { basis: 'gps' as const, observedAt: last.observedAt };
-  if (near(alightIndex)) return { ...base, stage: 'arrived', stopsAway: 0, reachedIndex: alightIndex };
+  const lastStop = alightIndex === stopIds.length - 1;
+  // The end of the line cannot be passed: a position clamped there is the bus arriving or in the terminal.
+  if (near(alightIndex) || (lastStop && p >= alightIndex)) return { ...base, stage: 'arrived', stopsAway: 0, reachedIndex: alightIndex };
   // Beyond the rider's stop, or clamped at it while farther than an at-stop distance: it has gone by.
   if (p >= alightIndex) return { ...base, stage: 'passed', stopsAway: 0, reachedIndex: alightIndex };
 
@@ -113,7 +125,6 @@ export function rideGuide(
   if (stopsAway === 1) {
     // Pressing while still at the stop before yours asks for that stop. Wait until the bus leaves it.
     const leftPrevious = current === alightIndex - 1 && !near(alightIndex - 1);
-    const lastStop = alightIndex === stopIds.length - 1;
     stage = lastStop ? 'last_next' : leftPrevious ? 'request' : 'one';
   } else stage = stopsAway === 2 ? 'two' : stopsAway === 3 ? 'three' : 'riding';
   return { ...base, stage, stopsAway, reachedIndex: current };

@@ -52,9 +52,29 @@ describe('ride guide: a stop count only from fresh, unambiguous GPS on a trip wi
     expect(g(lock(at('D4')), 1, 3)).toMatchObject({ stage: 'arrived' });
   });
 
-  it('never moves backwards on GPS jitter', () => {
-    const back = between(at('D2'), at('D3'), 0.6);
-    expect(g(lock(back), 1, 4, [obs(at('D3'), NOW - 20_000)])).toMatchObject({ stage: 'two' });
+  it('absorbs small backward GPS jitter but not a big disagreement', () => {
+    const jitter = between(at('D3'), at('D2'), 0.035); // about 65 m back from D3
+    expect(g(lock(jitter))).toMatchObject({ stage: 'three' }); // on its own: not yet at D3
+    expect(g(lock(jitter), 1, 4, [obs(at('D3'), NOW - 20_000)])).toMatchObject({ stage: 'two' });
+    expect(g(lock(between(at('D2'), at('D3'), 0.6)), 1, 4, [obs(at('D3'), NOW - 20_000)])).toEqual({ basis: 'uncertain', reason: 'inconsistent' });
+  });
+
+  it('never lets one GPS reading far ahead override the newest one', () => {
+    // Straight line, stops every 300 m: S0..S6. Board at S0, get off at S4. Newest fix exactly at S2.
+    const S = Array.from({ length: 7 }, (_, i) => ({ id: `S${i}`, name: `S${i}`, lat: 40.8 + (i * 300) / 110_540, lon: -74.0 }));
+    const line: Dataset = { ...ds, meta: { ...ds.meta }, stops: S };
+    const ids = S.map((s) => s.id);
+    const along = (m: number) => ({ lat: 40.8 + m / 110_540, lon: -74.0 });
+    const run = (history: VehicleObservation[]) => g(lock(along(600), 'tracked', NOW - 1_000), 0, 4, history, line, ids);
+    expect(run([])).toMatchObject({ stage: 'two' });
+    expect(run([obs(along(1_000), NOW - 20_000)])).toEqual({ basis: 'uncertain', reason: 'inconsistent' });
+    expect(run([obs(along(1_150), NOW - 20_000)])).toEqual({ basis: 'uncertain', reason: 'inconsistent' });
+    expect(run([obs(along(1_250), NOW - 5 * 60_000)])).toMatchObject({ stage: 'two' }); // too old to weigh in
+    expect(run([obs(along(660), NOW - 10_000)])).toMatchObject({ stage: 'two' }); // 60 m ahead: jitter, absorbed
+  });
+
+  it('treats a position clamped at the end of the line as arrived, never passed', () => {
+    expect(g(lock({ lat: at('PABT').lat - 0.0018, lon: at('PABT').lon + 0.0008 }))).toMatchObject({ stage: 'arrived' });
   });
 
   it('refuses to count when another part of the route is about as close', () => {

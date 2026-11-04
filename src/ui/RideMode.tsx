@@ -52,13 +52,14 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
   const stage = guide?.basis === 'gps' ? guide.stage : undefined;
 
   // Vibrate only when the countdown moves forward to 3, 2, 1 or "ask now", once each, if turned on.
+  // The stage showing when ride mode first opens is the baseline: opening the view does not buzz.
   useEffect(() => {
-    if (!stage) return;
-    const rank = STAGE_RANK[stage];
-    const before = alerted.get(session.id) ?? -1;
+    const rank = stage ? STAGE_RANK[stage] : -1;
+    const before = alerted.get(session.id);
+    if (before === undefined) { alerted.set(session.id, rank); return; }
     if (rank <= before) return;
     alerted.set(session.id, rank);
-    if (prefs.vibrate && canVibrate && rank >= 1 && rank <= 4 && before >= 0) navigator.vibrate([200, 100, 200]);
+    if (prefs.vibrate && canVibrate && rank >= 1 && rank <= 4) navigator.vibrate([200, 100, 200]);
   }, [stage, session.id, prefs.vibrate, canVibrate]);
 
   if (!hasDestination || !guide) return <p className="small">{r.noDestination}</p>;
