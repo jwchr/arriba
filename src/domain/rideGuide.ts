@@ -32,6 +32,8 @@ export const AMBIGUOUS_M = 100;
 export const JITTER_M = 100;
 /** Faster than this along the route since the previous fix (about 125 km/h) is not a bus moving: the reading is wrong. */
 export const MAX_SPEED_MPS = 35;
+/** GPS noise allowed for when judging speed between two fixes. */
+export const GPS_NOISE_M = 50;
 
 type Located = Stop & { lat: number; lon: number };
 const located = (s: Stop | undefined): s is Located => typeof s?.lat === 'number' && typeof s?.lon === 'number';
@@ -112,9 +114,11 @@ export function rideGuide(
     if (!previous || o.observedAt > previous.observedAt) previous = { progress: h.progress, observedAt: o.observedAt };
   }
   // One impossible jump forward since the previous fix is a bad reading, not a fast bus.
+  // GPS noise of a few tens of metres between close fixes is allowed for; small jumps are never judged.
   if (previous) {
     const seconds = (last.observedAt - previous.observedAt) / 1000;
-    if (seconds > 0 && (metres(here.progress) - metres(previous.progress)) / seconds > MAX_SPEED_MPS) return { basis: 'uncertain', reason: 'inconsistent' };
+    const moved = metres(here.progress) - metres(previous.progress);
+    if (seconds > 0 && moved > JITTER_M && (moved - GPS_NOISE_M) / seconds > MAX_SPEED_MPS) return { basis: 'uncertain', reason: 'inconsistent' };
   }
   const guide = stageAt(reach.progress, reach.pos);
   // Before saying "press now", "this is your stop" or "passed", take the less advanced of the newest

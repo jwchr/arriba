@@ -83,6 +83,8 @@ describe('ride guide: a stop count only from fresh, unambiguous GPS on a trip wi
     expect(run(1_000, [obs(along(600), NOW - 6_000)])).toEqual({ basis: 'uncertain', reason: 'inconsistent' });
     // The same 400 m in 30 s (13 m/s) is fine: the bus has left S3, ask for S4 now.
     expect(run(1_000, [obs(along(600), NOW - 31_000)])).toMatchObject({ stage: 'request' });
+    // A real bus 2 s apart, 25 m/s plus 15 m of GPS noise (65 m): not judged, no false disagreement.
+    expect(run(1_000, [obs(along(935), NOW - 3_000)])).toMatchObject({ basis: 'gps' });
     // Newest fix 20 m before S3 (at it), an older one 75 m past S3: still "one", not "press now".
     expect(run(880, [obs(along(975), NOW - 11_000)])).toMatchObject({ stage: 'one' });
   });
