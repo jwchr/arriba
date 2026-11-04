@@ -28,7 +28,7 @@ type Screen =
   | { name: 'departure'; dep: Departure; leg: Leg }
   | { name: 'settings' }
   | { name: 'guide' }
-  | { name: 'rescue'; fromStopId: string; homeStopId: string; usualRouteId?: string };
+  | { name: 'rescue'; fromStopId: string; homeStopId: string; usualRouteId?: string; label: 'home' | 'other' };
 
 const store = (() => { try { return window.localStorage; } catch { return undefined; } })();
 const readSettings = (): Settings => {
@@ -192,13 +192,14 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             onAdvanceDemo={(minutes) => { if (ds.meta.demo) setDemoAdvanceMs((value) => value + minutes * 60_000); }}
             onLock={() => { if (!activeLock) setActiveLock({ dep: screen.dep, leg: screen.leg, session: createBusSession(screen.dep, lockNow) }); }}
             onReturn={(dep, leg) => setScreen({ name: 'departure', dep, leg })}
-            onRescue={() => setScreen({ name: 'rescue', fromStopId: screen.leg.fromStopId, homeStopId: screen.leg.toStopId, usualRouteId: screen.dep.route.id })}
+            onRescue={() => setScreen({ name: 'rescue', fromStopId: screen.leg.fromStopId, homeStopId: screen.leg.toStopId, usualRouteId: screen.dep.route.id,
+              label: ds.stops.find((s) => s.id === screen.leg.toStopId)?.terminal ? 'other' : 'home' })}
             onUnlock={() => { setActiveLock(undefined); setDemoAdvanceMs(0); }} />
         )}
         {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} onGuide={() => setScreen({ name: 'guide' })} />}
         {screen.name === 'guide' && <RiderGuide t={t} />}
         {screen.name === 'rescue' && (
-          <Rescue ds={ds} t={t} lang={settings.lang} now={now} fromStopId={screen.fromStopId} homeStopId={screen.homeStopId} usualRouteId={screen.usualRouteId}
+          <Rescue ds={ds} t={t} lang={settings.lang} now={now} fromStopId={screen.fromStopId} homeStopId={screen.homeStopId} usualRouteId={screen.usualRouteId} label={screen.label}
             gateText={(o) => { const g = departureGate(ds, o.dep); return g && gateLine(t, g); }}
             badge={(routeId) => <RouteBadge ds={ds} routeId={routeId} />}
             onOpen={(o) => setScreen({ name: 'departure', dep: o.dep, leg: { fromStopId: o.boardStopId, toStopId: o.alightStopId, routeIds: [] } })} />

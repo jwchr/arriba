@@ -390,7 +390,8 @@ test.describe('Get me home (issue #32)', () => {
     await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
     await page.getByRole('button', { name: 'Save to my commutes' }).click();
     await page.locator('.dep').first().click();
-    await expect(page.getByRole('button', { name: 'Other buses there' })).toBeVisible(); // heading into New York
+    await page.getByRole('button', { name: 'Other buses there' }).click(); // heading into New York
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Other buses there');
     await page.getByRole('button', { name: 'Back' }).click();
     await page.getByRole('button', { name: /Reverse/ }).click();
     await page.locator('.dep').first().click();

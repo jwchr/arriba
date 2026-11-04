@@ -3,6 +3,7 @@
 // across from it), ranked by arrival. Coverage is stated, never implied: routes outside Dale's data
 // are unknown, not absent, and there is no walking or transfer data, so none is suggested.
 import { twinOf } from './direction';
+import { isNjtHoliday } from './holidays';
 import { departuresOn, tripStopTimes } from './schedule';
 import { addDays, localYmd, parseYmd, zonedWallTime } from './time';
 import type { Dataset, Departure } from './types';
@@ -19,8 +20,10 @@ export interface RescueOption {
   arrivesEstimated: boolean;
   /** The same route as the rider's usual bus. */
   sameLine: boolean;
-  /** The last departure listed tonight (through 4 AM) on the rider's line that reaches home. */
+  /** The rider's line's last listed trip home before tonight's overnight break in service. */
   lastOnLine: boolean;
+  /** Set with lastOnLine on a printed timetable's holiday, whose own schedule is not printed. */
+  lastUnconfirmed?: boolean;
 }
 
 export type RescueLimitation = 'schedule_only' | 'routes_in_data_only' | 'no_walking_or_transfers' | 'printed_timepoints_only' | 'demo_schedule';
@@ -34,6 +37,10 @@ export interface RescueResult {
 }
 
 export const RESCUE_HORIZON_MS = 4 * 3600_000;
+/** A gap this long with no bus on the line is the overnight break; the trip before it is the last tonight. */
+export const OVERNIGHT_GAP_MS = 2 * 3600_000;
+/** How far ahead to look for that break (it must start within this window, and be followed by a known trip). */
+const LAST_SEARCH_MS = 20 * 3600_000;
 
 /**
  * Scheduled options from `fromStopId` to `homeStopId` departing between `now` and the horizon, nearest
@@ -56,14 +63,11 @@ export function rescueOptions(ds: Dataset, fromStopId: string, homeStopId: strin
   const boards = [from, twinOf(ds, from)].filter((s): s is NonNullable<typeof s> => !!s);
   const homes = [home, twinOf(ds, home)].filter((s): s is NonNullable<typeof s> => !!s);
   const today = localYmd(now, tz);
-  // Tonight's service runs past midnight: the last trip home can leave as late as 4 AM tomorrow.
-  const [ty, tm, td] = parseYmd(addDays(today, 1));
-  const nightEnds = zonedWallTime(ty, tm, td, 4, 0, tz);
   const found = new Map<string, RescueOption>();
-  let lastOnLine: RescueOption | undefined;
+  const line = new Map<string, RescueOption>();
 
   for (const board of boards) {
-    for (const date of [today, addDays(today, 1)]) {
+    for (const date of [today, addDays(today, 1), addDays(today, 2)]) {
       for (const dep of departuresOn(ds, { stopId: board.id, date })) {
         const ids = dep.pattern.stopIds;
         const alightIndex = ids.findIndex((id, i) => i > dep.stopIndex && homes.some((h) => h.id === id));
@@ -76,8 +80,10 @@ export function rescueOptions(ds: Dataset, fromStopId: string, homeStopId: strin
           arrives: at.at, arrivesEstimated: at.estimated,
           sameLine: dep.route.id === usualRouteId, lastOnLine: false,
         };
-        // The line's last listed trip home tonight (through 4 AM), wherever it falls.
-        if (option.sameLine && dep.departs >= now - 60_000 && dep.departs < nightEnds && (!lastOnLine || dep.departs > lastOnLine.dep.departs)) lastOnLine = option;
+        if (option.sameLine && dep.departs >= now - 60_000 && dep.departs <= now + LAST_SEARCH_MS + OVERNIGHT_GAP_MS) {
+          const prevLine = line.get(dep.tripInstanceId);
+          if (!prevLine || (prevLine.acrossFromBoard && !option.acrossFromBoard)) line.set(dep.tripInstanceId, option);
+        }
         if (dep.departs < now - 60_000 || dep.departs > until) continue;
         // One entry per trip: prefer boarding at the rider's own stop over the one across the street.
         const prev = found.get(dep.tripInstanceId);
@@ -86,11 +92,24 @@ export function rescueOptions(ds: Dataset, fromStopId: string, homeStopId: strin
     }
   }
 
+  // The last trip tonight is the one before the first overnight break: two hours or more with no
+  // bus on the line, followed by a known trip. No break found (service continues, or the data ends):
+  // nothing is called the last.
+  const onLine = [...line.values()].sort((a, b) => a.dep.departs - b.dep.departs);
+  // The break must start in the evening or night (8 PM to 4 AM), so a long midday gap is never "tonight".
+  const localHour = (at: number) => { const [y, m, d] = parseYmd(localYmd(at, tz)); return (at - zonedWallTime(y, m, d, 0, 0, tz)) / 3600_000; };
+  const breakAt = onLine.findIndex((o, i) => i + 1 < onLine.length && o.dep.departs <= now + LAST_SEARCH_MS
+    && (localHour(o.dep.departs) >= 20 || localHour(o.dep.departs) < 4)
+    && onLine[i + 1]!.dep.departs - o.dep.departs >= OVERNIGHT_GAP_MS);
+  const lastOnLine = breakAt >= 0 ? onLine[breakAt] : undefined;
+
   let options = [...found.values()].sort((a, b) => a.arrives - b.arrives || a.dep.departs - b.dep.departs).slice(0, limit);
   if (lastOnLine) {
-    const last = { ...lastOnLine, lastOnLine: true };
+    // A printed timetable has no holiday schedules: on a listed holiday the last trip is unconfirmed.
+    const unconfirmed = !!ds.meta.transcribed && (isNjtHoliday(lastOnLine.dep.serviceDate) || isNjtHoliday(localYmd(lastOnLine.dep.departs, tz)));
+    const last = { ...lastOnLine, lastOnLine: true, ...(unconfirmed ? { lastUnconfirmed: true } : {}) };
     options = options.some((o) => o.dep.tripInstanceId === last.dep.tripInstanceId)
-      ? options.map((o) => (o.dep.tripInstanceId === last.dep.tripInstanceId ? { ...o, lastOnLine: true } : o))
+      ? options.map((o) => (o.dep.tripInstanceId === last.dep.tripInstanceId ? { ...o, lastOnLine: true, ...(unconfirmed ? { lastUnconfirmed: true } : {}) } : o))
       : [...options, last];
   }
   return { ...base, options };

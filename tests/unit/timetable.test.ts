@@ -344,6 +344,34 @@ describe('"Get me the fuck home" rescue search (issue #32)', () => {
     expect(last[0]!.dep.departs).toBe(Math.max(...all.map((d) => d.departs)));
   });
 
+  it('tags the right "last tonight" after midnight, and nothing once tonight’s last bus has gone', async () => {
+    const { rescueOptions } = await import('../../src/domain/rescue');
+    const { zonedWallTime, localYmd } = await import('../../src/domain/time');
+    const tagged = (y: number, m: number, d: number, h: number, min: number, from = 'PABT', to = 'W19') =>
+      rescueOptions(ds, from, to, zonedWallTime(y, m, d, h, min, TZ), 'R165').options.filter((o) => o.lastOnLine);
+    // Thu 12:30 AM: tonight's last 165 is the 1:10 AM that night, not Friday's.
+    const at1230 = tagged(2026, 11, 5, 0, 30);
+    expect(at1230).toHaveLength(1);
+    expect(localYmd(at1230[0]!.dep.departs, TZ)).toBe('20261105');
+    expect(fmt(at1230[0]!.dep.departs)).toBe('1:10 AM');
+    // Thu 1:30 AM and Sat 1:30 AM: tonight's last bus has gone; nothing from a later night is tagged.
+    expect(tagged(2026, 11, 5, 1, 30)).toEqual([]);
+    expect(tagged(2026, 11, 7, 1, 30)).toEqual([]);
+    // Inbound at 6 PM: the last evening trip to Port Authority, never the first trip of the next day.
+    const inbound = tagged(2026, 11, 4, 18, 0, 'N19', 'PABT');
+    expect(inbound).toHaveLength(1);
+    expect(localYmd(inbound[0]!.dep.departs, TZ)).toBe('20261104');
+    expect(new Date(inbound[0]!.dep.departs).getTime()).toBeLessThan(zonedWallTime(2026, 11, 5, 0, 0, TZ));
+  });
+
+  it('marks the last trip unconfirmed on a printed holiday', async () => {
+    const { rescueOptions } = await import('../../src/domain/rescue');
+    const { zonedWallTime } = await import('../../src/domain/time');
+    const last = rescueOptions(ds, 'PABT', 'W19', zonedWallTime(2026, 11, 26, 20, 0, TZ), 'R165').options.filter((o) => o.lastOnLine);
+    expect(last).toHaveLength(1);
+    expect(last[0]!.lastUnconfirmed).toBe(true);
+  });
+
   it('boards across the street when the rider is on the wrong side, and finds nothing from an unknown stop', async () => {
     const { rescueOptions } = await import('../../src/domain/rescue');
     const { zonedWallTime } = await import('../../src/domain/time');
