@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { demoDataset, demoUsualGates } from '../data/demo';
 import { checkDirection, destinationsFrom, returnLeg, searchStops } from '../domain/direction';
 import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, type Favorite } from '../domain/favorites';
@@ -24,7 +24,7 @@ interface ActiveLock { dep: Departure; leg: Leg; session: BusSession }
 type Screen =
   | { name: 'home' }
   | { name: 'search' }
-  | { name: 'timetable'; leg: Leg; title: string }
+  | { name: 'timetable'; leg: Leg; title: string; date?: string }
   | { name: 'departure'; dep: Departure; leg: Leg }
   | { name: 'settings' }
   | { name: 'guide' }
@@ -136,9 +136,25 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
     const top = st[st.length - 1]!;
     // Tapping Settings (or search, or the guide) again while already there does not stack copies.
     if (top.name === s.name && ['settings', 'search', 'guide'].includes(s.name)) return st;
-    return [...st, s].slice(-20);
+    // Keep the history short, but never drop home at the bottom: Back must always lead home.
+    return st.length >= 20 ? [st[0]!, ...st.slice(2), s] : [...st, s];
   });
   const back = () => setStack((st) => (st.length > 1 ? st.slice(0, -1) : st));
+  /** Update the current screen's entry (for example the timetable's chosen day) without adding history. */
+  const updateTop = (s: Screen) => setStack((st) => [...st.slice(0, -1), s]);
+  // The phone's or browser's own Back steps back inside Dale instead of leaving it mid-ride. Only a
+  // marker goes into the browser history; no stop, trip or location is put in the URL or state.
+  const depth = useRef(stack.length);
+  depth.current = stack.length;
+  useEffect(() => {
+    if (stack.length > 1 && !history.state?.dale) history.pushState({ dale: true }, '');
+    if (stack.length === 1 && history.state?.dale) history.back();
+  }, [stack.length]);
+  useEffect(() => {
+    const onPop = () => { if (depth.current > 1) back(); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const [reversedIds, setReversedIds] = useState<Set<string>>(() => new Set());
   const toggleReversed = (id: string) => setReversedIds((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const t = strings[settings.lang];
@@ -193,7 +209,8 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
           <Search ctx={ctx} onSave={(f) => { setFavorites((l) => addFavorite(l, f)); setScreen({ name: 'home' }); }} />
         )}
         {screen.name === 'timetable' && (
-          <Timetable ctx={ctx} leg={screen.leg} title={screen.title} onDeparture={(dep) => setScreen({ name: 'departure', dep, leg: screen.leg })} />
+          <Timetable ctx={ctx} leg={screen.leg} title={screen.title} date={screen.date} onDate={(date) => updateTop({ ...screen, date })}
+            onDeparture={(dep) => setScreen({ name: 'departure', dep, leg: screen.leg })} />
         )}
         {screen.name === 'departure' && (
           <DepartureDetail ctx={ctx} dep={screen.dep} leg={screen.leg}
@@ -463,10 +480,12 @@ function Search({ ctx, onSave }: { ctx: Ctx; onSave: (f: Favorite) => void }) {
   );
 }
 
-function Timetable({ ctx, leg, title, onDeparture }: { ctx: Ctx; leg: Leg; title: string; onDeparture: (d: Departure) => void }) {
+function Timetable({ ctx, leg, title, date: chosen, onDate, onDeparture }: { ctx: Ctx; leg: Leg; title: string; date?: string; onDate: (date: string) => void; onDeparture: (d: Departure) => void }) {
   const { ds, t, tz, now, lang } = ctx;
   const today = localYmd(now, tz);
-  const [date, setDate] = useState(today);
+  // The chosen day lives in the screen's history entry, so Back from a trip returns to it.
+  const date = chosen && chosen >= today ? chosen : today;
+  const setDate = onDate;
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
   const list = departuresOn(ds, { stopId: leg.fromStopId, toStopId: leg.toStopId, routeIds: leg.routeIds, date });
   const rows = list.map((d) => ({ d, arr: arrivalAt(ds, d, leg.toStopId) }));
