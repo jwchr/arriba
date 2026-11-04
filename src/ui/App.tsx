@@ -130,7 +130,8 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
   const [resumable, setResumable] = useState<SavedLock<Leg> | undefined>();
   const [demoAdvanceMs, setDemoAdvanceMs] = useState(0);
   const [keepAwake, setKeepAwake] = useState(true);
-  const now = useNow(tz, activeLock ? 1000 : 30_000);
+  // Every 10 s at least, so a leave-by countdown is never a minute optimistic for long (issue #54).
+  const now = useNow(tz, activeLock ? 1000 : 10_000);
   const lockNow = now + (ds.meta.demo ? demoAdvanceMs : 0);
   const [settings, setSettings] = useState<Settings>(readSettings);
   const [favorites, setFavorites] = useState<Favorite[]>(() => loadFavorites(store));
