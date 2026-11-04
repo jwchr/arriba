@@ -405,10 +405,11 @@ describe('rescue wording', () => {
   it('uses "la" for one o’clock and "las" otherwise in Spanish', () => {
     const es = strings.es.rescue;
     expect(es.scheduleOnly('1:30 AM', false)).toContain('hasta la 1:30 AM.');
-    expect(es.scheduleOnly('5:30 PM', true)).toContain('hasta las 5:30 PM, más el último');
+    expect(es.scheduleOnly('5:30 PM', true)).toContain('hasta las 5:30 PM, más el último que aparece en tu línea.');
     expect(es.arrives('1:10 AM', 'X')).toBe('llega a la 1:10 AM a X');
     expect(es.arrives('~11:05 PM', 'X')).toBe('llega a las ~11:05 PM a X');
-    expect(strings.en.rescue.scheduleOnly('5:30 PM', false)).not.toContain('last tonight');
+    expect(strings.en.rescue.scheduleOnly('5:30 PM', false)).not.toContain('last trip');
+    expect(strings.en.rescue.scheduleOnly('5:30 PM', true)).toContain(', plus the last trip listed on your line.');
   });
   it('reads the local hour correctly on a clock-change night', async () => {
     const { localHour, zonedWallTime } = await import('../../src/domain/time');
