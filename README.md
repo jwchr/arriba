@@ -4,7 +4,7 @@ An independent NJ Transit bus companion for the Bergen County to Manhattan commu
 
 > Independent app. Not affiliated with or endorsed by NJ Transit or the Port Authority of New York and New Jersey. The live build shows route 165 times **typed in from NJ Transit's printed timetable**: main timepoints only, no holiday schedules. Check njtransit.com before you rely on it. Add `?demo` to the address for the invented demo data.
 
-- Live build: https://jwchr.github.io/arriba/ (printed route 165 timetable until the real NJ Transit feed is loaded)
+- Live build: https://jwchr.github.io/dale/ (printed route 165 timetable until the real NJ Transit feed is loaded)
 - What V1 is: [`docs/V1_CONTRACT.md`](docs/V1_CONTRACT.md) · Decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md) · Status: [`docs/HANDOFF.md`](docs/HANDOFF.md)
 
 ## Develop

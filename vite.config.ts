@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// BASE is set by the GitHub Pages workflow ("/arriba/"); local dev and tests use "/".
+// BASE is set by the GitHub Pages workflow ("/dale/"); local dev and tests use "/".
 export default defineConfig({
   base: process.env.BASE ?? '/',
   plugins: [react()],

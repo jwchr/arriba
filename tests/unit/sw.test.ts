@@ -31,7 +31,7 @@ beforeEach(() => {
     },
   };
   const self = {
-    location: { origin: ORIGIN, href: `${ORIGIN}/arriba/sw.js` },
+    location: { origin: ORIGIN, href: `${ORIGIN}/dale/sw.js` },
     skipWaiting: () => {},
     clients: { claim: async () => {} },
     addEventListener: (type: string, fn: (e: FakeEvent) => void) => { handlers[type] = fn; },
@@ -48,7 +48,7 @@ function handle(req: FakeRequest): { res?: Promise<Response>; kept: Promise<unkn
   return out;
 }
 const answer = (req: FakeRequest) => handle(req).res!;
-const DATA = '/arriba/data/corridor.json';
+const DATA = '/dale/data/corridor.json';
 
 describe('service worker', () => {
   it('runs with a shortened network timeout (the constant the test patches still exists)', () => {
@@ -97,33 +97,33 @@ describe('service worker', () => {
 
   it('saves pages under one address without the query, so every ?now= or ?demo load gets the newest page', async () => {
     net = async () => new Response('<html v2>');
-    const { kept } = handle(get('/arriba/?now=2026-11-04T07:50', 'navigate'));
+    const { kept } = handle(get('/dale/?now=2026-11-04T07:50', 'navigate'));
     await Promise.all(kept);
-    expect([...saved.keys()]).toEqual([`${ORIGIN}/arriba/`]);
+    expect([...saved.keys()]).toEqual([`${ORIGIN}/dale/`]);
     net = () => Promise.reject(new TypeError('offline'));
-    expect(await (await answer(get('/arriba/?demo', 'navigate'))).text()).toBe('<html v2>');
+    expect(await (await answer(get('/dale/?demo', 'navigate'))).text()).toBe('<html v2>');
     // A data request with a different query is not the same file, so it does not fall back.
     saved.set(`${ORIGIN}${DATA}?x=1`, new Response('{}'));
     await expect(answer(get(DATA))).rejects.toThrow();
   });
 
   it('uses saved hashed assets without the network, and fetches them once when missing', async () => {
-    saved.set(`${ORIGIN}/arriba/assets/index-abc.js`, new Response('js'));
-    expect(await (await answer(get('/arriba/assets/index-abc.js'))).text()).toBe('js');
+    saved.set(`${ORIGIN}/dale/assets/index-abc.js`, new Response('js'));
+    expect(await (await answer(get('/dale/assets/index-abc.js'))).text()).toBe('js');
     expect(calls).toHaveLength(0);
     net = async () => new Response('css');
-    const { res, kept } = handle(get('/arriba/assets/index-abc.css'));
+    const { res, kept } = handle(get('/dale/assets/index-abc.css'));
     expect(await (await res!).text()).toBe('css');
     await Promise.all(kept);
-    expect(calls).toEqual([{ url: `${ORIGIN}/arriba/assets/index-abc.css`, init: undefined }]);
-    expect(saved.has(`${ORIGIN}/arriba/assets/index-abc.css`)).toBe(true);
+    expect(calls).toEqual([{ url: `${ORIGIN}/dale/assets/index-abc.css`, init: undefined }]);
+    expect(saved.has(`${ORIGIN}/dale/assets/index-abc.css`)).toBe(true);
   });
 
   it('saves the page, its assets and the schedule on install, so the app opens offline after the first visit', async () => {
     const files: Record<string, string> = {
-      [`${ORIGIN}/arriba/`]: '<script type="module" src="/arriba/assets/index-abc.js"></script><link rel="stylesheet" href="/arriba/assets/index-def.css">',
-      [`${ORIGIN}/arriba/assets/index-abc.js`]: 'js',
-      [`${ORIGIN}/arriba/assets/index-def.css`]: 'css',
+      [`${ORIGIN}/dale/`]: '<script type="module" src="/dale/assets/index-abc.js"></script><link rel="stylesheet" href="/dale/assets/index-def.css">',
+      [`${ORIGIN}/dale/assets/index-abc.js`]: 'js',
+      [`${ORIGIN}/dale/assets/index-def.css`]: 'css',
       [`${ORIGIN}${DATA}`]: '{}',
     };
     net = async (url) => (url in files ? new Response(files[url]) : new Response('no', { status: 404 }));
