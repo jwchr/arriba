@@ -402,3 +402,50 @@ test('backup buses appear once the bus is late past the rider’s threshold, and
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.locator('.bus-lock .small').first()).toHaveText(lockedTime ?? '');
 });
+
+test('missed stop / wrong bus: the rider says where they are and gets scheduled ways back; the lock stays', async ({ page }) => {
+  await selectDemoTrip(page);
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: /Riding to/ });
+  await dialog.getByRole('button', { name: 'Something went wrong?' }).click();
+  await expect(dialog.getByRole('heading', { name: 'What happened?' })).toBeFocused();
+  // Port Authority is the end of the line: no later stops for a missed stop.
+  await dialog.getByRole('button', { name: 'I missed my stop' }).click();
+  await expect(dialog).toContainText('Your stop is the last on this trip');
+  await dialog.getByRole('button', { name: 'Start over' }).click();
+  await dialog.getByRole('button', { name: "I'm on the wrong bus" }).click();
+  await expect(dialog.getByRole('heading', { name: 'Where are you now?' })).toBeFocused();
+  await expect(dialog).toContainText('These are the stops of route 165');
+  await dialog.getByRole('button', { name: "My stop isn't listed" }).click();
+  await expect(dialog).toContainText('Dale only knows the stops of route 165 here');
+  // Leaving full screen keeps the rider's place in the steps.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.ride-mode .recovery h4')).toHaveText('Where are you now?');
+  await page.locator('.ride-mode').getByRole('button', { name: 'Full screen' }).click();
+  await dialog.locator('.recovery .chip').first().click();
+  await expect(dialog.getByRole('heading', { name: /^Ways back to / })).toBeFocused();
+  await expect(dialog).toContainText('Your stop stays the same and your Bus Lock does not change');
+  await expect(dialog).toContainText('No walking routes or transfers are suggested');
+  expect((await new AxeBuilder({ page }).include('.recovery').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations).toEqual([]);
+  await dialog.getByRole('button', { name: 'Close' }).first().click();
+  await expect(dialog.getByRole('button', { name: 'Something went wrong?' })).toBeFocused();
+  await expect(page.locator('.bus-lock .lock-phase')).toHaveText('You reported: boarded');
+
+  // Opening a way back leaves full screen and shows that trip; the lock is untouched.
+  await dialog.getByRole('button', { name: 'Something went wrong?' }).click();
+  await dialog.getByRole('button', { name: "I'm on the wrong bus" }).click();
+  const chips = dialog.locator('.recovery .chip');
+  for (let i = 0; i < (await chips.count()); i++) {
+    await chips.nth(i).click();
+    if (await dialog.locator('.recovery .rescue-list li').count()) break;
+    await dialog.getByRole('button', { name: 'Start over' }).click();
+    await dialog.getByRole('button', { name: "I'm on the wrong bus" }).click();
+  }
+  await dialog.locator('.recovery .rescue-list li button').first().click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('#root')).not.toHaveAttribute('inert', '');
+  await expect(page.getByText('Another trip is locked. Return to it and unlock before choosing a different bus.')).toBeVisible();
+});

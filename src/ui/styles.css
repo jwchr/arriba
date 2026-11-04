@@ -263,3 +263,7 @@ main { flex: 1; padding-bottom: 24px; }
 .backup-form { display: grid; gap: 8px; margin: 8px 0; }
 .backup-form label { display: grid; gap: 4px; font-weight: 600; }
 .backup-form input, .backup-form textarea { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+
+/* Missed stop / wrong bus (issue #60) */
+.recovery { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
+.recovery-open { margin: 6px 0; }
