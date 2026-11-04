@@ -301,3 +301,43 @@ main { flex: 1; padding-bottom: 24px; }
 /* Missed stop / wrong bus (issue #60) */
 .recovery { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
 .recovery-open { margin: 6px 0; }
+
+/* Ride progress (owner request 2026-11-04): LED status bar and strip map, like a subway car's line map. */
+.progress { margin: 8px 0 12px; }
+.led-bar { background-color: #050506; background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1.3px); background-size: 4px 4px;
+  border-radius: 10px; padding: 10px 14px; box-shadow: inset 0 2px 10px #000, 0 0 0 1px #2a2c31; }
+.led-line { margin: 0; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-weight: 800; font-size: 1.15rem; letter-spacing: 0.06em; text-transform: uppercase;
+  color: #ffb02e; text-shadow: 0 0 6px rgba(255, 160, 40, 0.6); overflow-wrap: anywhere; }
+.led-key { color: #ff6a3d; text-shadow: 0 0 6px rgba(255, 90, 50, 0.7); margin-right: 6px; }
+.led-pace { font-size: 1rem; margin-top: 2px; }
+.led-pace[data-pace='behind'] { color: #ff8a7a; text-shadow: 0 0 6px rgba(255, 110, 90, 0.6); }
+.led-pace[data-pace='ahead'], .led-pace[data-pace='on'] { color: #7dffa8; text-shadow: 0 0 6px rgba(90, 255, 150, 0.5); }
+.progress-source { margin-top: 6px; }
+
+.strip-wrap { overflow-x: auto; overscroll-behavior-x: contain; margin: 8px 0 4px; background: #0b0c10; border-radius: 12px; box-shadow: inset 0 0 0 1px #24262c; scrollbar-width: thin; }
+.strip { --stop-w: 76px; position: relative; display: flex; width: max-content; list-style: none; margin: 0; padding: 0 0 6px; }
+/* The line, then the lit part up to the bus, between the first and last dots. */
+.strip::before, .strip::after { content: ''; position: absolute; left: calc(var(--stop-w) / 2); height: 6px; top: 138px; border-radius: 3px; }
+.strip::before { right: calc(var(--stop-w) / 2); background: #3a3d45; }
+.strip::after { width: calc((100% - var(--stop-w)) * var(--fill-n, 0)); background: linear-gradient(90deg, #ffb02e, #ffd36e); box-shadow: 0 0 10px rgba(255, 176, 46, 0.7); }
+.strip li { flex: 0 0 var(--stop-w); }
+.strip-stop { width: 100%; min-height: 0; padding: 0; border: 0; background: none; border-radius: 8px; display: flex; flex-direction: column; align-items: center; color: #e9edf3; position: relative; z-index: 1; }
+.strip-name { height: 100px; width: var(--stop-w); position: relative; display: block; }
+/* Names slant up from each dot, the way line maps over train doors are printed. */
+.strip-name { font-size: 0.78rem; font-weight: 700; line-height: 1.1; text-align: left; white-space: nowrap; }
+.strip-name { writing-mode: horizontal-tb; }
+.strip-name > small { display: block; font-weight: 500; font-size: 0.68rem; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.strip-stop .strip-name { transform-origin: 0 100%; transform: translate(calc(var(--stop-w) / 2 + 2px), 0) rotate(-50deg); width: 160px; height: auto; position: absolute; bottom: 52px; left: 0; }
+.strip-stop::before { content: ''; display: block; height: 132px; }
+.strip-dot { width: 18px; height: 18px; border-radius: 50%; background: #0b0c10; border: 3px solid #e9edf3; margin-top: 0; }
+.strip-time { font-size: 0.72rem; font-variant-numeric: tabular-nums; color: #c8ced8; margin-top: 4px; white-space: nowrap; }
+.strip li[data-state='passed'] .strip-stop { color: #8f96a3; }
+.strip li[data-state='passed'] .strip-dot { background: #6b7280; border-color: #6b7280; }
+.strip li[data-state='next'] .strip-dot { background: #ffb02e; border-color: #ffd36e; box-shadow: 0 0 12px #ffb02e; animation: led-blink 1.2s steps(2, start) infinite; }
+.strip li[data-state='next'] .strip-name { color: #ffd36e; }
+.strip li[data-state='alight'] .strip-dot { width: 24px; height: 24px; margin-top: -3px; background: #ff5a4f; border-color: #fff; box-shadow: 0 0 0 3px #ff5a4f; }
+.strip li[data-state='alight'] .strip-name { color: #ff9a92; }
+.strip-stop:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+@keyframes led-blink { to { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .strip li[data-state='next'] .strip-dot { animation: none; } }
+@media (forced-colors: active) { .strip::after { background: Highlight; box-shadow: none; } .led-bar { background: Canvas; } .led-line { color: CanvasText; text-shadow: none; } }
