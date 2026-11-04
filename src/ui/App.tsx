@@ -495,7 +495,8 @@ function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keep
 }) {
   const { ds, t, stopName } = ctx;
   const times = tripStopTimes(ds, dep);
-  const alightIndex = dep.pattern.stopIds.indexOf(leg.toStopId);
+  // Search after the boarding stop: on a loop pattern the destination can also appear earlier.
+  const alightIndex = dep.pattern.stopIds.indexOf(leg.toStopId, dep.stopIndex + 1);
   const boardStop = ds.stops.find((s) => s.id === dep.pattern.stopIds[dep.stopIndex]);
   const alightStop = alightIndex > dep.stopIndex ? ds.stops.find((s) => s.id === dep.pattern.stopIds[alightIndex]) : undefined;
   // The printed Park/Ride note is about Parkway express (P, FP) trips only; other trips stop there as usual.
@@ -519,7 +520,7 @@ function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keep
       {alightNote && <p className="warn small" role="note">{alightNote}</p>}
       {ds.meta.transcribed && isNjtHoliday(dep.serviceDate) && <p className="warn small" role="note">{t.holidayOn}</p>}
       {clockChange && <p className="warn small" role="note">{clockChange === 'back' ? t.clockBackTrip : t.clockAheadTrip}</p>}
-      {busSession && <BusLockPanel ds={ds} session={busSession} now={lockNow} t={t} lang={ctx.lang}
+      {busSession && <BusLockPanel ds={ds} session={busSession} alightIndex={alightIndex} now={lockNow} t={t} lang={ctx.lang}
         keepAwake={keepAwake} onKeepAwake={onKeepAwake} onEvent={onLockEvent} onAdvanceDemo={onAdvanceDemo} onUnlock={onUnlock} />}
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>
