@@ -68,6 +68,8 @@ Household-facing rescue action. Search beyond the usual route for compatible arr
 
 The present dataset includes only route 165 timepoints. A credible cross-route rescue search needs the wider schedule, coordinates and suitable walking/connection data; availability and freshness of each connection must be shown. Do not invent 166/167/168 options from their route numbers.
 
+Implemented (issue #32): every trip screen has "Get me the fuck home" ("Other buses there" when heading into Port Authority). `src/domain/rescue.ts` lists every scheduled departure in Dale's data in the next four hours from the rider's stop or the named stop across the street, on any route or pattern, that reaches home or the stop across from it, soonest arrival first (up to six), with the Port Authority gate line and its source; the rider's line's last listed trip tonight (through 4 AM) is always kept and tagged. The screen states the routes searched, that other routes are not in Dale's data (not that they are not running), that no walking or transfers are suggested, and that times are scheduled only. Gated: cross-route data (M2), transfers, walking finishes and user walking/transfer limits.
+
 ### Last-chance return
 
 On an outbound trip into NYC, show the last scheduled return on the selected line that actually reaches the reverse home stop. Include after-midnight service, dates and calendar exceptions. Keep a departure's own timepoint estimate marker where applicable. If service continues beyond the inspected window, do not label the cutoff as the last bus. If the printed data has no holiday schedule or an eligible stop is missing, show an unconfirmed result. The rescue action is a separate fallback, not a reason to conceal a weak last-return claim.

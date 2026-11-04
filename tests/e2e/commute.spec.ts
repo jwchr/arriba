@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
 // Wednesday Nov 4 2026, 7:50 AM New York time, on the invented demo dataset.
@@ -379,5 +380,31 @@ test.describe('printed timetable data (route 165)', () => {
     await page.getByRole('button', { name: /Emerson .*\(to Westwood\)/ }).click();
     await expect(page.getByRole('note').filter({ hasText: 'No bus from this stop goes to Port Authority' })).toBeVisible();
     await expect(page.getByRole('button', { name: /Port Authority/ })).toHaveCount(0);
+  });
+});
+
+test.describe('Get me home (issue #32)', () => {
+  test.use({ serviceWorkers: 'block' });
+  test('lists every scheduled way home in the data and says what it did not search', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T18:00');
+    await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.locator('.dep').first().click();
+    await expect(page.getByRole('button', { name: 'Other buses there' })).toBeVisible(); // heading into New York
+    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: /Reverse/ }).click();
+    await page.locator('.dep').first().click();
+    await page.getByRole('button', { name: 'Get me the fuck home' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Get me the fuck home');
+    const items = page.locator('.rescue-list li');
+    expect(await items.count()).toBeGreaterThan(2);
+    await expect(items.first()).toContainText('Gate');
+    await expect(page.locator('.rescue')).toContainText('Only routes in Dale’s data are searched: 165, 165T');
+    await expect(page.locator('.rescue')).toContainText('No walking routes or transfers are suggested');
+    await expect(page.locator('.rescue')).toContainText('Last tonight on your line');
+    const { violations } = await new AxeBuilder({ page }).include('.rescue').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    expect(violations.map((v) => v.id)).toEqual([]);
+    await items.first().click();
+    await expect(page.locator('.trip-ticket')).toBeVisible();
   });
 });

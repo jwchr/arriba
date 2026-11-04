@@ -307,3 +307,50 @@ describe('stops near me on the printed timetable', () => {
     expect(nearbyStops(ds, { lat: 40.99, lon: -74.03 }, 5_000)).toEqual([]);
   });
 });
+
+describe('"Get me the fuck home" rescue search (issue #32)', () => {
+  it('lists every scheduled way home in the data, soonest arrival first, within the horizon', async () => {
+    const { rescueOptions, RESCUE_HORIZON_MS } = await import('../../src/domain/rescue');
+    const { zonedWallTime } = await import('../../src/domain/time');
+    const now = zonedWallTime(2026, 11, 4, 18, 0, TZ);
+    const r = rescueOptions(ds, 'PABT', 'W19', now, 'R165');
+    expect(r.routesSearched).toEqual(['165', '165T']);
+    expect(r.limitations).toEqual(expect.arrayContaining(['schedule_only', 'routes_in_data_only', 'no_walking_or_transfers', 'printed_timepoints_only']));
+    const soon = r.options.filter((o) => !o.lastOnLine || o.dep.departs <= r.searchedUntil);
+    expect(soon.length).toBeGreaterThan(2);
+    for (let i = 1; i < soon.length; i++) expect(soon[i]!.arrives).toBeGreaterThanOrEqual(soon[i - 1]!.arrives);
+    for (const o of r.options) {
+      expect(o.dep.departs).toBeGreaterThanOrEqual(now - 60_000);
+      expect(['W19', 'N19']).toContain(o.alightStopId);
+      expect(o.dep.pattern.stopIds.indexOf(o.alightStopId)).toBeGreaterThan(o.dep.stopIndex);
+    }
+    expect(soon.every((o) => o.dep.departs <= now + RESCUE_HORIZON_MS)).toBe(true);
+    // Independently: every departure from Port Authority reaching Irvington St. within the horizon is listed (up to the limit).
+    const expected = departuresOn(ds, { stopId: 'PABT', toStopId: 'W19', date: '20261104' }).filter((d) => d.departs >= now - 60_000 && d.departs <= r.searchedUntil);
+    expect(soon.length).toBe(Math.min(6, expected.length));
+  });
+
+  it('keeps the last trip tonight on the rider’s line, after midnight included', async () => {
+    const { rescueOptions } = await import('../../src/domain/rescue');
+    const { zonedWallTime } = await import('../../src/domain/time');
+    const now = zonedWallTime(2026, 11, 4, 22, 0, TZ);
+    const r = rescueOptions(ds, 'PABT', 'W19', now, 'R165');
+    const last = r.options.filter((o) => o.lastOnLine);
+    expect(last).toHaveLength(1);
+    // Independently: the latest 165 departure from Port Authority reaching Irvington St. before 4 AM.
+    const end = zonedWallTime(2026, 11, 5, 4, 0, TZ);
+    const all = [...departuresOn(ds, { stopId: 'PABT', toStopId: 'W19', date: '20261104' }), ...departuresOn(ds, { stopId: 'PABT', toStopId: 'W19', date: '20261105' })]
+      .filter((d) => d.route.id === 'R165' && d.departs >= now - 60_000 && d.departs < end);
+    expect(last[0]!.dep.departs).toBe(Math.max(...all.map((d) => d.departs)));
+  });
+
+  it('boards across the street when the rider is on the wrong side, and finds nothing from an unknown stop', async () => {
+    const { rescueOptions } = await import('../../src/domain/rescue');
+    const { zonedWallTime } = await import('../../src/domain/time');
+    const now = zonedWallTime(2026, 11, 4, 7, 30, TZ);
+    const r = rescueOptions(ds, 'W19', 'PABT', now);
+    expect(r.options.length).toBeGreaterThan(0);
+    expect(r.options.every((o) => o.boardStopId === 'N19' && o.acrossFromBoard)).toBe(true);
+    expect(rescueOptions(ds, 'NOPE', 'PABT', now).options).toEqual([]);
+  });
+});
