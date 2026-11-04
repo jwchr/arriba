@@ -298,7 +298,7 @@ const en = {
     copied: 'Copied.',
     copyFailed: "Couldn't copy. Select the text and copy it yourself.",
     close: 'Close',
-    note: 'Dale sends nothing: you choose who gets it in your own messaging app. Times are scheduled, not live. No location is included.',
+    note: 'Dale sends nothing: you choose who gets it in your own messaging app. Times are scheduled, not live. No GPS location is included; the message names your stop.',
     demo: '[DEMO, invented data] ',
     text: (u: TripUpdate, route: string, time: string, stop: string, to?: { stop: string; time: string }): string => tidy((() => {
       const bus = `the ${time} ${route}`;
@@ -306,7 +306,7 @@ const en = {
         case 'planning': return `Planning to take ${bus} from ${stop_(stop)}`;
         case 'waiting': return `Waiting at ${stop} for ${bus}.`;
         case 'not_here': return `Still waiting at ${stop} for ${bus}. Not here yet${u.lateMin >= 1 ? `, ${u.lateMin} min after its scheduled time` : ''}.`;
-        case 'passed': return `The ${time} ${route} passed ${stop} without stopping. Waiting for another bus.`;
+        case 'passed': return `The ${time} ${route} passed ${stop_(stop)} without stopping.`;
         case 'arrived': return `My ${time} ${route} is here at ${stop_(stop)}`;
         case 'onboard': return `I'm on ${bus} from ${stop_(stop)}${to ? ` Scheduled to reach ${to.stop} at ${to.time}.` : ''}`;
         case 'off': return `I got off ${bus}.`;
@@ -744,15 +744,15 @@ const es: Strings = {
     copied: 'Copiado.',
     copyFailed: 'No se pudo copiar. Selecciona el texto y cópialo tú.',
     close: 'Cerrar',
-    note: 'Dale no envía nada: tú eliges a quién mandarlo en tu propia app de mensajes. Las horas son del horario, no en vivo. No incluye tu ubicación.',
+    note: 'Dale no envía nada: tú eliges a quién mandarlo en tu propia app de mensajes. Las horas son del horario, no en vivo. No incluye tu ubicación GPS; el mensaje nombra tu parada.',
     demo: '[DEMO, datos inventados] ',
     text: (u: TripUpdate, route: string, time: string, stop: string, to?: { stop: string; time: string }): string => tidy((() => {
       const bus = `el ${route} de ${laLas(time)}`;
       switch (u.kind) {
         case 'planning': return `Pienso tomar ${bus} desde ${stop_(stop)}`;
-        case 'waiting': return `Esperando en ${stop} ${bus}.`;
-        case 'not_here': return `Sigo esperando en ${stop} ${bus}. Todavía no llega${u.lateMin >= 1 ? `, ${u.lateMin} min después de su hora prevista` : ''}.`;
-        case 'passed': return `El ${route} de ${laLas(time)} pasó por ${stop} sin parar. Espero otro autobús.`;
+        case 'waiting': return `Esperando ${bus} en ${stop_(stop)}`;
+        case 'not_here': return `Sigo esperando ${bus} en ${stop_(stop)} Todavía no llega${u.lateMin >= 1 ? `; lleva ${u.lateMin} min de retraso según el horario` : ''}.`;
+        case 'passed': return `El ${route} de ${laLas(time)} pasó por ${stop} sin parar.`;
         case 'arrived': return `Ya llegó mi ${route} de ${laLas(time)} a ${stop_(stop)}`;
         case 'onboard': return `Voy en ${bus} desde ${stop_(stop)}${to ? ` Llegada prevista a ${to.stop} a ${laLas(to.time)}.` : ''}`;
         case 'off': return `Me bajé d${bus}.`;

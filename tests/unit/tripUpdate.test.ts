@@ -52,6 +52,8 @@ describe('trip update to share (issue #61)', () => {
     expect(es({ kind: 'onboard', to: { stopId: 'x', at: 0, estimated: false } }, '165', '1:10 a. m.', 'Port Authority', { stop: 'Irvington St.', time: '2:05 a. m.' }))
       .toBe('Voy en el 165 de la 1:10 a. m. desde Port Authority. Llegada prevista a Irvington St. a las 2:05 a. m.');
     expect(es({ kind: 'off' }, '165', '7:52 a. m.', 'x')).toBe('Me bajé del 165 de las 7:52 a. m.');
-    expect(es({ kind: 'not_here', lateMin: 0 }, '165', '7:52 a. m.', 'Irvington St.')).toBe('Sigo esperando en Irvington St. el 165 de las 7:52 a. m. Todavía no llega.');
+    expect(es({ kind: 'not_here', lateMin: 0 }, '165', '7:52 a. m.', 'Irvington St.')).toBe('Sigo esperando el 165 de las 7:52 a. m. en Irvington St. Todavía no llega.');
+    expect(es({ kind: 'not_here', lateMin: 5 }, '165', '7:52 a. m.', 'Irvington St.')).toBe('Sigo esperando el 165 de las 7:52 a. m. en Irvington St. Todavía no llega; lleva 5 min de retraso según el horario.');
+    expect(en({ kind: 'passed' }, '165', '7:52 AM', 'Irvington St.')).toBe('The 7:52 AM 165 passed Irvington St. without stopping.');
   });
 });
