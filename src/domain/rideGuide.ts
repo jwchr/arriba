@@ -30,6 +30,10 @@ export const AT_STOP_M = 60;
 export const AMBIGUOUS_M = 100;
 /** A recent fix at most this far ahead along the route is treated as jitter in the newest one; more is a disagreement. */
 export const JITTER_M = 100;
+/** Faster than this along the route since the previous fix (about 125 km/h) is not a bus moving: the reading is wrong. */
+export const MAX_SPEED_MPS = 35;
+/** GPS noise allowed for when judging speed between two fixes. */
+export const GPS_NOISE_M = 50;
 
 type Located = Stop & { lat: number; lon: number };
 const located = (s: Stop | undefined): s is Located => typeof s?.lat === 'number' && typeof s?.lon === 'number';
@@ -98,6 +102,7 @@ export function rideGuide(
   // Small backward jitter in the newest fix is absorbed by a slightly further recent fix; a recent fix
   // much further ahead means the readings disagree, and neither is trusted for a count.
   let reach = { progress: here.progress, pos: last as { lat: number; lon: number } };
+  let previous: { progress: number; observedAt: number } | undefined;
   for (const o of history) {
     if (o.vehicleId !== last.vehicleId || o.tripInstanceId !== last.tripInstanceId || o.observedAt >= last.observedAt) continue;
     if (now - o.observedAt > DEFAULT_TIMING.staleAfterMs) continue;
@@ -106,28 +111,46 @@ export function rideGuide(
     const ahead = metres(h.progress) - metres(here.progress);
     if (ahead > JITTER_M) return { basis: 'uncertain', reason: 'inconsistent' };
     if (h.progress > reach.progress) reach = { progress: h.progress, pos: o };
+    if (!previous || o.observedAt > previous.observedAt) previous = { progress: h.progress, observedAt: o.observedAt };
   }
-  const p = reach.progress;
-  const near = (k: number) => k >= 0 && k < line.length && dist(reach.pos, line[k]!) <= AT_STOP_M;
+  // One impossible jump forward since the previous fix is a bad reading, not a fast bus.
+  // GPS noise of a few tens of metres between close fixes is allowed for; small jumps are never judged.
+  if (previous) {
+    const seconds = (last.observedAt - previous.observedAt) / 1000;
+    const moved = metres(here.progress) - metres(previous.progress);
+    if (seconds > 0 && moved > JITTER_M && (moved - GPS_NOISE_M) / seconds > MAX_SPEED_MPS) return { basis: 'uncertain', reason: 'inconsistent' };
+  }
+  const guide = stageAt(reach.progress, reach.pos);
+  // Before saying "press now", "this is your stop" or "passed", take the less advanced of the newest
+  // fix and the slightly further recent one it was absorbed into.
+  if (reach.pos !== last && guide.basis === 'gps' && ['request', 'arrived', 'passed'].includes(guide.stage)) {
+    const newest = stageAt(here.progress, last);
+    if (newest.basis === 'gps' && STAGE_RANK[newest.stage] < STAGE_RANK[guide.stage]) return newest;
+  }
+  return guide;
 
-  if (p < boardIndex && !near(boardIndex)) return { basis: 'uncertain', reason: 'behind' };
-  const base = { basis: 'gps' as const, observedAt: last.observedAt };
-  const lastStop = alightIndex === stopIds.length - 1;
-  // The end of the line cannot be passed: a position clamped there is the bus arriving or in the terminal.
-  if (near(alightIndex) || (lastStop && p >= alightIndex)) return { ...base, stage: 'arrived', stopsAway: 0, reachedIndex: alightIndex };
-  // Beyond the rider's stop, or clamped at it while farther than an at-stop distance: it has gone by.
-  if (p >= alightIndex) return { ...base, stage: 'passed', stopsAway: 0, reachedIndex: alightIndex };
+  function stageAt(p: number, pos: { lat: number; lon: number }): RideGuide {
+    const near = (k: number) => k >= 0 && k < line.length && dist(pos, line[k]!) <= AT_STOP_M;
 
-  const seg = Math.floor(p);
-  const current = near(seg + 1) ? seg + 1 : Math.max(seg, boardIndex);
-  const stopsAway = Math.max(1, alightIndex - current);
-  let stage: RideStage;
-  if (stopsAway === 1) {
-    // Pressing while still at the stop before yours asks for that stop. Wait until the bus leaves it.
-    const leftPrevious = current === alightIndex - 1 && !near(alightIndex - 1);
-    stage = lastStop ? 'last_next' : leftPrevious ? 'request' : 'one';
-  } else stage = stopsAway === 2 ? 'two' : stopsAway === 3 ? 'three' : 'riding';
-  return { ...base, stage, stopsAway, reachedIndex: current };
+    if (p < boardIndex && !near(boardIndex)) return { basis: 'uncertain', reason: 'behind' };
+    const base = { basis: 'gps' as const, observedAt: last!.observedAt };
+    const lastStop = alightIndex === stopIds.length - 1;
+    // The end of the line cannot be passed: a position clamped there is the bus arriving or in the terminal.
+    if (near(alightIndex) || (lastStop && p >= alightIndex)) return { ...base, stage: 'arrived', stopsAway: 0, reachedIndex: alightIndex };
+    // Beyond the rider's stop, or clamped at it while farther than an at-stop distance: it has gone by.
+    if (p >= alightIndex) return { ...base, stage: 'passed', stopsAway: 0, reachedIndex: alightIndex };
+
+    const seg = Math.floor(p);
+    const current = near(seg + 1) ? seg + 1 : Math.max(seg, boardIndex);
+    const stopsAway = Math.max(1, alightIndex - current);
+    let stage: RideStage;
+    if (stopsAway === 1) {
+      // Pressing while still at the stop before yours asks for that stop. Wait until the bus leaves it.
+      const leftPrevious = current === alightIndex - 1 && !near(alightIndex - 1);
+      stage = lastStop ? 'last_next' : leftPrevious ? 'request' : 'one';
+    } else stage = stopsAway === 2 ? 'two' : stopsAway === 3 ? 'three' : 'riding';
+    return { ...base, stage, stopsAway, reachedIndex: current };
+  }
 }
 
 /** Order of stages for "only ever forward" alerts; arrived and passed are not countdown alerts. */

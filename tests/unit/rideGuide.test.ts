@@ -73,6 +73,22 @@ describe('ride guide: a stop count only from fresh, unambiguous GPS on a trip wi
     expect(run([obs(along(660), NOW - 10_000)])).toMatchObject({ stage: 'two' }); // 60 m ahead: jitter, absorbed
   });
 
+  it('treats an impossible jump forward as a bad reading, and takes the cautious reading of two close fixes', () => {
+    const S = Array.from({ length: 7 }, (_, i) => ({ id: `S${i}`, name: `S${i}`, lat: 40.8 + (i * 300) / 110_540, lon: -74.0 }));
+    const line: Dataset = { ...ds, meta: { ...ds.meta }, stops: S };
+    const ids = S.map((s) => s.id);
+    const along = (m: number) => ({ lat: 40.8 + m / 110_540, lon: -74.0 });
+    const run = (newest: number, history: VehicleObservation[]) => g(lock(along(newest), 'tracked', NOW - 1_000), 0, 4, history, line, ids);
+    // 400 m in 5 s (80 m/s) is not a bus: no "press now".
+    expect(run(1_000, [obs(along(600), NOW - 6_000)])).toEqual({ basis: 'uncertain', reason: 'inconsistent' });
+    // The same 400 m in 30 s (13 m/s) is fine: the bus has left S3, ask for S4 now.
+    expect(run(1_000, [obs(along(600), NOW - 31_000)])).toMatchObject({ stage: 'request' });
+    // A real bus 2 s apart, 25 m/s plus 15 m of GPS noise (65 m): not judged, no false disagreement.
+    expect(run(1_000, [obs(along(935), NOW - 3_000)])).toMatchObject({ basis: 'gps' });
+    // Newest fix 20 m before S3 (at it), an older one 75 m past S3: still "one", not "press now".
+    expect(run(880, [obs(along(975), NOW - 11_000)])).toMatchObject({ stage: 'one' });
+  });
+
   it('treats a position clamped at the end of the line as arrived, never passed', () => {
     expect(g(lock({ lat: at('PABT').lat - 0.0018, lon: at('PABT').lon + 0.0008 }))).toMatchObject({ stage: 'arrived' });
   });
