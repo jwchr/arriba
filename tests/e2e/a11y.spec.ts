@@ -96,7 +96,7 @@ for (const [skin, colorScheme] of [['clean', 'light'], ['clean', 'dark'], ['park
     await page.getByRole('button', { name: /All day/ }).click();
     await audit(page, `${skin} timetable`);
     await page.getByRole('button', { name: 'Settings' }).click();
-    await expect(page.getByRole('button', { name: { clean: 'Clean', parkway: 'Parkway', nyc: 'NYC subway', turnpike: 'Turnpike' }[skin] })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: { clean: 'Clean', parkway: 'Parkway', nyc: 'NYC night', turnpike: 'Turnpike' }[skin] })).toHaveAttribute('aria-pressed', 'true');
     await audit(page, `${skin} settings`);
   });
 }

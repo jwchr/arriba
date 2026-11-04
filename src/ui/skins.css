@@ -1,4 +1,4 @@
-/* Dale styles (owner request 2026-11-04, D46): Turnpike (default), Parkway, NYC subway and Clean.
+/* Dale styles (owner request 2026-11-04, D46): Turnpike (default), Parkway, NYC night and Clean.
    Original artwork inspired by the road and the city: no official shields, logos or sign designs.
    Loaded after styles.css, so a style's tokens win over the light/dark ones (same specificity). */
 
@@ -35,7 +35,7 @@
   --sign-bg: #0d5c3a; --sign-ink: #fffbea; --sign-rim: #f3c642; --plate-bg: #2a2418; --plate-ink: #f8e3a0;
 }
 :root[data-skin='nyc'] {
-  --bg: #05070c; --surface: #101217; --brand: #1d1d1f; --brand-text: #ffffff; --accent: #ff6319; --express: #ff6319;
+  --bg: #05070c; --surface: #101217; --brand: #f7c600; --brand-ink: #111111; --brand-text: #ffd84d; --accent: #f7c600; --express: #f7c600;
   --muted: #c2c6cf; --glass: rgba(6, 7, 10, 0.55); --glass-strong: rgba(16, 17, 22, 0.88); --focus: #ffb21a;
   --sign-bg: #111214; --sign-ink: #ffffff; --sign-rim: #ffffff; --plate-bg: #1c1d21; --plate-ink: #ffffff;
 }
@@ -48,7 +48,8 @@
 :root[data-skin='turnpike'] main > section:not(.card), :root[data-skin='parkway'] main > section:not(.card), :root[data-skin='nyc'] main > section:not(.card) {
   background: var(--glass); border: 1px solid var(--glass-border); border-radius: 16px; padding: 4px 12px 12px; box-shadow: var(--glass-shadow); }
 :root[data-skin='turnpike'] main > .row-between, :root[data-skin='parkway'] main > .row-between, :root[data-skin='nyc'] main > .row-between,
-:root[data-skin='turnpike'] main > button, :root[data-skin='parkway'] main > button, :root[data-skin='nyc'] main > button {
+:root[data-skin='turnpike'] main > button, :root[data-skin='parkway'] main > button, :root[data-skin='nyc'] main > button,
+:root[data-skin='turnpike'] main > aside, :root[data-skin='parkway'] main > aside, :root[data-skin='nyc'] main > aside {
   background: var(--glass-strong); border: 1px solid var(--glass-border); border-radius: 14px; }
 :root[data-skin='turnpike'] main > .row-between, :root[data-skin='parkway'] main > .row-between, :root[data-skin='nyc'] main > .row-between { padding: 2px 6px; }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -88,24 +89,29 @@
 :root[data-skin='parkway'] .wordmark { color: #fffbea; text-shadow: 0 2px 0 #0d5c3a; }
 :root[data-skin='parkway'] .wordmark .bang { color: var(--sign-rim); -webkit-text-stroke: 0; }
 
-/* ---------- NYC subway: black station signs, round line bullets, countdown-clock minutes ---------- */
+/* ---------- NYC night: a skyline after dark, black signs with taxi-yellow accents ----------
+   Deliberately not the MTA's sign system: no line colors, no station-sign stripe, no express diamond. */
 :root[data-skin='nyc'] body { font-family: 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif; }
-:root[data-skin='nyc'] .highway-sign { background: var(--sign-bg); color: var(--sign-ink); border: 1px solid #2c2e33; border-radius: 4px; padding-top: 18px;
+:root[data-skin='nyc'] .highway-sign { background: var(--sign-bg); color: var(--sign-ink); border: 1px solid #2c2e33; border-radius: 10px;
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.5); }
-/* The white rule near the top edge of a station sign. */
-:root[data-skin='nyc'] .highway-sign::before { content: ''; position: absolute; left: 0; right: 0; top: 7px; height: 2px; background: #fff; }
+/* A thin taxi-yellow edge along the bottom of each sign. */
+:root[data-skin='nyc'] .highway-sign { border-bottom: 4px solid var(--accent); }
 :root[data-skin='nyc'] .highway-name { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-stretch: normal; text-transform: none; letter-spacing: -0.01em; font-weight: 700; }
-:root[data-skin='nyc'] .highway-label { color: #c2c6cf; }
+:root[data-skin='nyc'] .highway-label { color: var(--accent); }
 :root[data-skin='nyc'] .commute-stop { background: var(--plate-bg); color: var(--plate-ink); font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; border-color: #2c2e33; }
-/* Line bullets: a circle for the local, a diamond for the express (a common transit idea, drawn here). */
-:root[data-skin='nyc'] .route-badge { min-width: 46px; width: 46px; height: 46px; padding: 0; border-radius: 50%; background: var(--accent); color: #111; border: none; box-shadow: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 0.95rem; }
-:root[data-skin='nyc'] .route-badge[data-express='true'] { width: 52px; min-width: 52px; height: 52px; border-radius: 0; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); background: var(--accent); color: #111; font-size: 0.82rem; }
+:root[data-skin='nyc'] .route-badge { min-width: 52px; height: 36px; padding: 0 10px; border-radius: 999px; background: var(--accent); color: #111; border: none; box-shadow: none; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+/* Express: the same tag, outlined, with a checkered taxi stripe along the bottom. */
+:root[data-skin='nyc'] .route-badge[data-express='true'] { background: #111; color: var(--accent); border: 2px solid var(--accent); border-radius: 8px;
+  background-image: repeating-linear-gradient(90deg, var(--accent) 0 4px, #111 4px 8px); background-size: 100% 4px; background-repeat: no-repeat; background-position: bottom; }
 :root[data-skin='nyc'] .dep { background: #0b0c0f; border: 1px solid #26282d; border-radius: 6px; }
-:root[data-skin='nyc'] .dep-next { border: 2px solid #ffb21a; }
-:root[data-skin='nyc'] .dep-min { color: #ffb21a; font-size: 1.25rem; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+:root[data-skin='nyc'] .dep-next { border: 2px solid var(--accent); }
+:root[data-skin='nyc'] .dep-min { color: var(--accent); font-size: 1.25rem; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 :root[data-skin='nyc'] .wordmark { color: #fff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; letter-spacing: 0; }
 :root[data-skin='nyc'] .wordmark .bang { display: inline-flex; align-items: center; justify-content: center; width: 1.2em; height: 1.2em; margin-left: 4px;
   border-radius: 50%; background: var(--accent); color: #111; -webkit-text-stroke: 0; font-size: 0.8em; }
+
+/* The rows are mostly opaque in the scene styles; skipping their blur keeps scrolling smooth on phones. */
+:root[data-skin='turnpike'] .dep, :root[data-skin='parkway'] .dep, :root[data-skin='nyc'] .dep { -webkit-backdrop-filter: none; backdrop-filter: none; }
 
 /* ---------- Comfort and contrast fallbacks ---------- */
 @media (prefers-reduced-transparency: reduce) {

@@ -1,6 +1,6 @@
 // Background scenes for Dale's styles (owner request 2026-11-04, D46). Original artwork only: no
 // official shields, logos or sign designs of the NJ Turnpike Authority, the Garden State Parkway,
-// the MTA, NJ Transit or the Port Authority. Decorative, so hidden from assistive technology.
+// the MTA, NJ Transit or the Port Authority (the NYC style avoids the MTA's sign system on purpose). Decorative, so hidden from assistive technology.
 export type Skin = 'turnpike' | 'parkway' | 'nyc' | 'clean';
 export const SKINS: readonly Skin[] = ['turnpike', 'parkway', 'nyc', 'clean'];
 
