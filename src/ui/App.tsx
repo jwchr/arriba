@@ -11,6 +11,7 @@ import { forgetLock, loadLock, saveLock, type SavedLock } from '../domain/lockSt
 import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule';
 import { addDays, clockChangeBetween, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
 import type { Dataset, Departure, Stop } from '../domain/types';
+import type { RescueOption } from '../domain/rescue';
 import { strings, type Lang, type Strings } from './i18n';
 import { BoardingCheck } from './BoardingCheck';
 import { NearMe } from './NearMe';
@@ -245,6 +246,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             onLock={() => { if (!activeLock) { setResumable(undefined); setActiveLock({ dep: screen.dep, leg: screen.leg, session: createBusSession(screen.dep, lockNow) }); } }}
             onReturn={(dep, leg) => setScreen({ name: 'departure', dep, leg })}
             onBoarding={() => setScreen({ name: 'boarding', dep: screen.dep, leg: screen.leg })}
+            onOpenBackup={(o) => setScreen({ name: 'departure', dep: o.dep, leg: { fromStopId: o.boardStopId, toStopId: o.alightStopId, routeIds: [] } })}
             onRescue={() => setScreen({ name: 'rescue', fromStopId: screen.leg.fromStopId, homeStopId: screen.leg.toStopId, usualRouteId: screen.dep.route.id,
               label: ds.stops.find((s) => s.id === screen.leg.toStopId)?.terminal ? 'other' : 'home' })}
             onUnlock={() => { setActiveLock(undefined); if (!ds.meta.demo) forgetLock(store); setDemoAdvanceMs(0); }} />
@@ -679,12 +681,13 @@ const gateLine = (t: Strings, g: GateAnswer) =>
       : g.status === 'published' ? `${t.gatePublished(g.gate, g.door)} · ${t.gateRuleTag}`
         : t.gateUnknown;
 
-function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keepAwake, onKeepAwake, onLockEvent, onAdvanceDemo, onLock, onUnlock, onReturn, onRescue, onBoarding }: {
+function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keepAwake, onKeepAwake, onLockEvent, onAdvanceDemo, onLock, onUnlock, onReturn, onRescue, onBoarding, onOpenBackup }: {
   ctx: Ctx; dep: Departure; leg: Leg; busSession?: BusSession; anotherLock: boolean; lockNow: number;
   keepAwake: boolean; onKeepAwake: (value: boolean) => void; onLockEvent: (event: BusSessionEvent) => void;
   onAdvanceDemo: (minutes: number) => void; onLock: () => void; onUnlock: () => void;
   onReturn: (dep: Departure, leg: Leg) => void;
   onRescue: () => void;
+  onOpenBackup: (o: RescueOption) => void;
   onBoarding: () => void;
 }) {
   const { ds, t, stopName } = ctx;
@@ -715,7 +718,9 @@ function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keep
       {ds.meta.transcribed && isNjtHoliday(dep.serviceDate) && <p className="warn small" role="note">{t.holidayOn}</p>}
       {clockChange && <p className="warn small" role="note">{clockChange === 'back' ? t.clockBackTrip : t.clockAheadTrip}</p>}
       {busSession && <BusLockPanel ds={ds} session={busSession} alightIndex={alightIndex} now={lockNow} t={t} lang={ctx.lang}
-        keepAwake={keepAwake} onKeepAwake={onKeepAwake} onEvent={onLockEvent} onAdvanceDemo={onAdvanceDemo} onUnlock={onUnlock} />}
+        keepAwake={keepAwake} onKeepAwake={onKeepAwake} onEvent={onLockEvent} onAdvanceDemo={onAdvanceDemo} onUnlock={onUnlock}
+        gateText={(o) => { const g = departureGate(ds, o.dep); return g && gateLine(t, g); }}
+        badge={(routeId) => <RouteBadge ds={ds} routeId={routeId} />} onOpenBackup={onOpenBackup} />}
       <button className="boarding-open" onClick={onBoarding}>{t.boarding.open}</button>
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>
