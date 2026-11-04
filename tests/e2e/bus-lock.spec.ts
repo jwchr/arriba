@@ -500,3 +500,56 @@ test('report history is never kept from the invented demo', async ({ page }) => 
   await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
   expect(await page.evaluate(() => localStorage.getItem('arriba.history.v1'))).toBeNull();
 });
+
+test('ride progress: LED bar and strip map, from the timetable, a tap, then the phone’s own GPS', async ({ page, context }) => {
+  await selectDemoTrip(page);
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: /Riding to/ });
+  const led = dialog.locator('.led-bar');
+  await expect(led.locator('.led-line').first()).toHaveText(/^Next Oak St & River Rd$/i);
+  await expect(led.locator('.led-pace')).toHaveText('By the timetable');
+  await expect(dialog.locator('.progress-source')).toContainText('No GPS or stop taps yet');
+  const strip = dialog.getByRole('list', { name: 'The line: tap a stop when the bus reaches it' });
+  await expect(strip.locator('li')).toHaveCount(4);
+  await expect(strip.locator('li[data-state="alight"]')).toContainText('Port Authority');
+
+  // The rider taps Oak St when the bus gets there: Dale compares it with the timetable.
+  await strip.getByRole('button', { name: /^Oak St & River Rd\b/ }).click();
+  await expect(led.locator('.led-pace')).toHaveText(/^(On time|\d+ min (ahead of|behind) schedule)$/);
+  await expect(dialog.locator('.progress-source')).toContainText('From your tap at Oak St & River Rd');
+  await expect(strip.locator('li').nth(1)).toHaveAttribute('data-reached', 'true');
+  await dialog.getByRole('button', { name: 'Undo last tap' }).click();
+  await expect(led.locator('.led-pace')).toHaveText('By the timetable');
+
+  // Opting in to the phone's location places the bus on the line (an invented demo position).
+  await context.grantPermissions(['geolocation']);
+  await context.setGeolocation({ latitude: 40.8200, longitude: -74.0200, accuracy: 20 });
+  await dialog.getByRole('checkbox', { name: "Follow the ride with my phone's location" }).check();
+  await expect(dialog).toContainText('Never saved or sent');
+  await expect(dialog.locator('.progress-source')).toContainText("From your phone's GPS");
+  await expect(strip.locator('li').nth(2)).toHaveAttribute('data-reached', 'true');
+  expect((await new AxeBuilder({ page }).include('.ride-full').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations.map((v) => v.id)).toEqual([]);
+  // Nothing about the position is kept on the phone.
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toMatch(/40\.82|74\.02/);
+});
+
+test('ride progress on the printed timetable: no stop locations, so taps only, said plainly', async ({ page }) => {
+  await page.goto('/?now=2026-11-04T07:50');
+  await page.getByRole('button', { name: 'Find a stop' }).first().click();
+  await page.getByRole('searchbox').fill('irvington');
+  await page.getByRole('button', { name: /Irvington St\. \(to New York\)/ }).click();
+  await page.getByRole('button', { name: /Port Authority Bus Terminal/ }).click();
+  await page.getByRole('button', { name: 'Save to my commutes' }).click();
+  await page.locator('.dep').first().click();
+  await page.getByRole('button', { name: 'Lock onto this bus' }).click();
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: /Riding to/ });
+  await expect(dialog).toContainText("This timetable has no stop locations, so GPS can't place the bus on the line yet");
+  await expect(dialog.getByRole('checkbox', { name: "Follow the ride with my phone's location" })).toHaveCount(0);
+  await dialog.locator('.strip li').nth(2).locator('button').click();
+  await expect(dialog.locator('.led-pace')).toHaveText(/^(On time|\d+ min (ahead of|behind) schedule)$/);
+});
