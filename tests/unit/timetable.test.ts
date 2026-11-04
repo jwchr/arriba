@@ -364,6 +364,24 @@ describe('"Get me the fuck home" rescue search (issue #32)', () => {
     expect(new Date(inbound[0]!.dep.departs).getTime()).toBeLessThan(zonedWallTime(2026, 11, 5, 0, 0, TZ));
   });
 
+  it('only calls a break the overnight one when it spans 3 AM', async () => {
+    const { rescueOptions } = await import('../../src/domain/rescue');
+    const { zonedWallTime } = await import('../../src/domain/time');
+    // A synthetic sparse line from the demo stops: Sunday 8:15 PM, 10:30 PM, then 6:00 AM Monday.
+    const at = (y: number, m: number, d: number, h: number, min: number) => zonedWallTime(y, m, d, h, min, TZ);
+    const base = demoDataset;
+    const mk = (id: string, t: number) => ({ id, patternId: 'L0', serviceId: 'ALL', times: [t, t + 600, t + 1200, t + 1800, t + 2400] });
+    const noon = at(2026, 11, 8, 12, 0) - 12 * 3600_000; // service-day origin (GTFS noon minus 12 h)
+    const secs = (instant: number) => Math.round((instant - noon) / 1000);
+    const sparse: Dataset = { ...base, trips: [mk('a', secs(at(2026, 11, 8, 20, 15))), mk('b', secs(at(2026, 11, 8, 22, 30))), mk('c', secs(at(2026, 11, 9, 6, 0)))],
+      calendars: { ALL: { days: [true, true, true, true, true, true, true], start: '20260101', end: '20271231', added: [], removed: [] } } };
+    const last = rescueOptions(sparse, 'D1', 'PABT', at(2026, 11, 8, 19, 0), 'R165').options.filter((o) => o.lastOnLine);
+    expect(last.map((o) => o.dep.tripId)).toEqual(['b']); // not the 8:15 PM trip before a 2 h 15 min evening gap
+    // An early first trip at 3:45 AM followed by a gap is not "last tonight" seen from just after midnight.
+    const early: Dataset = { ...sparse, trips: [mk('d', secs(at(2026, 11, 9, 3, 45))), mk('e', secs(at(2026, 11, 9, 6, 0))), mk('f', secs(at(2026, 11, 9, 6, 30)))] };
+    expect(rescueOptions(early, 'D1', 'PABT', at(2026, 11, 9, 0, 15), 'R165').options.filter((o) => o.lastOnLine)).toEqual([]);
+  });
+
   it('marks the last trip unconfirmed on a printed holiday', async () => {
     const { rescueOptions } = await import('../../src/domain/rescue');
     const { zonedWallTime } = await import('../../src/domain/time');

@@ -38,7 +38,7 @@ export function Rescue({ ds, t, lang, now, fromStopId, homeStopId, usualRouteId,
     <section className="rescue">
       <h1>{label === 'home' ? r.title : r.otherWays}</h1>
       <p className="leg">{r.leg(name(fromStopId), name(homeStopId))}</p>
-      <p className="small">{r.scheduleOnly(clock(result.searchedUntil))}</p>
+      <p className="small">{r.scheduleOnly(clock(result.searchedUntil), result.options.some((o) => o.lastOnLine))}</p>
       {!soon.length && <p className="warn" role="note">{r.none}</p>}
       <ol className="rescue-list">
         {result.options.map((o) => {

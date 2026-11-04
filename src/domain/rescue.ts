@@ -96,11 +96,21 @@ export function rescueOptions(ds: Dataset, fromStopId: string, homeStopId: strin
   // bus on the line, followed by a known trip. No break found (service continues, or the data ends):
   // nothing is called the last.
   const onLine = [...line.values()].sort((a, b) => a.dep.departs - b.dep.departs);
-  // The break must start in the evening or night (8 PM to 4 AM), so a long midday gap is never "tonight".
-  const localHour = (at: number) => { const [y, m, d] = parseYmd(localYmd(at, tz)); return (at - zonedWallTime(y, m, d, 0, 0, tz)) / 3600_000; };
-  const breakAt = onLine.findIndex((o, i) => i + 1 < onLine.length && o.dep.departs <= now + LAST_SEARCH_MS
-    && (localHour(o.dep.departs) >= 20 || localHour(o.dep.departs) < 4)
-    && onLine[i + 1]!.dep.departs - o.dep.departs >= OVERNIGHT_GAP_MS);
+  // The break must span 3 AM local time: a sparse line's evening gap, or an early first trip followed by
+  // a morning gap, is not the overnight break.
+  const threeAmAfter = (at: number) => {
+    const date = localYmd(at, tz);
+    const [y, m, d] = parseYmd(date);
+    const same = zonedWallTime(y, m, d, 3, 0, tz);
+    if (at < same) return same;
+    const [y2, m2, d2] = parseYmd(addDays(date, 1));
+    return zonedWallTime(y2, m2, d2, 3, 0, tz);
+  };
+  const breakAt = onLine.findIndex((o, i) => {
+    const next = onLine[i + 1];
+    return !!next && o.dep.departs <= now + LAST_SEARCH_MS && next.dep.departs - o.dep.departs >= OVERNIGHT_GAP_MS
+      && next.dep.departs > threeAmAfter(o.dep.departs);
+  });
   const lastOnLine = breakAt >= 0 ? onLine[breakAt] : undefined;
 
   let options = [...found.values()].sort((a, b) => a.arrives - b.arrives || a.dep.departs - b.dep.departs).slice(0, limit);

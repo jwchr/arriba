@@ -1,6 +1,9 @@
 import type { UncertainReason } from '../domain/rideGuide';
 export type Lang = 'en' | 'es';
 
+/** Spanish "a las 2:05", but "a la 1:10" for one o'clock (and "~1:10" estimates). */
+const aLas = (time: string) => (/^~?1:/.test(time) ? `a la ${time}` : `a las ${time}`);
+
 const en = {
   appTagline: 'When you ride NJ Transit, you need all the help you can get.',
   demoBanner: 'Demo data: invented stops, times and gates. Do not use it to catch a real bus.',
@@ -88,7 +91,7 @@ const en = {
     title: 'Get me the fuck home',
     otherWays: 'Other buses there',
     leg: (from: string, home: string) => `${from} → ${home}`,
-    scheduleOnly: (until: string) => `Scheduled buses in Dale’s data, soonest arrival first, leaving until ${until}, plus the last tonight on your line. Scheduled times only, not live.`,
+    scheduleOnly: (until: string, last: boolean) => `Scheduled buses in Dale’s data, soonest arrival first, leaving until ${until}${last ? ', plus the last tonight on your line' : ''}. Scheduled times only, not live.`,
     arrives: (time: string, stop: string) => `arrives ${time} at ${stop}`,
     acrossBoard: (stop: string) => `Board across the street: ${stop}`,
     acrossHome: 'Gets off across the street from your stop',
@@ -445,8 +448,8 @@ const es: Strings = {
     title: '¡Llévame a casa ya!',
     otherWays: 'Otros autobuses hacia allá',
     leg: (from: string, home: string) => `${from} → ${home}`,
-    scheduleOnly: (until: string) => `Autobuses previstos en los datos de Dale, ordenados por llegada, que salen hasta las ${until}, más el último de tu línea esta noche. Solo horarios, no en vivo.`,
-    arrives: (time: string, stop: string) => `llega a las ${time} a ${stop}`,
+    scheduleOnly: (until: string, last: boolean) => `Autobuses previstos en los datos de Dale, ordenados por llegada, que salen hasta ${aLas(until)}${last ? ', más el último de tu línea esta noche' : ''}. Solo horarios, no en vivo.`,
+    arrives: (time: string, stop: string) => `llega ${aLas(time)} a ${stop}`,
     acrossBoard: (stop: string) => `Súbete enfrente: ${stop}`,
     acrossHome: 'Te deja enfrente de tu parada',
     lastOnLine: 'El último de tu línea esta noche',
