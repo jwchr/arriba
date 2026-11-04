@@ -6,6 +6,7 @@ An independent NJ Transit bus companion for the Bergen County to Manhattan commu
 
 - Live build: https://jwchr.github.io/dale/ (printed route 165 timetable until the real NJ Transit feed is loaded)
 - What V1 is: [`docs/V1_CONTRACT.md`](docs/V1_CONTRACT.md) · Decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md) · Status: [`docs/HANDOFF.md`](docs/HANDOFF.md)
+- Bus Lock: [`docs/BUS_LOCK.md`](docs/BUS_LOCK.md). Select a departure and lock it to start a local waiting session. Live GPS and sharing are not connected; the explicitly marked `?demo` provides controls for fresh/stale/missing GPS and vehicle replacement. Trips into Port Authority also show the last listed same-line return and the following departure, with dates and schedule limits.
 
 ## Develop
 
