@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fixPosition, scheduledAt, stopReached, timetablePosition, tripProgress, type Fix } from '../../src/domain/tripProgress';
+import { fixPosition, scheduledAt, stopReached, TAP_MAX_AGE_MS, timetablePosition, tripProgress, type Fix } from '../../src/domain/tripProgress';
 import type { Stop } from '../../src/domain/types';
 
 const MIN = 60_000;
@@ -59,11 +59,38 @@ describe('trip progress while riding (owner request 2026-11-04)', () => {
     expect(p.delayMin).toBe(0); // at stop 2 at 12:20:58, scheduled 12:20: under a minute is on time
   });
 
-  it('marks a stop reached only within 80 m and beyond the last one reached', () => {
-    expect(stopReached(stops, 0, at(1))).toBe(1);
-    expect(stopReached(stops, 1, at(1))).toBeUndefined();
-    expect(stopReached(stops, 0, { lat: 40.912, lon: -74.0, at: 0, accuracyM: 20 })).toBeUndefined();
-    expect(stopReached(stops, 0, { ...at(1), accuracyM: 400 })).toBeUndefined();
+  it('marks a stop reached only at the fix’s own place on the route, within 80 m, from a precise fix', () => {
+    expect(stopReached(stops, 0, at(1), 1)).toBe(1);
+    expect(stopReached(stops, 1, at(1), 1)).toBeUndefined();
+    expect(stopReached(stops, 0, { lat: 40.912, lon: -74.0, at: 0, accuracyM: 20 }, 1.2)).toBeUndefined();
+    expect(stopReached(stops, 0, { ...at(1), accuracyM: 100 }, 1)).toBeUndefined();
+    expect(stopReached(stops, 0, at(1), undefined)).toBeUndefined();
+  });
+
+  it('on a street that doubles back, a fix near B never marks the later stop on the parallel side', () => {
+    // A → B → C goes north, then D → E comes back south one block east: E sits 30 m from B.
+    const loop: Stop[] = [
+      { id: 'A', name: 'A', lat: 40.900, lon: -74.0 }, { id: 'B', name: 'B', lat: 40.910, lon: -74.0 },
+      { id: 'C', name: 'C', lat: 40.920, lon: -74.0 }, { id: 'D', name: 'D', lat: 40.920, lon: -73.9996 },
+      { id: 'E', name: 'E', lat: 40.910, lon: -73.9996 },
+    ];
+    const fix = { lat: 40.9102, lon: -73.99972, at: T0, accuracyM: 15 }; // 32 m from B, 24 m from E
+    const pos = fixPosition(loop, 0, fix, T0);
+    expect(stopReached(loop, 0, fix, pos)).not.toBe(4);
+  });
+
+  it('an estimate never passes the next stop, and an old tap stops counting as evidence', () => {
+    // Reached stop 1 a minute late; 15 minutes on with nothing new.
+    const tapped = { ...base, milestones: [{ index: 1, at: T0 + 11 * MIN, source: 'tap' as const }] };
+    const p = tripProgress({ ...tapped, now: T0 + 26 * MIN });
+    expect(p.position).toBeLessThan(2);
+    expect(p.projected).toBe(true);
+    expect(p.reachedIndex).toBe(1);
+    // Two hours later the tap says nothing about now: back to the timetable, stop 1 still reached.
+    const later = tripProgress({ ...tapped, now: T0 + 11 * MIN + TAP_MAX_AGE_MS + MIN });
+    expect(later.basis).toBe('timetable');
+    expect(later.delayMin).toBeUndefined();
+    expect(later.reachedIndex).toBe(1);
   });
 
   it('needs every stop located to use GPS at all (the printed timetable has none)', () => {

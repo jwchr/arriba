@@ -8,7 +8,7 @@ import type { BusSession } from '../domain/busLock';
 import { DEFAULT_TIMING } from '../domain/lock';
 import { tripStopTimes } from '../domain/schedule';
 import { formatTime12 } from '../domain/time';
-import { hasLocations, stopReached, tripProgress, type Fix, type Milestone } from '../domain/tripProgress';
+import { fixPosition, hasLocations, stopReached, tripProgress, type Fix, type Milestone } from '../domain/tripProgress';
 import type { Dataset } from '../domain/types';
 import type { Lang, Strings } from './i18n';
 
@@ -51,7 +51,8 @@ export function StripMap({ ds, session, alightIndex, now, t, lang }: { ds: Datas
     if (typeof navigator === 'undefined' || !navigator.geolocation) { setGps('unsupported'); return; }
     setGps('asking');
     const id = navigator.geolocation.watchPosition(
-      (pos) => { setGps('on'); setPhone({ lat: pos.coords.latitude, lon: pos.coords.longitude, at: nowRef.current, accuracyM: pos.coords.accuracy }); },
+      // The fix's own age is kept (a cached or delayed fix is not "now"), on Dale's clock.
+      (pos) => { setGps('on'); setPhone({ lat: pos.coords.latitude, lon: pos.coords.longitude, at: nowRef.current - Math.max(0, Date.now() - (pos.timestamp || Date.now())), accuracyM: pos.coords.accuracy }); },
       (e) => setGps(e.code === e.PERMISSION_DENIED ? 'denied' : 'failed'),
       { enableHighAccuracy: true, maximumAge: 10_000, timeout: 30_000 },
     );
@@ -71,7 +72,7 @@ export function StripMap({ ds, session, alightIndex, now, t, lang }: { ds: Datas
     const fixes: [Fix | undefined, Milestone['source']][] = [[bus, 'bus_gps'], [phone, 'phone_gps']];
     for (const [fix, source] of fixes) {
       if (!fix) continue;
-      const i = stopReached(stops, progress.reachedIndex, fix);
+      const i = stopReached(stops, progress.reachedIndex, fix, fixPosition(stops, dep.stopIndex, fix, now));
       if (i !== undefined && i <= ids.length - 1) update({ ...state, milestones: [...state.milestones, { index: i, at: fix.at, source }] });
     }
   }, [phone?.at, bus?.at]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -83,7 +84,9 @@ export function StripMap({ ds, session, alightIndex, now, t, lang }: { ds: Datas
 
   // Keep the lit stop in view on the strip.
   const strip = useRef<HTMLOListElement>(null);
-  const nextIndex = Math.min(ids.length - 1, Math.floor(progress.position) + 1);
+  const lastIndex = ids.length - 1;
+  const atEnd = progress.reachedIndex >= lastIndex;
+  const nextIndex = Math.min(lastIndex, Math.floor(progress.position) + 1);
   useEffect(() => {
     strip.current?.querySelector<HTMLElement>(`[data-i="${nextIndex}"]`)?.scrollIntoView?.({ block: 'nearest', inline: 'center' });
   }, [nextIndex]);
@@ -103,10 +106,10 @@ export function StripMap({ ds, session, alightIndex, now, t, lang }: { ds: Datas
     <div className="progress" data-basis={progress.basis}>
       {/* The LED bar: next stop and pace, like the sign over the car doors. */}
       <div className="led-bar" role="status" aria-live="polite">
-        <p className="led-line"><span className="led-key">{p.next}</span> {nextLabel.town}{nextLabel.detail ? ` · ${nextLabel.detail}` : ''}</p>
+        <p className="led-line"><span className="led-key">{atEnd ? p.at : p.next}</span> {nextLabel.town}{nextLabel.detail ? ` · ${nextLabel.detail}` : ''}</p>
         <p className="led-line led-pace" data-pace={delay === undefined ? 'unknown' : delay > 0 ? 'behind' : delay < 0 ? 'ahead' : 'on'}>{pace}</p>
       </div>
-      <p className="small progress-source">{source}</p>
+      <p className="small progress-source">{progress.projected ? `${p.estimated} ` : ''}{source}</p>
       {progress.alight.projected !== undefined && delay !== 0
         ? <p className="small">{p.yourStop(clock(progress.alight.projected), clock(progress.alight.scheduled))}</p>
         : <p className="small">{p.yourStopScheduled(clock(progress.alight.scheduled))}</p>}
@@ -116,8 +119,11 @@ export function StripMap({ ds, session, alightIndex, now, t, lang }: { ds: Datas
           {ids.slice(first).map((id, k) => {
             const i = first + k;
             const label = stopLabel(name(i));
-            const passed = i <= progress.reachedIndex || i < progress.position - 0.05;
-            const stopState = i === alightIndex ? 'alight' : i === nextIndex ? 'next' : passed ? 'passed' : 'ahead';
+            // Dimmed only when reached by a tap or GPS, or passed by a live GPS position; never by the
+            // timetable or an estimate.
+            const live = (progress.basis === 'phone_gps' || progress.basis === 'bus_gps') && !progress.projected;
+            const passed = i <= progress.reachedIndex || (live && i < progress.position - 0.05);
+            const stopState = i === alightIndex ? 'alight' : i === nextIndex && !atEnd ? 'next' : passed ? 'passed' : 'ahead';
             const reached = state.milestones.find((m) => m.index === i);
             return (
               <li key={`${id}-${i}`} data-i={i} data-state={stopState} data-reached={passed || undefined}>
@@ -140,7 +146,8 @@ export function StripMap({ ds, session, alightIndex, now, t, lang }: { ds: Datas
       {located ? <>
         <label className="lock-toggle"><input type="checkbox" checked={state.follow} onChange={(e) => { update({ ...state, follow: e.target.checked }); if (!e.target.checked) setGps('off'); }} />{p.follow}</label>
         <p className="muted small">{p.followPrivacy}</p>
-        {state.follow && <p className="small" role="status">{gps === 'on' && phone ? p.gpsOn(Math.round(phone.accuracyM)) : p.gps[gps]}</p>}
+        {/* Not a live region: the accuracy changes with every fix, which would be read out each time. */}
+        {state.follow && <p className="small">{gps === 'on' && phone ? p.gpsOn(Math.round(phone.accuracyM)) : p.gps[gps]}</p>}
       </> : <p className="muted small" role="note">{p.noLocations}</p>}
     </div>
   );

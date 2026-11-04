@@ -43,8 +43,10 @@ export interface TripProgress {
 /** A GPS fix this old or less precise is not used. */
 export const FIX_MAX_AGE_MS = DEFAULT_TIMING.staleAfterMs;
 export const FIX_MAX_ACCURACY_M = 150;
-/** A fix this close to a stop counts as reaching it. */
+/** A fix this close to a stop counts as reaching it (and must itself be at least this precise). */
 export const AT_STOP_M = 80;
+/** A tap says where the bus was then; after this long it no longer says anything about now. */
+export const TAP_MAX_AGE_MS = 20 * 60_000;
 const OFF_ROUTE_M = 400;
 
 type Located = Stop & { lat: number; lon: number };
@@ -76,16 +78,17 @@ export function fixPosition(stops: readonly (Stop | undefined)[], from: number, 
   return r && r.offM <= OFF_ROUTE_M ? r.progress : undefined;
 }
 
-/** The stop a fix is at (within AT_STOP_M, beyond `after`), for an automatic milestone. */
-export function stopReached(stops: readonly (Stop | undefined)[], after: number, fix: Fix): number | undefined {
-  if (fix.accuracyM > FIX_MAX_ACCURACY_M) return undefined;
-  let best: { i: number; d: number } | undefined;
-  stops.forEach((s, i) => {
-    if (i <= after || !isLocated(s)) return;
-    const d = metres(s, fix);
-    if (d <= AT_STOP_M && (!best || d < best.d)) best = { i, d };
-  });
-  return best?.i;
+/**
+ * The stop a fix is at, for an automatic milestone: only the stop nearest the fix's own position along
+ * the route (`position`, from fixPosition, which already refuses ambiguous fixes), only beyond `after`,
+ * within AT_STOP_M, and only from a fix at least that precise. A street that doubles back can never
+ * mark a later stop on the parallel side.
+ */
+export function stopReached(stops: readonly (Stop | undefined)[], after: number, fix: Fix, position: number | undefined): number | undefined {
+  if (position === undefined || fix.accuracyM > AT_STOP_M) return undefined;
+  const i = Math.round(position);
+  const s = stops[i];
+  return i > after && isLocated(s) && metres(s, fix) <= AT_STOP_M ? i : undefined;
 }
 
 function metres(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
@@ -98,7 +101,7 @@ export function tripProgress(input: ProgressInput): TripProgress {
   const reachedIndex = Math.max(boardIndex, ...milestones.map((m) => m.index));
   const evidence: { position: number; at: number; source: EvidenceSource }[] = [];
   const last = [...milestones].sort((a, b) => a.at - b.at || a.index - b.index).at(-1);
-  if (last) evidence.push({ position: last.index, at: last.at, source: last.source });
+  if (last && now - last.at <= TAP_MAX_AGE_MS) evidence.push({ position: last.index, at: last.at, source: last.source });
   for (const [fix, source] of [[input.bus, 'bus_gps'], [input.phone, 'phone_gps']] as const) {
     if (!fix) continue;
     const p = fixPosition(stops, boardIndex, fix, now);
@@ -109,11 +112,15 @@ export function tripProgress(input: ProgressInput): TripProgress {
   const best = evidence.sort((a, b) => b.at - a.at || rank[a.source] - rank[b.source])[0];
   const scheduledAlight = times[alightIndex]!;
   if (!best) {
-    return { position: Math.max(boardIndex, timetablePosition(times, now)), projected: false, basis: 'timetable', reachedIndex, alight: { scheduled: scheduledAlight } };
+    // The timetable's position (labeled as such), never behind a stop already confirmed. It confirms
+    // nothing: the strip only marks stops reached from taps or GPS.
+    return { position: Math.max(boardIndex, reachedIndex, timetablePosition(times, now)), projected: false, basis: 'timetable', reachedIndex, alight: { scheduled: scheduledAlight } };
   }
   const delayMs = best.at - scheduledAt(times, best.position);
-  // Carry the position forward at the observed pace until newer evidence arrives, never past the end.
-  const carried = timetablePosition(times, now - delayMs);
+  // Between updates, carry the bus forward at the observed pace, but only up to just before the next
+  // stop: reaching a stop takes evidence, never an estimate.
+  const nextStop = Math.min(times.length - 1, Math.floor(best.position + 1e-6) + 1);
+  const carried = Math.min(timetablePosition(times, now - delayMs), nextStop - 0.02);
   const position = Math.min(times.length - 1, Math.max(best.position, carried));
   return {
     position, projected: position > best.position + 0.01, basis: best.source, observedAt: best.at,
