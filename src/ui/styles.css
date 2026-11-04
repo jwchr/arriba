@@ -252,3 +252,14 @@ main { flex: 1; padding-bottom: 24px; }
 .share-update { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
 .share-text { font-weight: 600; user-select: text; }
 .share-open { margin: 6px 0; }
+
+/* The rider's own backup plans (issue #62) */
+.backups { margin: 12px 0; }
+.backup-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.backup { border-left: 4px dashed var(--muted); padding: 2px 0 2px 10px; }
+.backup p { margin: 2px 0; }
+.backup-plan { font-weight: 700; }
+.backup-note { white-space: pre-wrap; }
+.backup-form { display: grid; gap: 8px; margin: 8px 0; }
+.backup-form label { display: grid; gap: 4px; font-weight: 600; }
+.backup-form input, .backup-form textarea { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }

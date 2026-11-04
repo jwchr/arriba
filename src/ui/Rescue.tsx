@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { rescueOptions, type RescueOption } from '../domain/rescue';
 import { formatTime12, localHour, localYmd } from '../domain/time';
 import type { Dataset } from '../domain/types';
+import { BackupPlans } from './BackupPlans';
 import type { Lang, Strings } from './i18n';
 
 interface Props {
@@ -65,6 +66,7 @@ export function Rescue({ ds, t, lang, now, fromStopId, homeStopId, usualRouteId,
           );
         })}
       </ol>
+      <BackupPlans t={t} />
       <p className="muted small" role="note">{r.coverage(result.routesSearched.join(', '))}</p>
       <p className="muted small">{r.noWalking}</p>
       {result.limitations.includes('printed_timepoints_only') && <p className="muted small">{r.printed}</p>}
