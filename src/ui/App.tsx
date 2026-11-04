@@ -19,12 +19,13 @@ import { NearMe } from './NearMe';
 import { Rescue } from './Rescue';
 import { RiderGuide } from './RiderGuide';
 import { TicketGuide } from './TicketGuide';
+import { SKINS, SkinBackdrop, type Skin } from './SkinBackdrop';
 import { BusLockPanel } from './BusLockPanel';
 import { LastReturnCard } from './LastReturnCard';
 import { PastReports } from './PastReports';
 
 type Theme = 'system' | 'light' | 'dark';
-interface Settings { lang: Lang; theme: Theme; count: 3 | 5 }
+interface Settings { lang: Lang; theme: Theme; count: 3 | 5; skin: Skin }
 interface Leg { fromStopId: string; toStopId: string; routeIds: string[] }
 interface ActiveLock { dep: Departure; leg: Leg; session: BusSession }
 type Screen =
@@ -41,8 +42,8 @@ const store = (() => { try { return window.localStorage; } catch { return undefi
 const readSettings = (): Settings => {
   try {
     const s = JSON.parse(store?.getItem('arriba.settings.v1') ?? '{}') as Partial<Settings>;
-    return { lang: s.lang === 'es' ? 'es' : 'en', theme: s.theme ?? 'system', count: s.count === 5 ? 5 : 3 };
-  } catch { return { lang: 'en', theme: 'system', count: 3 }; }
+    return { lang: s.lang === 'es' ? 'es' : 'en', theme: s.theme ?? 'system', count: s.count === 5 ? 5 : 3, skin: SKINS.includes(s.skin as Skin) ? s.skin as Skin : 'turnpike' };
+  } catch { return { lang: 'en', theme: 'system', count: 3, skin: 'turnpike' }; }
 };
 
 /** `?now=2026-11-04T07:50` pins the clock (New York wall time) for demos and tests. */
@@ -202,6 +203,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
     document.documentElement.lang = settings.lang;
     if (settings.theme === 'system') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = settings.theme;
+    document.documentElement.dataset.skin = settings.skin;
   }, [settings]);
 
   const stopName = (id: string) => ds.stops.find((s) => s.id === id)?.name ?? id;
@@ -209,6 +211,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
 
   return (
     <div className="app">
+      <SkinBackdrop skin={settings.skin} />
       <header className="top">
         {screen.name !== 'home' ? (
           <button className="icon-btn" onClick={back} aria-label={t.back}>‹</button>
@@ -841,8 +844,12 @@ function SettingsScreen({ ctx, settings, setSettings, onGuide, historyCount, onC
       <h1>{t.settings}</h1>
       <h2>{t.language}</h2>
       <div className="choice-list">{opt('lang', 'en', 'English')}{opt('lang', 'es', 'Español')}</div>
+      <h2>{t.skin}</h2>
+      <div className="choice-list">{SKINS.map((k) => <span key={k}>{opt('skin', k, t.skins[k])}</span>)}</div>
+      <p className="muted small">{t.skinNote}</p>
       <h2>{t.theme}</h2>
       <div className="choice-list">{opt('theme', 'system', t.themeSystem)}{opt('theme', 'light', t.themeLight)}{opt('theme', 'dark', t.themeDark)}</div>
+      {settings.skin !== 'clean' && <p className="muted small">{t.themeCleanOnly}</p>}
       <h2>{t.departuresShown}</h2>
       <div className="choice-list">{opt('count', 3, '3')}{opt('count', 5, '5')}</div>
       <h2>{t.guide.title}</h2>
