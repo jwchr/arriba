@@ -762,7 +762,7 @@ const es: Strings = {
     resumePrompt: (time: string, route: string, stop: string) => `¿Retomar tu ${route} de ${laLas(time)} desde ${stop}? Tus reportes conservan su hora original.`,
     resumeYes: 'Retomar',
     resumeNo: 'Olvidarlo',
-    keptOnPhone: 'Este seguimiento se guarda en este teléfono hasta que dejes de seguirlo o termines el viaje, así que cerrar Dale no lo borra; si no, Dale lo borra la próxima vez que se abra después del viaje. Tus reportes también se guardan en tu historial de reportes en este teléfono hasta 180 días; puedes borrarlo en Configuración. No se envía nada.',
+    keptOnPhone: 'Este seguimiento se guarda en este teléfono hasta que dejes de seguirlo o termines el viaje, así que cerrar Dale no lo borra; si no, Dale lo borra la próxima vez que se abra después del viaje. Tus reportes también se guardan en tu historial de reportes en este teléfono hasta 180 días; puedes borrarlo en Ajustes. No se envía nada.',
     ridePrivacy: 'Subir no activa el seguimiento del teléfono. Compartir la ubicación del autobús requerirá tu permiso por separado cuando el servicio esté disponible.',
     conflict: 'Cambió la coincidencia del vehículo. El viaje seleccionado sigue fijo hasta que decidas.',
     acceptVehicle: 'Aceptar este vehículo de reemplazo',
