@@ -517,9 +517,27 @@ test.describe('boarding check (issue #55)', () => {
     expect(violations.map((v) => v.id)).toEqual([]);
     await check.getByRole('button', { name: 'Show the driver' }).click();
     const card = page.locator('.driver-card');
-    await expect(card.locator('[lang="en"]')).toHaveText('Does this bus stop at Westwood - Broadway at Irvington St. (to Westwood)?');
-    await expect(card.locator('[lang="es"]')).toHaveText('¿Este autobús para en Westwood - Broadway at Irvington St. (to Westwood)?');
+    await expect(card.locator('[lang="en"]')).toHaveText('Does this bus stop at Westwood - Broadway at Irvington St.?');
+    await expect(card.locator('[lang="es"]')).toHaveText('¿Este autobús para en Westwood - Broadway at Irvington St.?');
+    await expect(card.locator('[lang="en"]')).toBeFocused();
     await card.getByRole('button', { name: 'Done' }).click();
     await expect(check).toBeVisible();
+    await expect(check.getByRole('button', { name: 'Show the driver' })).toBeFocused();
   });
 });
+
+test.describe('boarding check on a request-only stop', () => {
+  test.use({ serviceWorkers: 'block' });
+  test('a PM Parkway express to the Exit 165 Park/Ride says it stops only if you ask', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T17:10');
+    await saveCommute(page, 'port authority', /^New York - Port Authority Bus Terminal$/, /^Paramus - GSP Exit 165 Park\/Ride Lot/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.getByRole('button', { name: /All day/ }).click();
+    await page.locator('table.timetable tr').filter({ hasText: '5:15 PM' }).locator('.link-cell').click();
+    await page.getByRole('button', { name: 'Boarding check' }).click();
+    const check = page.locator('.boarding-check');
+    await expect(check.getByRole('status')).toContainText('stops there only if you ask the driver when you board');
+    await expect(check.getByRole('note').filter({ hasText: 'Exit 165 Park/Ride lot' })).toBeVisible();
+  });
+});
+
