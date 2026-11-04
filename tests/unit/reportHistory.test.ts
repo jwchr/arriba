@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { demoDataset } from '../../src/data/demo';
 import { createBusSession, reduceBusSession, type BusSession, type BusSessionEvent } from '../../src/domain/busLock';
-import { clearHistory, HISTORY_KEY, KEEP_DAYS, loadHistory, recordSession, summarize } from '../../src/domain/reportHistory';
+import { clearHistory, HISTORY_KEY, KEEP_DAYS, loadHistory, pruneHistory, recordSession, summarize } from '../../src/domain/reportHistory';
 import { departuresOn } from '../../src/domain/schedule';
 import type { Dataset, Departure } from '../../src/domain/types';
 import { strings } from '../../src/ui/i18n';
@@ -55,6 +55,13 @@ describe('personal report history (issue #57)', () => {
     store.m.set(HISTORY_KEY, JSON.stringify([...good, { ...good[0], kind: 'boarded' }, { ...good[0], slot: 'x' }, { ...good[0], kind: 'capacity' }, null, 5]));
     expect(loadHistory(store, d1.departs + 20 * MIN)).toHaveLength(1);
     expect(loadHistory(store, d1.departs + (KEEP_DAYS + 1) * 86_400_000)).toHaveLength(0);
+    // Old and damaged entries are also removed from storage, not just hidden.
+    pruneHistory(store, d1.departs + (KEEP_DAYS + 1) * 86_400_000);
+    expect(JSON.parse(store.m.get(HISTORY_KEY)!)).toEqual([]);
+    // A printed-timetable holiday (Thanksgiving) runs its own schedule: not filed as the weekday bus.
+    const thanksgiving = sameBus('20261126');
+    expect(thanksgiving).toBeDefined();
+    expect(recordSession(store, ds, ride(thanksgiving, 'h', arrived(1)), thanksgiving.departs + 5 * MIN)).toEqual([]);
     store.m.set(HISTORY_KEY, '{oops');
     expect(loadHistory(store, d1.departs)).toEqual([]);
     clearHistory(store);
@@ -70,9 +77,10 @@ describe('personal report history (issue #57)', () => {
   });
 
   it('reads naturally in English and Spanish', () => {
-    expect(strings.en.history.arrived(2, 2, 2, 9)).toBe('You pressed "Bus arrived" 2 times: typically 2 min after the scheduled time (from 2 min after to 9 min after).');
+    expect(strings.en.history.arrived(2, 2, 2, 9)).toBe('You pressed "Bus arrived" twice: 2 min after the scheduled time and 9 min after the scheduled time.');
+    expect(strings.en.history.arrived(3, 2, 0, 9)).toBe('You pressed "Bus arrived" 3 times: typically 2 min after the scheduled time (from the scheduled time to 9 min after).');
     expect(strings.en.history.arrived(1, -1, -1, -1)).toBe('You pressed "Bus arrived" once, 1 min before the scheduled time.');
-    expect(strings.es.history.noBus(1)).toBe('Reportaste que no había llegado una vez.');
+    expect(strings.es.history.noBus(1)).toBe('Marcaste «Todavía no llega» una vez.');
     expect(Object.keys(strings.es.history).sort()).toEqual(Object.keys(strings.en.history).sort());
   });
 });

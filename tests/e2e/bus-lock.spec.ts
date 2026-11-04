@@ -485,8 +485,10 @@ test('report history: last week’s own reports show for the same bus, labeled a
   await expect(page.getByText(/^2 reports from your past rides kept on this phone/)).toBeVisible();
   await page.getByRole('button', { name: 'Clear my report history' }).click();
   await page.getByRole('button', { name: 'Keep them' }).click();
+  await expect(page.getByRole('button', { name: 'Clear my report history' })).toBeFocused();
   await page.getByRole('button', { name: 'Clear my report history' }).click();
   await page.getByRole('button', { name: 'Yes, clear' }).click();
+  await expect(page.getByRole('heading', { name: 'Your report history' })).toBeFocused();
   await expect(page.getByRole('status').filter({ hasText: 'Your report history is cleared.' })).toBeVisible();
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.locator('.past-reports')).toHaveCount(0);

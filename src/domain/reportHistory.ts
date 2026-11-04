@@ -4,6 +4,7 @@
 // from the invented demo. No position is stored, only the stop and times the rider already chose.
 import type { BusSession, CapacityLevel, RiderReportKind } from './busLock';
 import type { Dataset, Departure } from './types';
+import { isNjtHoliday } from './holidays';
 import { weekdayIndex } from './time';
 
 export type DayType = 'weekday' | 'saturday' | 'sunday';
@@ -69,6 +70,8 @@ function save(storage: Pick<Storage, 'setItem'> | undefined, list: PastReport[])
 export function toPastReports(ds: Dataset, session: BusSession): PastReport[] {
   if (ds.meta.demo) return [];
   const dep = session.departure;
+  // A printed timetable has no holiday schedules: a holiday's bus is not the usual weekday bus.
+  if (ds.meta.transcribed && isNjtHoliday(dep.serviceDate)) return [];
   const slot = slotOf(ds, dep);
   if (slot === undefined) return [];
   return session.reports.filter((r) => KINDS.has(r.kind)).map((r) => ({
@@ -89,6 +92,16 @@ export function recordSession(storage: Pick<Storage, 'getItem' | 'setItem'> | un
   const next = [...list, ...added];
   save(storage, next);
   return next;
+}
+
+/** Rewrites the stored history without entries past the 180-day limit (or damaged ones). */
+export function pruneHistory(storage: Pick<Storage, 'getItem' | 'setItem'> | undefined, now: number): PastReport[] {
+  const list = loadHistory(storage, now);
+  try {
+    const stored: unknown = JSON.parse(storage?.getItem(HISTORY_KEY) ?? '[]');
+    if (Array.isArray(stored) && stored.length !== list.length) save(storage, list);
+  } catch { save(storage, list); }
+  return list;
 }
 
 export function clearHistory(storage: Pick<Storage, 'removeItem'> | undefined): void {

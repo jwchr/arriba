@@ -8,7 +8,7 @@ import { gateFor, type GateAnswer } from '../domain/gate';
 import { isNjtHoliday } from '../domain/holidays';
 import { createBusSession, reduceBusSession, type BusSession, type BusSessionEvent } from '../domain/busLock';
 import { forgetLock, loadLock, saveLock, type SavedLock } from '../domain/lockStore';
-import { clearHistory, loadHistory, recordSession, summarize, type PastReport } from '../domain/reportHistory';
+import { clearHistory, pruneHistory, recordSession, summarize, type PastReport } from '../domain/reportHistory';
 import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule';
 import { addDays, clockChangeBetween, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
 import type { Dataset, Departure, Stop } from '../domain/types';
@@ -191,7 +191,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
   }, [lockNow]);
 
   // The rider's own reports, kept on this phone across rides (issue #57); never for the demo.
-  const [pastReports, setPastReports] = useState<PastReport[]>(() => loadHistory(store, Date.now()));
+  const [pastReports, setPastReports] = useState<PastReport[]>(() => pruneHistory(store, Date.now()));
   useEffect(() => {
     if (!activeLock || ds.meta.demo) return;
     setPastReports((h) => { const next = recordSession(store, ds, activeLock.session, lockNow); return next.length === h.length ? h : next; });
@@ -807,6 +807,14 @@ function SettingsScreen({ ctx, settings, setSettings, onGuide, historyCount, onC
   const { t, ds } = ctx;
   const [confirmClear, setConfirmClear] = useState(false);
   const [cleared, setCleared] = useState(false);
+  const historyHeading = useRef<HTMLHeadingElement>(null);
+  const clearButton = useRef<HTMLButtonElement>(null);
+  const [focusAfter, setFocusAfter] = useState<'heading' | 'clear' | undefined>();
+  useEffect(() => {
+    if (focusAfter === 'heading') historyHeading.current?.focus();
+    if (focusAfter === 'clear') clearButton.current?.focus();
+    if (focusAfter) setFocusAfter(undefined);
+  }, [focusAfter]);
   const opt = <K extends keyof Settings>(k: K, v: Settings[K], label: string) => (
     <button className="chip" aria-pressed={settings[k] === v} onClick={() => setSettings({ ...settings, [k]: v })}>{label}</button>
   );
@@ -821,15 +829,15 @@ function SettingsScreen({ ctx, settings, setSettings, onGuide, historyCount, onC
       <div className="choice-list">{opt('count', 3, '3')}{opt('count', 5, '5')}</div>
       <h2>{t.guide.title}</h2>
       <button className="ghost" onClick={onGuide}>{t.guideOpen}</button>
-      <h2>{t.history.settingsTitle}</h2>
+      <h2 tabIndex={-1} ref={historyHeading}>{t.history.settingsTitle}</h2>
       <p className="small">{t.history.count(historyCount)}</p>
       {historyCount > 0 && (confirmClear
         ? <div className="edit-row" role="group" aria-label={t.history.confirm}>
           <span className="small">{t.history.confirm}</span>
-          <button className="danger" autoFocus onClick={() => { onClearHistory(); setConfirmClear(false); setCleared(true); }}>{t.history.yes}</button>
-          <button className="ghost" onClick={() => setConfirmClear(false)}>{t.history.no}</button>
+          <button className="danger" autoFocus onClick={() => { onClearHistory(); setConfirmClear(false); setCleared(true); setFocusAfter('heading'); }}>{t.history.yes}</button>
+          <button className="ghost" onClick={() => { setConfirmClear(false); setFocusAfter('clear'); }}>{t.history.no}</button>
         </div>
-        : <button className="ghost" onClick={() => { setCleared(false); setConfirmClear(true); }}>{t.history.clear}</button>)}
+        : <button ref={clearButton} className="ghost" onClick={() => { setCleared(false); setConfirmClear(true); }}>{t.history.clear}</button>)}
       <p className="small" role="status">{cleared ? t.history.cleared : ''}</p>
       <h2>{t.dataSource}</h2>
       <p className="small">{ds.meta.source} · {ds.meta.feedVersion}</p>
