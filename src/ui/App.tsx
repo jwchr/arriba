@@ -654,7 +654,7 @@ function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keep
         {anotherLock ? <p className="small">{t.busLock.anotherLock}</p> : <button className="primary wide" onClick={onLock}>{t.lockBus}</button>}
       </div>}
 
-      <LastReturnCard ds={ds} outbound={dep} toStopId={leg.toStopId} t={t} lang={ctx.lang} onOpen={onReturn} />
+      <LastReturnCard ds={ds} outbound={dep} toStopId={leg.toStopId} t={t} lang={ctx.lang} now={ctx.now} onOpen={onReturn} />
       {/* Heading out of New York is heading home; into Port Authority it is just "other buses there". */}
       <button className="ghost rescue-open" onClick={onRescue}>{ds.stops.find((s) => s.id === leg.toStopId)?.terminal ? t.rescue.otherWays : t.rescue.title}</button>
 

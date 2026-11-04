@@ -500,6 +500,27 @@ test.describe('history (issue #48)', () => {
   });
 });
 
+test.describe('last-bus reminder (issue #58)', () => {
+  test.use({ serviceWorkers: 'block' });
+  test('counts down to the last listed return and saves a calendar reminder', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T18:00');
+    await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.locator('.dep').first().click();
+    const card = page.locator('.last-return');
+    await expect(card.locator('.last-bus-reminder p').first()).toHaveText(/^Leaves in \d+ h \d+ min \(scheduled\)\.$/);
+    const download = page.waitForEvent('download');
+    await card.getByRole('button', { name: 'Add a calendar reminder 30 minutes before' }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/^dale-last-165-\d{8}\.ics$/);
+    const body = await (await file.createReadStream()).toArray();
+    const ics = Buffer.concat(body).toString('utf8');
+    expect(ics).toContain('BEGIN:VEVENT');
+    expect(ics).toContain('TRIGGER:-PT30M');
+    expect(ics.replace(/\r\n /g, '')).toContain('SUMMARY:Last listed 165 home');
+    expect(ics.replace(/\r\n /g, '')).toContain('schedule changes\\; check');
+  });
+});
 test.describe('boarding check (issue #55)', () => {
   test.use({ serviceWorkers: 'block' });
   test('confirms the scheduled trip serves your stop and shows the driver a bilingual card', async ({ page }) => {

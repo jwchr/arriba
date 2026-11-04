@@ -259,6 +259,11 @@ const en = {
     ended: 'Tracking ended',
   },
   lastReturn: {
+    leavesIn: (h: number, m: number) => `Leaves in ${h ? `${h} h ` : ''}${m} min (scheduled).`,
+    alreadyLeft: 'This listed trip has already left.',
+    calendar: 'Add a calendar reminder 30 minutes before',
+    calendarSummary: (route: string, time: string, from: string) => `Last listed ${route} home: ${time} from ${from}`,
+    calendarNote: 'The reminder uses the scheduled time. Dale cannot update it if the schedule changes; check before you rely on it.',
     title: 'Last return on this line',
     operatingDay: (route: string, date: string) => `Route ${route} · operating day ${date}`,
     destination: (stop: string) => `Return stop: ${stop}`,
@@ -647,6 +652,11 @@ const es: Strings = {
     ended: 'Seguimiento terminado',
   },
   lastReturn: {
+    leavesIn: (h: number, m: number) => `Sale en ${h ? `${h} h ` : ''}${m} min (según el horario).`,
+    alreadyLeft: 'Este viaje ya salió.',
+    calendar: 'Agregar un recordatorio al calendario 30 minutos antes',
+    calendarSummary: (route: string, time: string, from: string) => `Último ${route} indicado a casa: ${time} desde ${from}`,
+    calendarNote: 'El recordatorio usa la hora del horario. Dale no puede actualizarlo si cambia el horario; revisa antes de confiar en él.',
     title: 'Último regreso en esta línea',
     operatingDay: (route: string, date: string) => `Ruta ${route} · día de servicio ${date}`,
     destination: (stop: string) => `Parada de regreso: ${stop}`,

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { icsEvent, untilParts } from '../domain/calendar';
 import { lastReturn } from '../domain/lastReturn';
 import { formatTime12, localYmd } from '../domain/time';
 import type { Dataset, Departure } from '../domain/types';
@@ -11,11 +12,12 @@ interface Props {
   toStopId: string;
   t: Strings;
   lang: Lang;
+  now: number;
   onOpen: (dep: Departure, leg: ReturnLeg) => void;
 }
 
 /** Always show the service-day boundary and the following departure; never infer an end of service. */
-export function LastReturnCard({ ds, outbound, toStopId, t, lang, onOpen }: Props) {
+export function LastReturnCard({ ds, outbound, toStopId, t, lang, now, onOpen }: Props) {
   const result = useMemo(() => lastReturn(ds, outbound, toStopId), [ds, outbound, toStopId]);
   if (result.status === 'not_applicable') return null;
   const l = t.lastReturn;
@@ -39,6 +41,11 @@ export function LastReturnCard({ ds, outbound, toStopId, t, lang, onOpen }: Prop
       {result.lastForServiceDay && <>
         <p className="small">{l.finalListed}</p>
         <p className="return-time"><strong>{time(result.lastForServiceDay)}</strong></p>
+        {/* Only a catchable, confirmed last trip gets a countdown and reminder: not one that leaves before the
+            rider reaches Port Authority, nor one on a day whose schedule Dale does not know. */}
+        {(result.status === 'available' || result.status === 'continues_overnight') && usable(result.lastForServiceDay)
+          && <LastBusReminder ds={ds} t={t} lang={lang} now={now} dep={result.lastForServiceDay} overnight={result.status === 'continues_overnight'}
+            from={ds.stops.find((s) => s.id === result.returnLeg?.fromStopId)?.name ?? ''} />}
         {usable(result.lastForServiceDay) && <button className="wide" onClick={() => open(result.lastForServiceDay!)}>{l.open}</button>}
       </>}
       {result.previous && <div className="return-option">
@@ -53,3 +60,32 @@ export function LastReturnCard({ ds, outbound, toStopId, t, lang, onOpen }: Prop
     </section>
   );
 }
+
+/** Countdown to the last listed return, and a calendar reminder 30 minutes before it (issue #58). */
+function LastBusReminder({ ds, t, lang, now, dep, from, overnight }: { ds: Dataset; t: Strings; lang: Lang; now: number; dep: Departure; from: string; overnight: boolean }) {
+  const l = t.lastReturn;
+  const left = untilParts(now, dep.departs);
+  const clock = `${dep.estimated ? '~' : ''}${formatTime12(dep.departs, ds.meta.timezone, lang)}`;
+  function download() {
+    const ics = icsEvent({
+      uid: `${dep.tripInstanceId}@dale`, start: dep.departs, minutes: 15, alarmMinutes: 30, now,
+      summary: l.calendarSummary(dep.route.shortName, clock, from),
+      description: overnight ? `${l.calendarNote} ${l.ongoing}` : l.calendarNote,
+    });
+    const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dale-last-${dep.route.shortName}-${localYmd(dep.departs, ds.meta.timezone)}.ics`;
+    a.click();
+    // Some mobile browsers read the file late; keep the link alive for a minute.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+  return (
+    <div className="last-bus-reminder">
+      <p className="small">{left ? l.leavesIn(left.h, left.m) : l.alreadyLeft}</p>
+      {left && <button className="ghost" onClick={download}>{l.calendar}</button>}
+      {left && <p className="muted small">{l.calendarNote}</p>}
+    </div>
+  );
+}
+
