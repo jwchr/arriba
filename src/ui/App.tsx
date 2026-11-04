@@ -237,7 +237,8 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             onSearch={() => setScreen({ name: 'search' })}
             onGuide={() => setScreen({ name: 'guide' })}
             onAllDay={(leg, title) => setScreen({ name: 'timetable', leg, title })}
-            onDeparture={(dep, leg) => setScreen({ name: 'departure', dep, leg })} />
+            onDeparture={(dep, leg) => setScreen({ name: 'departure', dep, leg })}
+            onRescue={(leg, label, usualRouteId) => setScreen({ name: 'rescue', fromStopId: leg.fromStopId, homeStopId: leg.toStopId, label, ...(usualRouteId ? { usualRouteId } : {}) })} />
         )}
         {screen.name === 'search' && (
           <Search ctx={ctx} onSave={(f) => { setFavorites((l) => addFavorite(l, f)); setScreen({ name: 'home' }); }} />
@@ -276,6 +277,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
       <footer className="foot">
         <p>{t.notAffiliated}</p>
         <p>{dataNotice(ds, t)}</p>
+        <p className="version-line">{versionLine(t, settings.lang, tz)}</p>
       </footer>
     </div>
   );
@@ -332,6 +334,13 @@ function TimeText({ ctx, at, estimated }: { ctx: Ctx; at: number; estimated: boo
   return <><span aria-hidden="true">~</span>{s}<span className="sr-only">, {ctx.t.estimatedWord}</span></>;
 }
 
+/** "Dale 0.2.0 (abc1234) · updated 11/4/2026, 3:42 PM": which build this is and when it was made, in New York time. */
+function versionLine(t: Strings, lang: Lang, tz: string): string {
+  const built = Date.parse(__DALE_BUILT_AT__);
+  const when = Number.isFinite(built) ? `${fmtYmd(localYmd(built, tz), lang)}, ${formatTime12(built, tz, lang)}` : '?';
+  return t.version(__DALE_VERSION__, __DALE_COMMIT__, when);
+}
+
 /** NJ Transit developer terms: the data came from NJ Transit via Dale's own server and may not be real time. The demo is not NJ Transit data. */
 function dataNotice(ds: Dataset, t: Strings): string {
   return ds.meta.demo || ds.meta.transcribed ? t.notRealTime : `${t.dataObtained} ${t.notRealTime}`;
@@ -349,10 +358,11 @@ function legFor(ds: Dataset, f: Favorite, reversedView: boolean): Leg | undefine
   return back ? { ...back, routeIds: f.routeIds } : undefined;
 }
 
-function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed, onSearch, onGuide, onAllDay, onDeparture }: {
+function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed, onSearch, onGuide, onAllDay, onDeparture, onRescue }: {
   ctx: Ctx; favorites: Favorite[]; count: number; setFavorites: (fn: (l: Favorite[]) => Favorite[]) => void;
   reversedIds: Set<string>; toggleReversed: (id: string) => void;
   onSearch: () => void; onGuide: () => void; onAllDay: (leg: Leg, title: string) => void; onDeparture: (d: Departure, leg: Leg) => void;
+  onRescue: (leg: Leg, label: 'home' | 'other', usualRouteId?: string) => void;
 }) {
   const { t } = ctx;
   const [editing, setEditing] = useState(false);
@@ -380,7 +390,7 @@ function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed
               onRemove={() => setFavorites((l) => removeFavorite(l, f.id))}
               onRename={(name) => setFavorites((l) => renameFavorite(l, f.id, name))}
               onLeavePlan={(plan) => setFavorites((l) => setLeavePlan(l, f.id, reversedIds.has(f.id) ? 'back' : 'out', plan))}
-              onAllDay={onAllDay} onDeparture={onDeparture} />
+              onAllDay={onAllDay} onDeparture={onDeparture} onRescue={onRescue} />
           </li>
         ))}
       </ol>
@@ -413,10 +423,11 @@ function HighwayPlace({ place, label, end }: { place: { name: string; detail: st
   </div>;
 }
 
-function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, onMove, onRemove, onRename, onLeavePlan, onAllDay, onDeparture }: {
+function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, onMove, onRemove, onRename, onLeavePlan, onAllDay, onDeparture, onRescue }: {
   ctx: Ctx; fav: Favorite; count: number; editing: boolean; rev: boolean; onReverse: () => void; first: boolean; last: boolean;
   onMove: (d: -1 | 1) => void; onRemove: () => void; onRename: (s: string) => void; onLeavePlan: (p: LeavePlan | undefined) => void;
   onAllDay: (leg: Leg, title: string) => void; onDeparture: (d: Departure, leg: Leg) => void;
+  onRescue: (leg: Leg, label: 'home' | 'other', usualRouteId?: string) => void;
 }) {
   const { ds, t, now, stopName } = ctx;
   const leg = legFor(ds, fav, rev);
@@ -460,8 +471,11 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
           </div>
         </>}
         {editing && leg && title !== fav.label && <p className="leg">{title}</p>}
+        {/* One compact row of actions, so the next buses sit right under the signs. */}
         <div className="commute-controls">
-          <button className="chip commute-reverse" aria-pressed={rev} onClick={onReverse}>⇄ {t.reverse}</button>
+          {!editing && leg && !plan && !planning && <button ref={planButton} className="chip leave-set" onClick={() => setPlanning(true)}><span aria-hidden="true">⏱ </span>{t.leave.set}</button>}
+          {!editing && leg && <button className="chip rescue-chip" onClick={() => onRescue(leg, to?.terminal ? 'other' : 'home', leg.routeIds.length === 1 ? leg.routeIds[0] : undefined)}>{to?.terminal ? t.rescue.otherWays : t.rescue.title}</button>}
+          <button className="chip commute-reverse" aria-pressed={rev} onClick={onReverse}><span aria-hidden="true">⇄ </span>{t.reverse}</button>
         </div>
       </div>
       {!leg && !editing ? <p className="warn" role="alert">{t.noReturnStop}</p> : editing ? (
@@ -474,8 +488,7 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
         <>
           {leg && (planning
             ? <LeavePlanForm ctx={ctx} plan={plan} onDone={(p) => { if (p !== 'cancel') onLeavePlan(p); setPlanning(false); }} />
-            : plan ? <LeaveBy ctx={ctx} plan={plan} options={ahead} onEdit={() => setPlanning(true)} editRef={planButton} />
-              : <button ref={planButton} className="link leave-set" onClick={() => setPlanning(true)}>{t.leave.set}</button>)}
+            : plan && <LeaveBy ctx={ctx} plan={plan} options={ahead} onEdit={() => setPlanning(true)} editRef={planButton} />)}
           {!leg ? null : deps.length === 0 ? <p className="muted">{t.noMoreToday}</p> : (
             <ul className="deps">
               {rows.map(({ d, arr }, i) => (
@@ -485,13 +498,15 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
                     <span className="dep-main">
                       <span className="dep-time"><TimeText ctx={ctx} at={d.departs} estimated={d.estimated} /></span>
                       {soonest?.index === i && <span className="tag tag-first">{t.leave.arrivesFirst}</span>}
-                      <span className="dep-sub">{arr ? <>{t.arrives} <TimeText ctx={ctx} at={arr.at} estimated={arr.estimated} /></> : d.pattern.headsign}</span>
+                      <span className="dep-subline">
+                        <span className="dep-sub">{arr ? <>{t.arrives} <TimeText ctx={ctx} at={arr.at} estimated={arr.estimated} /></> : d.pattern.headsign}</span>
+                        <span className="badge-sched">{t.scheduledOnly}</span>
+                      </span>
                       {plan && !canWalkTo({ dep: d }, now, plan) && <span className="dep-toosoon">{t.leave.tooSoon}</span>}
                       {(() => { const g = departureGate(ds, d); return g && <span className="dep-gate" data-status={g.status}>{gateLine(t, g)}</span>; })()}
                     </span>
                     <span className="dep-right">
                       <span className="dep-min">{t.inMin(minutesUntil(now, d.departs))}</span>
-                      <span className="badge-sched">{t.scheduledOnly}</span>
                     </span>
                   </button>
                 </li>
@@ -502,7 +517,10 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
             rows[soonest.index]!.d.route.shortName,
             `${rows[soonest.index]!.d.estimated ? '~' : ''}${formatTime12(rows[soonest.index]!.d.departs, ctx.tz, ctx.lang)}`, soonest.laterMin, soonest.earlierMin, soonest.estimated)}</p>}
           {anyEstimated && <p className="muted small">{t.estimatedNote}</p>}
-          {leg && <button className="link" onClick={() => onAllDay(leg, title)}>{t.allDay} →</button>}
+          {leg && <div className="row-between card-foot">
+            <button className="link" onClick={() => onAllDay(leg, title)}>{t.allDay} →</button>
+            {deps.length > 0 && <span className="muted small tap-hint">{t.tapHint}</span>}
+          </div>}
         </>
       )}
     </article>
@@ -839,6 +857,8 @@ function SettingsScreen({ ctx, settings, setSettings, onGuide, historyCount, onC
         </div>
         : <button ref={clearButton} className="ghost" onClick={() => { setCleared(false); setConfirmClear(true); }}>{t.history.clear}</button>)}
       <p className="small" role="status">{cleared ? t.history.cleared : ''}</p>
+      <h2>{t.about}</h2>
+      <p className="small">{versionLine(t, ctx.lang, ctx.tz)}</p>
       <h2>{t.dataSource}</h2>
       <p className="small">{ds.meta.source} · {ds.meta.feedVersion}</p>
       <p className="small muted">{dataNotice(ds, t)}</p>
