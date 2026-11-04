@@ -1,4 +1,4 @@
-# Dale: development rules for Claude (repository and URL path still `arriba`)
+# Dale: development rules for Claude (local folder and storage keys still `arriba`)
 
 **Goal:** the most useful, trustworthy North Jersey to Manhattan NJ Transit bus app with the least engineering.
 Read `docs/V1_CONTRACT.md` (what V1 is) and `docs/HANDOFF.md` (where things stand) at the start of every session and after compaction. The 805-line master spec v1.3 is an archive; do not load it unless an issue links to a section of it.
