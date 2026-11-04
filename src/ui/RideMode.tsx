@@ -10,6 +10,7 @@ import { tripStopTimes } from '../domain/schedule';
 import { formatTime12 } from '../domain/time';
 import type { Dataset } from '../domain/types';
 import type { Lang, Strings } from './i18n';
+import { ShareUpdate } from './ShareUpdate';
 import { useScreenWakeLock } from './useScreenWakeLock';
 
 interface Props {
@@ -156,6 +157,7 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
       <p className="muted small">{r.ticket}</p>
       <p className="muted small">{r.foreground}</p>
       {ds.meta.demo && guide.basis !== 'timetable_only' && <button onClick={demoNextStop}>{r.demoNext}</button>}
+      <ShareUpdate ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} />
       <button className="primary wide ride-off" onClick={() => onEvent({ type: 'end', now })}>{r.gotOff}</button>
     </div>
   );

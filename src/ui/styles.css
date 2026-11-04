@@ -247,3 +247,8 @@ main { flex: 1; padding-bottom: 24px; }
 .leave-form input { font: inherit; padding: 8px; max-width: 12rem; }
 .tag-first { vertical-align: middle; font-size: 0.72rem; }
 .dep-toosoon { font-size: 0.85rem; font-weight: 700; color: var(--muted); }
+
+/* Trip update to share (issue #61) */
+.share-update { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
+.share-text { font-weight: 600; user-select: text; }
+.share-open { margin: 6px 0; }

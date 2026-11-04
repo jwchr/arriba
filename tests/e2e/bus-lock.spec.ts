@@ -313,3 +313,60 @@ test('full screen on the printed timetable keeps its "typed in" banner', async (
   await page.getByRole('button', { name: 'I boarded', exact: true }).click();
   await expect(page.getByRole('dialog').locator('.data-banner')).toContainText("printed timetable issued 7/1/2026");
 });
+
+test('trip update: the rider shares or copies a plain message; Dale sends nothing', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  // Stand-in for the phone's share sheet: records what Dale hands over, sends nothing.
+  await page.addInitScript(() => {
+    (window as unknown as { shared: unknown[] }).shared = [];
+    Object.defineProperty(navigator, 'share', { configurable: true, value: async (data: unknown) => { (window as unknown as { shared: unknown[] }).shared.push(data); } });
+  });
+  await selectDemoTrip(page);
+  const lock = page.locator('.bus-lock');
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await lock.getByRole('button', { name: 'Share a trip update' }).click();
+  await expect(lock.getByTestId('share-text')).toHaveText(/^\[DEMO, invented data\] Waiting at Maple Ave & Main St for the \d{1,2}:\d\d AM 165T?\.$/);
+  await expect(lock.getByTestId('share-text')).toBeFocused();
+  await expect(lock.locator('.share-update')).toContainText('Dale sends nothing');
+  await expect(lock.locator('.share-update')).toContainText('No GPS location is included; the message names your stop.');
+  expect((await new AxeBuilder({ page }).include('.share-update').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations).toEqual([]);
+  await lock.getByRole('button', { name: 'Copy' }).click();
+  await expect(lock.locator('.share-update [role="status"]')).toHaveText('Copied.');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^\[DEMO, invented data\] Waiting at Maple Ave & Main St/);
+  await lock.getByRole('button', { name: 'Share…' }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { shared: { text: string }[] }).shared.map((d) => d.text))).toEqual([expect.stringMatching(/Waiting at Maple Ave & Main St/)]);
+  expect(page.url()).not.toContain('share'); // nothing put in the address
+
+  await lock.getByRole('button', { name: 'Close' }).click();
+  await expect(lock.getByRole('button', { name: 'Share a trip update' })).toBeFocused();
+
+  // A share sheet that fails (not just closed) falls back to copying.
+  await page.evaluate(() => Object.defineProperty(navigator, 'share', { configurable: true, value: async () => { throw new DOMException('no', 'NotAllowedError'); } }));
+  await lock.getByRole('button', { name: 'Share a trip update' }).click();
+  await lock.getByRole('button', { name: 'Share…' }).click();
+  await expect(lock.locator('.share-update [role="status"]')).toHaveText('Copied.');
+
+  // On board the full-screen ride view carries its own share button.
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: /Riding to/ });
+  await dialog.getByRole('button', { name: 'Share a trip update' }).click();
+  await expect(dialog.getByTestId('share-text')).toHaveText(/^\[DEMO, invented data\] I'm on the \d{1,2}:\d\d AM 165T? from Maple Ave & Main St\. Scheduled to reach Port Authority Bus Terminal at \d{1,2}:\d\d AM\.$/);
+  await expect(dialog.getByTestId('share-text')).not.toContainText(/\d+\.\d{3}/); // no coordinates
+});
+
+test('trip update on the printed timetable has no DEMO mark, and reads in Spanish', async ({ page }) => {
+  await page.goto('/?now=2026-11-04T07:50');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Español' }).click();
+  await page.getByRole('button', { name: 'Atrás' }).click();
+  await page.getByRole('button', { name: /Buscar parada/i }).first().click();
+  await page.getByRole('searchbox').fill('irvington');
+  await page.getByRole('button', { name: /Irvington St\. \(to New York\)/ }).click();
+  await page.getByRole('button', { name: /Port Authority Bus Terminal/ }).click();
+  await page.getByRole('button', { name: 'Guardar en mis viajes' }).click();
+  await page.locator('.dep').first().click();
+  await page.getByRole('button', { name: /Seguir este autobús/ }).click();
+  await page.getByRole('button', { name: 'Compartir cómo va el viaje' }).click();
+  await expect(page.getByTestId('share-text')).toHaveText(/^Pienso tomar el 165T? de las? \d{1,2}:\d\d a\. ?m\. desde Westwood - Broadway at Irvington St\.$/);
+});

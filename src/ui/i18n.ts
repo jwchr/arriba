@@ -1,8 +1,13 @@
 import type { UncertainReason } from '../domain/rideGuide';
+import type { TripUpdate } from '../domain/tripUpdate';
 export type Lang = 'en' | 'es';
 
 /** Spanish article for a clock time: "la 1:10" for one o'clock (and "~1:10" estimates), "las 2:05" otherwise. */
 const laLas = (time: string) => `${/^~?1:/.test(time) ? 'la' : 'las'} ${time}`;
+/** Ends a sentence after a name or time that may already end in a period ("Irvington St.", "7:52 a. m."). */
+const stop_ = (name: string) => (name.endsWith('.') ? name : `${name}.`);
+/** One period where a name or time ending in "." meets the end of a sentence. */
+const tidy = (text: string) => text.replace(/\.\.(?=\s|$)/g, '.');
 
 const en = {
   appTagline: 'When you ride NJ Transit, you need all the help you can get.',
@@ -285,6 +290,30 @@ const en = {
     arrivesFirstWhy: (route: string, time: string, later: number, earlier: number, estimated: boolean) =>
       `The ${route} at ${time} ${later > 0 ? `leaves ${later} min later but` : 'leaves at the same time and'} is scheduled to arrive ${estimated ? 'about ' : ''}${earlier} min sooner.`,
     note: 'Scheduled times, not live. Dale does not remind you in the background; it shows this only while the app is open.',
+  },
+  share: {
+    open: 'Share a trip update',
+    share: 'Share…',
+    copy: 'Copy',
+    copied: 'Copied.',
+    copyFailed: "Couldn't copy. Select the text and copy it yourself.",
+    close: 'Close',
+    note: 'Dale sends nothing: you choose who gets it in your own messaging app. Times are scheduled, not live. No GPS location is included; the message names your stop.',
+    demo: '[DEMO, invented data] ',
+    text: (u: TripUpdate, route: string, time: string, stop: string, to?: { stop: string; time: string }): string => tidy((() => {
+      const bus = `the ${time} ${route}`;
+      switch (u.kind) {
+        case 'planning': return `Planning to take ${bus} from ${stop_(stop)}`;
+        case 'waiting': return `Waiting at ${stop} for ${bus}.`;
+        case 'not_here': return `Still waiting at ${stop} for ${bus}. Not here yet${u.lateMin >= 1 ? `, ${u.lateMin} min after its scheduled time` : ''}.`;
+        case 'passed': return `The ${time} ${route} passed ${stop_(stop)} without stopping.`;
+        case 'arrived': return `My ${time} ${route} is here at ${stop_(stop)}`;
+        case 'onboard': return `I'm on ${bus} from ${stop_(stop)}${to ? ` Scheduled to reach ${to.stop} at ${to.time}.` : ''}`;
+        case 'off': return `I got off ${bus}.`;
+        case 'left': return `I left ${stop} without taking ${bus}.`;
+        case 'cancelled': return `NJ Transit cancelled ${bus} from ${stop_(stop)}`;
+      }
+    })()),
   },
   lastReturn: {
     leavesIn: (h: number, m: number) => `Leaves in ${h ? `${h} h ` : ''}${m} min (scheduled).`,
@@ -707,6 +736,30 @@ const es: Strings = {
     arrivesFirstWhy: (route: string, time: string, later: number, earlier: number, estimated: boolean) =>
       `El ${route} de ${laLas(time)} ${later > 0 ? `sale ${later} min más tarde, pero` : 'sale a la misma hora y'} su llegada prevista es ${estimated ? 'unos ' : ''}${earlier} min antes.`,
     note: 'Horarios, no en vivo. Dale no te avisa en segundo plano; solo muestra esto con la app abierta.',
+  },
+  share: {
+    open: 'Compartir cómo va el viaje',
+    share: 'Compartir…',
+    copy: 'Copiar',
+    copied: 'Copiado.',
+    copyFailed: 'No se pudo copiar. Selecciona el texto y cópialo tú.',
+    close: 'Cerrar',
+    note: 'Dale no envía nada: tú eliges a quién mandarlo en tu propia app de mensajes. Las horas son del horario, no en vivo. No incluye tu ubicación GPS; el mensaje nombra tu parada.',
+    demo: '[DEMO, datos inventados] ',
+    text: (u: TripUpdate, route: string, time: string, stop: string, to?: { stop: string; time: string }): string => tidy((() => {
+      const bus = `el ${route} de ${laLas(time)}`;
+      switch (u.kind) {
+        case 'planning': return `Pienso tomar ${bus} desde ${stop_(stop)}`;
+        case 'waiting': return `Esperando ${bus} en ${stop_(stop)}`;
+        case 'not_here': return `Sigo esperando ${bus} en ${stop_(stop)} Todavía no llega${u.lateMin >= 1 ? `; lleva ${u.lateMin} min de retraso según el horario` : ''}.`;
+        case 'passed': return `El ${route} de ${laLas(time)} pasó por ${stop} sin parar.`;
+        case 'arrived': return `Ya llegó mi ${route} de ${laLas(time)} a ${stop_(stop)}`;
+        case 'onboard': return `Voy en ${bus} desde ${stop_(stop)}${to ? ` Llegada prevista a ${to.stop} a ${laLas(to.time)}.` : ''}`;
+        case 'off': return `Me bajé d${bus}.`;
+        case 'left': return `Me fui de ${stop} sin tomar ${bus}.`;
+        case 'cancelled': return `NJ Transit canceló ${bus} desde ${stop_(stop)}`;
+      }
+    })()),
   },
   lastReturn: {
     leavesIn: (h: number, m: number) => `Sale en ${h ? `${h} h ` : ''}${m} min (según el horario).`,
