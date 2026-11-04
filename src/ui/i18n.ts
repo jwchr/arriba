@@ -1,6 +1,9 @@
 import type { UncertainReason } from '../domain/rideGuide';
 export type Lang = 'en' | 'es';
 
+/** Spanish article for a clock time: "la 1:10" for one o'clock (and "~1:10" estimates), "las 2:05" otherwise. */
+const laLas = (time: string) => `${/^~?1:/.test(time) ? 'la' : 'las'} ${time}`;
+
 const en = {
   appTagline: 'When you ride NJ Transit, you need all the help you can get.',
   demoBanner: 'Demo data: invented stops, times and gates. Do not use it to catch a real bus.',
@@ -84,6 +87,23 @@ const en = {
   lockBus: 'Lock onto this bus',
   unlockBus: 'Unlock',
   lockedTitle: 'Locked onto this trip',
+  rescue: {
+    title: 'Get me the fuck home',
+    otherWays: 'Other buses there',
+    leg: (from: string, home: string) => `${from} → ${home}`,
+    scheduleOnly: (until: string, last: boolean) => `Scheduled buses in Dale’s data, soonest arrival first, leaving until ${until}${last ? ', plus the last tonight on your line' : ''}. Scheduled times only, not live.`,
+    arrives: (time: string, stop: string) => `arrives ${time} at ${stop}`,
+    acrossBoard: (stop: string) => `Board across the street: ${stop}`,
+    acrossHome: 'Gets off across the street from your stop',
+    lastOnLine: 'Last tonight on your line',
+    lastToday: 'Last today on your line',
+    lastUnconfirmed: 'Last listed on your line; holiday schedule unknown',
+    sameLine: 'Your line',
+    none: 'No scheduled bus in Dale’s data leaves in the next few hours. That does not mean there is no way home: check njtransit.com or call 973-275-5555.',
+    coverage: (routes: string) => `Only routes in Dale’s data are searched: ${routes}. Other routes are not in Dale’s data, so they are not shown here; that does not mean they are not running.`,
+    noWalking: 'No walking routes or transfers are suggested: Dale has no walking or transfer data.',
+    printed: 'Times are from the printed timetable, which lists main stops only.',
+  },
   nearMe: {
     button: 'Stops near me',
     explain: 'Uses your location once, on this phone, to list nearby stops. Dale does not save it or send it anywhere.',
@@ -425,6 +445,23 @@ const es: Strings = {
   lockBus: 'Seguir este autobús',
   unlockBus: 'Dejar de seguir',
   lockedTitle: 'Siguiendo este viaje',
+  rescue: {
+    title: '¡Llévame a casa ya!',
+    otherWays: 'Otros autobuses hacia allá',
+    leg: (from: string, home: string) => `${from} → ${home}`,
+    scheduleOnly: (until: string, last: boolean) => `Autobuses previstos en los datos de Dale, ordenados por llegada, que salen hasta ${laLas(until)}${last ? ', más el último de tu línea esta noche' : ''}. Solo horarios, no en vivo.`,
+    arrives: (time: string, stop: string) => `llega a ${laLas(time)} a ${stop}`,
+    acrossBoard: (stop: string) => `Súbete enfrente: ${stop}`,
+    acrossHome: 'Te deja enfrente de tu parada',
+    lastOnLine: 'El último de tu línea esta noche',
+    lastToday: 'El último de hoy en tu línea',
+    lastUnconfirmed: 'El último que aparece en tu línea; se desconoce el horario de feriado',
+    sameLine: 'Tu línea',
+    none: 'En los datos de Dale no sale ningún autobús en las próximas horas. Eso no significa que no haya cómo llegar a casa: consulta njtransit.com o llama al 973-275-5555.',
+    coverage: (routes: string) => `Solo se buscan las rutas que están en los datos de Dale: ${routes}. Las demás rutas no están en los datos de Dale, así que no aparecen aquí; eso no significa que no estén funcionando.`,
+    noWalking: 'No se sugieren caminatas ni transbordos: Dale no tiene datos de caminos a pie ni de transbordos.',
+    printed: 'Las horas son del horario impreso, que muestra solo las paradas principales.',
+  },
   nearMe: {
     button: 'Paradas cerca de mí',
     explain: 'Usa tu ubicación una vez, en este teléfono, para mostrar paradas cercanas. Dale no la guarda ni la envía a ningún lado.',

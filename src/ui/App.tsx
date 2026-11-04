@@ -11,6 +11,7 @@ import { addDays, clockChangeBetween, formatTime12, localYmd, weekdayIndex, zone
 import type { Dataset, Departure, Stop } from '../domain/types';
 import { strings, type Lang, type Strings } from './i18n';
 import { NearMe } from './NearMe';
+import { Rescue } from './Rescue';
 import { RiderGuide } from './RiderGuide';
 import { TicketGuide } from './TicketGuide';
 import { BusLockPanel } from './BusLockPanel';
@@ -26,7 +27,8 @@ type Screen =
   | { name: 'timetable'; leg: Leg; title: string }
   | { name: 'departure'; dep: Departure; leg: Leg }
   | { name: 'settings' }
-  | { name: 'guide' };
+  | { name: 'guide' }
+  | { name: 'rescue'; fromStopId: string; homeStopId: string; usualRouteId?: string; label: 'home' | 'other' };
 
 const store = (() => { try { return window.localStorage; } catch { return undefined; } })();
 const readSettings = (): Settings => {
@@ -190,10 +192,18 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             onAdvanceDemo={(minutes) => { if (ds.meta.demo) setDemoAdvanceMs((value) => value + minutes * 60_000); }}
             onLock={() => { if (!activeLock) setActiveLock({ dep: screen.dep, leg: screen.leg, session: createBusSession(screen.dep, lockNow) }); }}
             onReturn={(dep, leg) => setScreen({ name: 'departure', dep, leg })}
+            onRescue={() => setScreen({ name: 'rescue', fromStopId: screen.leg.fromStopId, homeStopId: screen.leg.toStopId, usualRouteId: screen.dep.route.id,
+              label: ds.stops.find((s) => s.id === screen.leg.toStopId)?.terminal ? 'other' : 'home' })}
             onUnlock={() => { setActiveLock(undefined); setDemoAdvanceMs(0); }} />
         )}
         {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} onGuide={() => setScreen({ name: 'guide' })} />}
         {screen.name === 'guide' && <RiderGuide t={t} />}
+        {screen.name === 'rescue' && (
+          <Rescue ds={ds} t={t} lang={settings.lang} now={now} fromStopId={screen.fromStopId} homeStopId={screen.homeStopId} usualRouteId={screen.usualRouteId} label={screen.label}
+            gateText={(o) => { const g = departureGate(ds, o.dep); return g && gateLine(t, g); }}
+            badge={(routeId) => <RouteBadge ds={ds} routeId={routeId} />}
+            onOpen={(o) => setScreen({ name: 'departure', dep: o.dep, leg: { fromStopId: o.boardStopId, toStopId: o.alightStopId, routeIds: [] } })} />
+        )}
       </main>
       <footer className="foot">
         <p>{t.notAffiliated}</p>
@@ -494,11 +504,12 @@ const gateLine = (t: Strings, g: GateAnswer) =>
       : g.status === 'published' ? `${t.gatePublished(g.gate, g.door)} · ${t.gateRuleTag}`
         : t.gateUnknown;
 
-function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keepAwake, onKeepAwake, onLockEvent, onAdvanceDemo, onLock, onUnlock, onReturn }: {
+function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keepAwake, onKeepAwake, onLockEvent, onAdvanceDemo, onLock, onUnlock, onReturn, onRescue }: {
   ctx: Ctx; dep: Departure; leg: Leg; busSession?: BusSession; anotherLock: boolean; lockNow: number;
   keepAwake: boolean; onKeepAwake: (value: boolean) => void; onLockEvent: (event: BusSessionEvent) => void;
   onAdvanceDemo: (minutes: number) => void; onLock: () => void; onUnlock: () => void;
   onReturn: (dep: Departure, leg: Leg) => void;
+  onRescue: () => void;
 }) {
   const { ds, t, stopName } = ctx;
   const times = tripStopTimes(ds, dep);
@@ -547,6 +558,8 @@ function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keep
       </div>}
 
       <LastReturnCard ds={ds} outbound={dep} toStopId={leg.toStopId} t={t} lang={ctx.lang} onOpen={onReturn} />
+      {/* Heading out of New York is heading home; into Port Authority it is just "other buses there". */}
+      <button className="ghost rescue-open" onClick={onRescue}>{ds.stops.find((s) => s.id === leg.toStopId)?.terminal ? t.rescue.otherWays : t.rescue.title}</button>
 
       {fare && ds.publishedFares && (
         <div className="card fare-card">

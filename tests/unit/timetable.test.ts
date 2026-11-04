@@ -307,3 +307,114 @@ describe('stops near me on the printed timetable', () => {
     expect(nearbyStops(ds, { lat: 40.99, lon: -74.03 }, 5_000)).toEqual([]);
   });
 });
+
+describe('"Get me the fuck home" rescue search (issue #32)', () => {
+  it('lists every scheduled way home in the data, soonest arrival first, within the horizon', async () => {
+    const { rescueOptions, RESCUE_HORIZON_MS } = await import('../../src/domain/rescue');
+    const { zonedWallTime } = await import('../../src/domain/time');
+    const now = zonedWallTime(2026, 11, 4, 18, 0, TZ);
+    const r = rescueOptions(ds, 'PABT', 'W19', now, 'R165');
+    expect(r.routesSearched).toEqual(['165', '165T']);
+    expect(r.limitations).toEqual(expect.arrayContaining(['schedule_only', 'routes_in_data_only', 'no_walking_or_transfers', 'printed_timepoints_only']));
+    const soon = r.options.filter((o) => !o.lastOnLine || o.dep.departs <= r.searchedUntil);
+    expect(soon.length).toBeGreaterThan(2);
+    for (let i = 1; i < soon.length; i++) expect(soon[i]!.arrives).toBeGreaterThanOrEqual(soon[i - 1]!.arrives);
+    for (const o of r.options) {
+      expect(o.dep.departs).toBeGreaterThanOrEqual(now - 60_000);
+      expect(['W19', 'N19']).toContain(o.alightStopId);
+      expect(o.dep.pattern.stopIds.indexOf(o.alightStopId)).toBeGreaterThan(o.dep.stopIndex);
+    }
+    expect(soon.every((o) => o.dep.departs <= now + RESCUE_HORIZON_MS)).toBe(true);
+    // Independently: every departure from Port Authority reaching Irvington St. within the horizon is listed (up to the limit).
+    const expected = departuresOn(ds, { stopId: 'PABT', toStopId: 'W19', date: '20261104' }).filter((d) => d.departs >= now - 60_000 && d.departs <= r.searchedUntil);
+    expect(soon.length).toBe(Math.min(6, expected.length));
+  });
+
+  it('keeps the last trip tonight on the rider’s line, after midnight included', async () => {
+    const { rescueOptions } = await import('../../src/domain/rescue');
+    const { zonedWallTime } = await import('../../src/domain/time');
+    const now = zonedWallTime(2026, 11, 4, 22, 0, TZ);
+    const r = rescueOptions(ds, 'PABT', 'W19', now, 'R165');
+    const last = r.options.filter((o) => o.lastOnLine);
+    expect(last).toHaveLength(1);
+    // Independently: the latest 165 departure from Port Authority reaching Irvington St. before 4 AM.
+    const end = zonedWallTime(2026, 11, 5, 4, 0, TZ);
+    const all = [...departuresOn(ds, { stopId: 'PABT', toStopId: 'W19', date: '20261104' }), ...departuresOn(ds, { stopId: 'PABT', toStopId: 'W19', date: '20261105' })]
+      .filter((d) => d.route.id === 'R165' && d.departs >= now - 60_000 && d.departs < end);
+    expect(last[0]!.dep.departs).toBe(Math.max(...all.map((d) => d.departs)));
+  });
+
+  it('tags the right "last tonight" after midnight, and nothing once tonight’s last bus has gone', async () => {
+    const { rescueOptions } = await import('../../src/domain/rescue');
+    const { zonedWallTime, localYmd } = await import('../../src/domain/time');
+    const tagged = (y: number, m: number, d: number, h: number, min: number, from = 'PABT', to = 'W19') =>
+      rescueOptions(ds, from, to, zonedWallTime(y, m, d, h, min, TZ), 'R165').options.filter((o) => o.lastOnLine);
+    // Thu 12:30 AM: tonight's last 165 is the 1:10 AM that night, not Friday's.
+    const at1230 = tagged(2026, 11, 5, 0, 30);
+    expect(at1230).toHaveLength(1);
+    expect(localYmd(at1230[0]!.dep.departs, TZ)).toBe('20261105');
+    expect(fmt(at1230[0]!.dep.departs)).toBe('1:10 AM');
+    // Thu 1:30 AM and Sat 1:30 AM: tonight's last bus has gone; nothing from a later night is tagged.
+    expect(tagged(2026, 11, 5, 1, 30)).toEqual([]);
+    expect(tagged(2026, 11, 7, 1, 30)).toEqual([]);
+    // Inbound at 6 PM: the last evening trip to Port Authority, never the first trip of the next day.
+    const inbound = tagged(2026, 11, 4, 18, 0, 'N19', 'PABT');
+    expect(inbound).toHaveLength(1);
+    expect(localYmd(inbound[0]!.dep.departs, TZ)).toBe('20261104');
+    expect(new Date(inbound[0]!.dep.departs).getTime()).toBeLessThan(zonedWallTime(2026, 11, 5, 0, 0, TZ));
+  });
+
+  it('only calls a break the overnight one when it spans 3 AM', async () => {
+    const { rescueOptions } = await import('../../src/domain/rescue');
+    const { zonedWallTime } = await import('../../src/domain/time');
+    // A synthetic sparse line from the demo stops: Sunday 8:15 PM, 10:30 PM, then 6:00 AM Monday.
+    const at = (y: number, m: number, d: number, h: number, min: number) => zonedWallTime(y, m, d, h, min, TZ);
+    const base = demoDataset;
+    const mk = (id: string, t: number) => ({ id, patternId: 'L0', serviceId: 'ALL', times: [t, t + 600, t + 1200, t + 1800, t + 2400] });
+    const noon = at(2026, 11, 8, 12, 0) - 12 * 3600_000; // service-day origin (GTFS noon minus 12 h)
+    const secs = (instant: number) => Math.round((instant - noon) / 1000);
+    const sparse: Dataset = { ...base, trips: [mk('a', secs(at(2026, 11, 8, 20, 15))), mk('b', secs(at(2026, 11, 8, 22, 30))), mk('c', secs(at(2026, 11, 9, 6, 0)))],
+      calendars: { ALL: { days: [true, true, true, true, true, true, true], start: '20260101', end: '20271231', added: [], removed: [] } } };
+    const last = rescueOptions(sparse, 'D1', 'PABT', at(2026, 11, 8, 19, 0), 'R165').options.filter((o) => o.lastOnLine);
+    expect(last.map((o) => o.dep.tripId)).toEqual(['b']); // not the 8:15 PM trip before a 2 h 15 min evening gap
+    // An early first trip at 3:45 AM followed by a gap is not "last tonight" seen from just after midnight.
+    const early: Dataset = { ...sparse, trips: [mk('d', secs(at(2026, 11, 9, 3, 45))), mk('e', secs(at(2026, 11, 9, 6, 0))), mk('f', secs(at(2026, 11, 9, 6, 30)))] };
+    expect(rescueOptions(early, 'D1', 'PABT', at(2026, 11, 9, 0, 15), 'R165').options.filter((o) => o.lastOnLine)).toEqual([]);
+  });
+
+  it('marks the last trip unconfirmed on a printed holiday', async () => {
+    const { rescueOptions } = await import('../../src/domain/rescue');
+    const { zonedWallTime } = await import('../../src/domain/time');
+    const last = rescueOptions(ds, 'PABT', 'W19', zonedWallTime(2026, 11, 26, 20, 0, TZ), 'R165').options.filter((o) => o.lastOnLine);
+    expect(last).toHaveLength(1);
+    expect(last[0]!.lastUnconfirmed).toBe(true);
+  });
+
+  it('boards across the street when the rider is on the wrong side, and finds nothing from an unknown stop', async () => {
+    const { rescueOptions } = await import('../../src/domain/rescue');
+    const { zonedWallTime } = await import('../../src/domain/time');
+    const now = zonedWallTime(2026, 11, 4, 7, 30, TZ);
+    const r = rescueOptions(ds, 'W19', 'PABT', now);
+    expect(r.options.length).toBeGreaterThan(0);
+    expect(r.options.every((o) => o.boardStopId === 'N19' && o.acrossFromBoard)).toBe(true);
+    expect(rescueOptions(ds, 'NOPE', 'PABT', now).options).toEqual([]);
+  });
+});
+
+describe('rescue wording', () => {
+  it('uses "la" for one o’clock and "las" otherwise in Spanish', () => {
+    const es = strings.es.rescue;
+    expect(es.scheduleOnly('1:30 AM', false)).toContain('hasta la 1:30 AM.');
+    expect(es.scheduleOnly('5:30 PM', true)).toContain('hasta las 5:30 PM, más el último');
+    expect(es.arrives('1:10 AM', 'X')).toBe('llega a la 1:10 AM a X');
+    expect(es.arrives('~11:05 PM', 'X')).toBe('llega a las ~11:05 PM a X');
+    expect(strings.en.rescue.scheduleOnly('5:30 PM', false)).not.toContain('last tonight');
+  });
+  it('reads the local hour correctly on a clock-change night', async () => {
+    const { localHour, zonedWallTime } = await import('../../src/domain/time');
+    expect(localHour(zonedWallTime(2026, 11, 1, 3, 0, TZ), TZ)).toBe(3);
+    expect(localHour(zonedWallTime(2027, 3, 14, 3, 30, TZ), TZ)).toBe(3);
+    expect(localHour(zonedWallTime(2026, 11, 4, 0, 15, TZ), TZ)).toBe(0);
+  });
+});
+
