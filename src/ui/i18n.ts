@@ -655,7 +655,7 @@ const es: Strings = {
     leavesIn: (h: number, m: number) => `Sale en ${h ? `${h} h ` : ''}${m} min (según el horario).`,
     alreadyLeft: 'Este viaje ya salió.',
     calendar: 'Agregar un recordatorio al calendario 30 minutos antes',
-    calendarSummary: (route: string, time: string, from: string) => `Último ${route} a casa: ${time} desde ${from}`,
+    calendarSummary: (route: string, time: string, from: string) => `Último ${route} indicado a casa: ${time} desde ${from}`,
     calendarNote: 'El recordatorio usa la hora del horario. Dale no puede actualizarlo si cambia el horario; revisa antes de confiar en él.',
     title: 'Último regreso en esta línea',
     operatingDay: (route: string, date: string) => `Ruta ${route} · día de servicio ${date}`,

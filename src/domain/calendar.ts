@@ -3,7 +3,7 @@
 
 const stamp = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 /** RFC 5545 text escaping: backslash, semicolon, comma and line breaks. */
-const text = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const text = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 /** Fold content lines longer than 75 octets (continuations start with a space). */
 function fold(line: string): string {
   const bytes = new TextEncoder().encode(line);

@@ -508,7 +508,7 @@ test.describe('last-bus reminder (issue #58)', () => {
     await page.getByRole('button', { name: 'Save to my commutes' }).click();
     await page.locator('.dep').first().click();
     const card = page.locator('.last-return');
-    await expect(card.locator('.last-bus-reminder [role="status"]')).toHaveText(/^Leaves in \d+ h \d+ min \(scheduled\)\.$/);
+    await expect(card.locator('.last-bus-reminder p').first()).toHaveText(/^Leaves in \d+ h \d+ min \(scheduled\)\.$/);
     const download = page.waitForEvent('download');
     await card.getByRole('button', { name: 'Add a calendar reminder 30 minutes before' }).click();
     const file = await download;
@@ -518,6 +518,7 @@ test.describe('last-bus reminder (issue #58)', () => {
     expect(ics).toContain('BEGIN:VEVENT');
     expect(ics).toContain('TRIGGER:-PT30M');
     expect(ics.replace(/\r\n /g, '')).toContain('SUMMARY:Last listed 165 home');
+    expect(ics.replace(/\r\n /g, '')).toContain('schedule changes\\; check');
   });
 });
 test.describe('boarding check (issue #55)', () => {

@@ -14,7 +14,10 @@ describe('last-bus calendar reminder (issue #58)', () => {
     expect(ics.split('\r\n').every((l) => new TextEncoder().encode(l).length <= 75)).toBe(true);
   });
   it('escapes commas and semicolons in text', () => {
-    expect(ics.replace(/\r\n /g, '')).toContain('DESCRIPTION:Scheduled time\; check\\, then go.');
+    expect(ics.replace(/\r\n /g, '')).toContain('DESCRIPTION:Scheduled time\\; check\\, then go.');
+    const text = ics.replace(/\r\n /g, '').split('\r\n').filter((l) => /^(SUMMARY|DESCRIPTION):/.test(l));
+    expect(text.length).toBeGreaterThan(0);
+    expect(text.every((l) => !/(?<!\\);/.test(l.slice(l.indexOf(':') + 1)))).toBe(true);
   });
   it('counts down in hours and minutes, and stops once the time has passed', () => {
     expect(untilParts(start - (2 * 60 + 10) * 60_000, start)).toEqual({ h: 2, m: 10 });
