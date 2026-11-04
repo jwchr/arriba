@@ -224,3 +224,9 @@ main { flex: 1; padding-bottom: 24px; }
 .ride-mode[data-stage='one'], .ride-mode[data-stage='arrived'] { border-width: 4px; }
 .ride-controls { flex-wrap: wrap; }
 .near-me { margin: 12px 0; }
+/* Full-screen ride mode (issue #56): fills the phone after boarding; exit is always visible. */
+.ride-full { position: fixed; inset: 0; z-index: 50; margin: 0; border-radius: 0; overflow-y: auto; background: var(--bg);
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+.ride-top { align-items: flex-start; }
+.ride-off { margin-top: 12px; }
+

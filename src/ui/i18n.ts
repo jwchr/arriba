@@ -153,6 +153,10 @@ const en = {
     foreground: 'Guidance works while Dale is open on screen. It does not alert you in the background.',
     noDestination: 'Pick where you get off to see stop guidance.',
     demoNext: 'Move the demo bus to the next stop',
+    fullScreen: 'Full screen',
+    exitFull: 'Exit full screen',
+    keepAwake: 'Keep the screen on during the ride',
+    gotOff: 'I got off',
   },
   busLock: {
     title: 'Bus Lock',
@@ -519,6 +523,10 @@ const es: Strings = {
     foreground: 'Las indicaciones funcionan con Dale abierto en pantalla. No te avisan en segundo plano.',
     noDestination: 'Elige dónde te bajas para ver las indicaciones de paradas.',
     demoNext: 'Mover el autobús de la demostración a la siguiente parada',
+    fullScreen: 'Pantalla completa',
+    exitFull: 'Salir de pantalla completa',
+    keepAwake: 'Mantener la pantalla encendida durante el viaje',
+    gotOff: 'Ya me bajé',
   },
   busLock: {
     title: 'Bus Lock · seguir un viaje',

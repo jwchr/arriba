@@ -1,7 +1,8 @@
 // Ride mode (issue #34): shown after the rider says "I boarded". Big get-off guidance when Dale can
 // honestly count stops (every stop listed, fresh unambiguous bus GPS); otherwise a plain statement of
 // what it cannot know, with scheduled times labeled as timetable. Foreground only: no background alerts.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { BusSession, BusSessionEvent } from '../domain/busLock';
 import { distanceM } from '../domain/direction';
 import { rideGuide, STAGE_RANK, type RideStage } from '../domain/rideGuide';
@@ -9,6 +10,7 @@ import { tripStopTimes } from '../domain/schedule';
 import { formatTime12 } from '../domain/time';
 import type { Dataset } from '../domain/types';
 import type { Lang, Strings } from './i18n';
+import { useScreenWakeLock } from './useScreenWakeLock';
 
 interface Props {
   ds: Dataset;
@@ -24,12 +26,14 @@ interface Props {
 
 // Per-viewer conveniences only; the page works the same when storage is unavailable.
 const PREFS = 'arriba.ride.v1';
-const readPrefs = (): { large: boolean; vibrate: boolean } => {
+const readPrefs = (): { large: boolean; vibrate: boolean; awake: boolean } => {
   try {
-    const p = JSON.parse(window.localStorage.getItem(PREFS) ?? '{}') as { large?: boolean; vibrate?: boolean };
-    return { large: p.large !== false, vibrate: p.vibrate === true };
-  } catch { return { large: true, vibrate: false }; }
+    const p = JSON.parse(window.localStorage.getItem(PREFS) ?? '{}') as { large?: boolean; vibrate?: boolean; awake?: boolean };
+    return { large: p.large !== false, vibrate: p.vibrate === true, awake: p.awake === true };
+  } catch { return { large: true, vibrate: false, awake: false }; }
 };
+/** Whether a ride's guidance fills the screen; it does when first boarding, until the rider exits it. */
+const fullBySession = new Map<string, boolean>();
 /** Highest alert stage already given per Bus Lock session, so jitter or a remount never repeats one. */
 const alerted = new Map<string, number>();
 const URGENT: RideStage[] = ['one', 'request', 'last_next', 'arrived', 'passed'];
@@ -47,6 +51,31 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
   });
   const canVibrate = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
   const hasDestination = alightIndex > dep.stopIndex;
+  const [full, setFullState] = useState(() => fullBySession.get(session.id) ?? true);
+  const setFull = (v: boolean) => { fullBySession.set(session.id, v); setFullState(v); };
+  // Keep the screen on during the ride only if the rider asks, and only while ride mode is showing.
+  const wake = useScreenWakeLock(prefs.awake && hasDestination);
+  // Full screen steps aside while the rider must decide about a changed vehicle (the buttons are below).
+  const showFull = full && hasDestination && session.lock.status !== 'needs_confirmation';
+  const heading = useRef<HTMLHeadingElement>(null);
+  // Focus follows the view: into the dialog when it opens, onto the in-page heading when it closes.
+  const opened = useRef(false);
+  useEffect(() => { if (showFull || opened.current) heading.current?.focus(); opened.current = true; }, [showFull]);
+  // While full screen, the rest of the app is unreachable (inert) and does not scroll underneath.
+  useEffect(() => {
+    if (!showFull) return;
+    const root = document.getElementById('root');
+    root?.setAttribute('inert', '');
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { root?.removeAttribute('inert'); document.body.style.overflow = overflow; };
+  }, [showFull]);
+  useEffect(() => {
+    if (!showFull) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFull(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showFull]); // eslint-disable-line react-hooks/exhaustive-deps
   const guide = hasDestination ? rideGuide(ds, dep.pattern.stopIds, dep.stopIndex, alightIndex, session.lock, now, session.history) : undefined;
   const times = tripStopTimes(ds, dep);
   const dest = hasDestination ? stopName(dep.pattern.stopIds[alightIndex]!) : '';
@@ -92,16 +121,27 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
     onEvent({ type: 'observation', obs: { tripInstanceId: dep.tripInstanceId, vehicleId: session.lock.vehicleId ?? 'DEMO-BUS', observedAt: later, lat: stop.lat, lon: stop.lon }, source: 'demo', receivedAt: later });
   }
 
-  return (
-    <div className="ride-mode" data-large={prefs.large ? 'true' : undefined} data-stage={stage ?? guide.basis}>
-      <h3>{r.title(dest)}</h3>
+  const issued = ds.meta.transcribed?.issued;
+  const view = (
+    <div className={showFull ? 'ride-mode ride-full' : 'ride-mode'} data-large={prefs.large ? 'true' : undefined} data-stage={stage ?? guide.basis}
+      {...(showFull ? { role: 'dialog', 'aria-modal': true, 'aria-labelledby': `ride-title-${session.id}` } : {})}>
+      {/* The page's DEMO and printed-timetable banners are covered in full screen, so they repeat here. */}
+      {showFull && ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner}</div>}
+      {showFull && issued && <div className="data-banner" role="note">{t.transcribedBanner(lang === 'es'
+        ? `${+issued.slice(6, 8)}/${+issued.slice(4, 6)}/${issued.slice(0, 4)}` : `${+issued.slice(4, 6)}/${+issued.slice(6, 8)}/${issued.slice(0, 4)}`)}</div>}
+      <div className="row-between ride-top">
+        <h3 id={`ride-title-${session.id}`} tabIndex={-1} ref={heading}>{r.title(dest)}</h3>
+        <button className="ghost" onClick={() => setFull(!showFull)}>{showFull ? r.exitFull : r.fullScreen}</button>
+      </div>
       <p className="ride-message" aria-live={stage && URGENT.includes(stage) ? 'assertive' : 'polite'}>{message}</p>
       {guide.basis === 'gps' && <p className="small">{session.history.at(-1)?.source === 'demo' ? r.demoGps : r.fromGps(clock(guide.observedAt), Math.max(0, Math.floor((now - guide.observedAt) / 1000)))}</p>}
       {guide.basis !== 'gps' && times[alightIndex] && <p className="small">{r.scheduledAt(`${times[alightIndex]!.estimated ? '~' : ''}${clock(times[alightIndex]!.at)}`)}</p>}
       <div className="row-between ride-controls">
         <button className="ghost" onClick={() => setPref({ large: !prefs.large })}>{prefs.large ? r.smaller : r.larger}</button>
         <label className="lock-toggle"><input type="checkbox" checked={prefs.vibrate} disabled={!canVibrate} onChange={(e) => setPref({ vibrate: e.target.checked })} />{r.vibrate}</label>
+        <label className="lock-toggle"><input type="checkbox" checked={prefs.awake} onChange={(e) => setPref({ awake: e.target.checked })} />{r.keepAwake}</label>
       </div>
+      {prefs.awake && <p className="small" role="status" data-testid="ride-wake">{t.busLock.wake[wake.status]}</p>}
       {!canVibrate && <p className="muted small">{r.vibrateUnsupported}</p>}
       <h4>{guide.basis === 'timetable_only' ? r.upcomingListed : r.upcoming}</h4>
       <ol className="stop-list ride-stops">
@@ -116,6 +156,9 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
       <p className="muted small">{r.ticket}</p>
       <p className="muted small">{r.foreground}</p>
       {ds.meta.demo && guide.basis !== 'timetable_only' && <button onClick={demoNextStop}>{r.demoNext}</button>}
+      <button className="primary wide ride-off" onClick={() => onEvent({ type: 'end', now })}>{r.gotOff}</button>
     </div>
   );
+  // Outside the app root, so the root can be inert without taking the dialog with it.
+  return showFull ? createPortal(view, document.body) : view;
 }
