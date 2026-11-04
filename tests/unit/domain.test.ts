@@ -222,3 +222,15 @@ describe('gates', () => {
     expect(gateChanged({ status: 'unknown' }, { status: 'posted', gate: '212', observedAt: 1, source: 'demo' })).toBe(false);
   });
 });
+
+describe('stops near me (issue #31)', () => {
+  it('lists served stops within the radius, nearest first, with straight-line metres', async () => {
+    const { nearbyStops, hasStopLocations } = await import('../../src/domain/direction');
+    const nearMaple = { lat: 40.8701, lon: -74.0400 };
+    const near = nearbyStops(ds, nearMaple, 500);
+    expect(near.map((x) => x.stop.id)).toEqual(['D2', 'D2B']);
+    expect(near[0]!.distanceM).toBeLessThan(20);
+    expect(nearbyStops(ds, { lat: 41.5, lon: -74.5 }, 500)).toEqual([]);
+    expect(hasStopLocations(ds)).toBe(true);
+  });
+});

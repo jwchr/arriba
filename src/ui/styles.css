@@ -203,4 +203,4 @@ main { flex: 1; padding-bottom: 24px; }
 .ride-mode[data-large] .ride-message { font-size: 1.6rem; line-height: 1.25; }
 .ride-mode[data-stage='one'], .ride-mode[data-stage='arrived'] { border-width: 4px; }
 .ride-controls { flex-wrap: wrap; }
-
+.near-me { margin: 12px 0; }
