@@ -562,3 +562,65 @@ test.describe('boarding check on a request-only stop', () => {
   });
 });
 
+test.describe('leave-by countdown (issue #54)', () => {
+  test.use({ serviceWorkers: 'block' });
+  test('flags the bus that arrives first on the demo', async ({ page }) => {
+    await page.goto(URL);
+    await saveCommute(page, 'maple', /Maple Ave & Main St \(to NYC\)/, /Port Authority Bus Terminal/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    const card = page.getByRole('article');
+    // Two 8:06 buses: the 165T express gets in first, and the card says why.
+    await expect(card.locator('.dep').nth(1).locator('.tag-first')).toHaveText('Arrives first');
+    await expect(card.locator('.tag-first')).toHaveCount(1);
+    await expect(card.locator('.leave-why')).toHaveText(/^The 165T at 8:06 AM leaves at the same time and is scheduled to arrive (about )?\d+ min sooner\.$/);
+  });
+
+  test('counts down to leaving, plans an arrive-by time, and keeps the plan on this phone', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T06:49');
+    await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    const card = page.getByRole('article');
+    await card.getByRole('button', { name: 'Set walking time for a leave-by countdown' }).click();
+    await expect(card.getByRole('heading', { name: 'Leave-by countdown' })).toBeFocused();
+    await card.getByLabel('Minutes to walk to the stop').fill('75');
+    await card.getByRole('button', { name: 'Save' }).click();
+    await expect(card.getByRole('alert')).toHaveText('Enter whole minutes: walking 0 to 60, spare 0 to 30.');
+    await card.getByLabel('Minutes to walk to the stop').fill('5');
+    await card.getByLabel('Spare minutes').fill('3');
+    await card.getByLabel('Arrive by (optional)').fill('09:00');
+    await card.getByRole('button', { name: 'Save' }).click();
+
+    const leave = card.locator('.leave-by');
+    // The 6:53 is too soon to walk to; the 7:00 AM means leaving by 6:52 (5 min walk + 3 spare). The latest bus scheduled in by 9:00 is the 7:52 (8:37 AM).
+    await expect(leave.locator('.leave-count')).toHaveText('Leave in 3 min');
+    await expect(leave).toContainText('for the 7:00 AM bus · 5 min walk + 3 min spare');
+    await expect(leave.locator('.leave-arrive')).toHaveText('To arrive by 9:00 AM: leave by 7:44 AM for the 7:52 AM bus (scheduled to arrive 8:37 AM).');
+    await expect(leave).toContainText('Dale does not remind you in the background');
+    await expect(card.locator('.dep').first().locator('.dep-toosoon')).toHaveText("Can't walk there in time");
+    await expect(card.locator('.dep').nth(1).locator('.dep-toosoon')).toHaveCount(0);
+    expect((await new AxeBuilder({ page }).include('.fav').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations).toEqual([]);
+
+    // Kept on this phone, for this direction only.
+    await page.reload();
+    await expect(page.getByRole('article').locator('.leave-count')).toBeVisible();
+    await page.getByRole('button', { name: /Reverse/ }).click();
+    await expect(page.getByRole('article').locator('.leave-by')).toHaveCount(0);
+    await page.getByRole('button', { name: /Reverse/ }).click();
+
+    // A long walk: the next buses are marked as out of reach, and the countdown is for one you can make.
+    await page.getByRole('article').getByRole('button', { name: 'Walking time' }).click();
+    await page.getByLabel('Minutes to walk to the stop').fill('60');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('article').locator('.dep-toosoon').first()).toHaveText("Can't walk there in time");
+
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: 'Español' }).click();
+    await page.getByRole('button', { name: 'Atrás' }).click();
+    await expect(page.getByRole('article').locator('.leave-count')).toHaveText(/^Sal (en \d+ min|ahora)$/);
+    await expect(page.getByRole('article').locator('.leave-by')).toContainText(/para el autobús de las? ~?\d{1,2}:\d\d a\. ?m\./);
+
+    await page.getByRole('article').getByRole('button', { name: 'Tiempo a pie' }).click();
+    await page.getByRole('button', { name: 'Quitar' }).click();
+    await expect(page.getByRole('article').locator('.leave-by')).toHaveCount(0);
+  });
+});

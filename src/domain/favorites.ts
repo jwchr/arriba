@@ -1,5 +1,6 @@
 // Favorites are an ordered list the rider controls. Order is never changed by proximity or time
 // of day (owner decision D26); suggestions may highlight but must not reorder or overwrite.
+import { cleanLeavePlan, type LeavePlan } from './leaveBy';
 
 export interface Favorite {
   id: string;
@@ -10,6 +11,19 @@ export interface Favorite {
   toStopId: string;
   /** Empty = every route that serves the pair. */
   routeIds: string[];
+  /** Walking time, spare minutes and arrive-by for each direction (issue #54); kept on this phone only. */
+  leave?: { out?: LeavePlan; back?: LeavePlan };
+}
+
+/** Set or clear (`undefined`) the leave plan for one direction of a commute. */
+export function setLeavePlan(list: Favorite[], id: string, dir: 'out' | 'back', plan: LeavePlan | undefined): Favorite[] {
+  return list.map((x) => {
+    if (x.id !== id) return x;
+    const leave = { ...x.leave };
+    if (plan) leave[dir] = plan; else delete leave[dir];
+    const { leave: _old, ...rest } = x;
+    return leave.out || leave.back ? { ...rest, leave } : rest;
+  });
 }
 
 export function addFavorite(list: Favorite[], f: Favorite): Favorite[] {
@@ -52,7 +66,14 @@ export function loadFavorites(storage: Pick<Storage, 'getItem'> | undefined): Fa
   try {
     const raw = storage?.getItem(KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as Favorite[]).filter((f) => f && typeof f.id === 'string') : [];
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as Favorite[]).filter((f) => f && typeof f.id === 'string').map((f) => {
+      // A damaged leave plan is dropped on its own; the commute itself is kept.
+      const { leave, ...rest } = f;
+      const out = cleanLeavePlan(leave?.out);
+      const back = cleanLeavePlan(leave?.back);
+      return out || back ? { ...rest, leave: { ...(out ? { out } : {}), ...(back ? { back } : {}) } } : rest;
+    });
   } catch {
     return [];
   }
