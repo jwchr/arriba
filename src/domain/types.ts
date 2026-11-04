@@ -98,7 +98,7 @@ export interface Trip {
   serviceId: string;
   /** Departure seconds on the service day, aligned to pattern.stopIds; may exceed 86400. GTFS: after noon minus 12 h. Printed timetables: the printed clock time (see `tripTimeAt`). */
   times: number[];
-  /** Indices into `times` the build script filled in because the feed left them blank: Arriba's estimates, not NJ Transit data. Omitted when none. */
+  /** Indices into `times` the build script filled in because the feed left them blank: Dale's estimates, not NJ Transit data. Omitted when none. */
   estimated?: number[];
 }
 
@@ -127,7 +127,7 @@ export interface Departure {
   stopIndex: number;
   /** Scheduled departure at the chosen stop (epoch ms). */
   departs: number;
-  /** True when `departs` is Arriba's estimate (see Trip.estimated), so the UI must label it. */
+  /** True when `departs` is Dale's estimate (see Trip.estimated), so the UI must label it. */
   estimated: boolean;
   /** Scheduled arrival at the pattern's last stop (epoch ms). */
   arrivesEnd: number;

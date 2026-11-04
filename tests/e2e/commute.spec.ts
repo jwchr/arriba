@@ -95,7 +95,7 @@ test('first-ride guide from home and Settings, in English and Spanish', async ({
   await page.getByRole('button', { name: 'First time riding? How it works' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your first ride');
   await expect(page.locator('.guide .card')).toHaveCount(6);
-  await expect(page.locator('.guide')).toContainText('Put Arriba on your home screen');
+  await expect(page.locator('.guide')).toContainText('Put Dale on your home screen');
   await expect(page.locator('.guide')).toContainText('Buy your ticket or pass before you board');
   await expect(page.getByRole('link', { name: 'Call NJ Transit: 973-275-5555' })).toHaveAttribute('href', 'tel:+19732755555');
   await expect(page.locator('.guide')).toContainText('checked 11/3/2026');
@@ -165,7 +165,7 @@ test.describe('real data', () => {
   test('NJ Transit source line, no demo banner, filled-in times read as estimates', async ({ page }) => {
     await page.route('**/data/corridor.json', (route) => route.fulfill({ json: realStyle }));
     await page.goto('/?now=2026-11-04T07:50');
-    await expect(page.locator('footer')).toContainText('obtained from NJ Transit and redistributed from Arriba');
+    await expect(page.locator('footer')).toContainText('obtained from NJ Transit and redistributed from Dale');
     await expect(page.locator('footer')).toContainText('may not be real time');
     await expect(page.locator('.demo-banner')).toHaveCount(0);
 
@@ -175,11 +175,11 @@ test.describe('real data', () => {
     // 8:20 AM at this stop is the filled-in time; the third entry is tomorrow's 8:20 AM.
     await expect(card.locator('.dep-time')).toContainText(['~8:20 AM', '9:10 AM', '~8:20 AM']);
     await expect(card.locator('.dep-sub').first()).toContainText('arrives 9:00 AM');
-    await expect(card).toContainText('Estimated by Arriba');
+    await expect(card).toContainText('Estimated by Dale');
 
     await card.locator('.dep').first().click();
     await expect(page.locator('.trip-ticket .big-time').first()).toContainText('~8:20 AM');
-    await expect(page.locator('.trip-ticket')).toContainText('Estimated by Arriba');
+    await expect(page.locator('.trip-ticket')).toContainText('Estimated by Dale');
     await expect(page.locator('.fare-card')).toHaveCount(0); // no fare table in this dataset
     await expect(page.locator('.stop-list .stop-time')).toContainText(['8:00 AM', '~8:20 AM', '9:00 AM']);
     await page.screenshot({ path: 'test-results/estimated.png', fullPage: true });

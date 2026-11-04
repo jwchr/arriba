@@ -1,4 +1,4 @@
-// Arriba service worker, built for the Lincoln Tunnel and terminal basements.
+// Dale service worker, built for the Lincoln Tunnel and terminal basements.
 // - The page and the schedule JSON are fetched fresh (cache: 'no-cache'), so the browser's copy of an old page
 //   (GitHub Pages sends max-age=600) is not run against newer data after a deploy.
 // - If the network has not answered within NETWORK_TIMEOUT_MS, fails, or answers with a server error, the saved
@@ -9,6 +9,7 @@
 // - Pages are saved under one address without the query string, so `?now=` and `?demo` share the newest page.
 // - Install saves the page, its assets and the schedule, so the app works offline after the first visit.
 // tests/unit/sw.test.ts runs this file against stand-in fetch and caches.
+// Cache and header names keep the app's first name (Arriba) so saved copies survive the rename to Dale.
 const CACHE = 'arriba-v1';
 const NETWORK_TIMEOUT_MS = 4000;
 

@@ -100,7 +100,7 @@ function LoadScreen({ failed, onRetry }: { failed: boolean; onRetry: () => void 
   const t = strings[readSettings().lang];
   return (
     <div className="app">
-      <header className="top"><span className="wordmark" role="img" aria-label="Arriba">ARRIBA<span className="bang" aria-hidden="true">!</span></span></header>
+      <header className="top"><span className="wordmark" role="img" aria-label="Dale">DALE<span className="bang" aria-hidden="true">!</span></span></header>
       <main>
         {failed ? (
           <div className="warn" role="alert">
@@ -140,7 +140,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
       <header className="top">
         {screen.name !== 'home' ? (
           <button className="icon-btn" onClick={() => setScreen({ name: 'home' })} aria-label={t.back}>‹</button>
-        ) : <span className="wordmark" role="img" aria-label="Arriba">ARRIBA<span className="bang" aria-hidden="true">!</span></span>}
+        ) : <span className="wordmark" role="img" aria-label="Dale">DALE<span className="bang" aria-hidden="true">!</span></span>}
         <button className="icon-btn" onClick={() => setScreen({ name: 'settings' })} aria-label={t.settings}>⚙</button>
       </header>
       {ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner}</div>}
@@ -222,14 +222,14 @@ function RouteBadge({ ds, routeId }: { ds: Dataset; routeId: string }) {
 
 function minutesUntil(now: number, at: number) { return Math.round((at - now) / 60_000); }
 
-/** "7:20 AM", or "~7:20 AM" when the time is Arriba's estimate rather than one NJ Transit published; screen readers hear "estimated" instead of the "~". */
+/** "7:20 AM", or "~7:20 AM" when the time is Dale's estimate rather than one NJ Transit published; screen readers hear "estimated" instead of the "~". */
 function TimeText({ ctx, at, estimated }: { ctx: Ctx; at: number; estimated: boolean }) {
   const s = formatTime12(at, ctx.tz, ctx.lang);
   if (!estimated) return <>{s}</>;
   return <><span aria-hidden="true">~</span>{s}<span className="sr-only">, {ctx.t.estimatedWord}</span></>;
 }
 
-/** NJ Transit developer terms: the data came from NJ Transit via Arriba's own server and may not be real time. The demo is not NJ Transit data. */
+/** NJ Transit developer terms: the data came from NJ Transit via Dale's own server and may not be real time. The demo is not NJ Transit data. */
 function dataNotice(ds: Dataset, t: Strings): string {
   return ds.meta.demo || ds.meta.transcribed ? t.notRealTime : `${t.dataObtained} ${t.notRealTime}`;
 }
@@ -482,7 +482,7 @@ function DepartureDetail({ ctx, dep, leg, lock, onLock, onUnlock }: {
   const clockChange = rideEnd && times[0] ? clockChangeBetween(times[0].at, rideEnd.at, ctx.tz) : undefined;
   return (
     <section>
-      {/* A printed timetable gives no sign text, so a transcribed dataset's headsign is Arriba's own route-and-destination label, not what the sign reads. */}
+      {/* A printed timetable gives no sign text, so a transcribed dataset's headsign is Dale's own route-and-destination label, not what the sign reads. */}
       <div className="sign" aria-label={`${ds.meta.transcribed ? t.routeAndDirection : t.checkSign}: ${dep.pattern.headsign}`}>
         <span className="sign-label">{ds.meta.transcribed ? t.routeAndDirection : t.checkSign}</span>
         <span className="sign-led">{dep.pattern.headsign}</span>

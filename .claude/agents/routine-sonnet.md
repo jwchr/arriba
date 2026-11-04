@@ -1,6 +1,6 @@
 ---
 name: routine-sonnet
-description: Clearly scoped, low-risk documentation edits, test-fixture updates and mechanical refactors in Arriba; not data licensing, location privacy, trip-lock logic, permissions or merges.
+description: Clearly scoped, low-risk documentation edits, test-fixture updates and mechanical refactors in Dale; not data licensing, location privacy, trip-lock logic, permissions or merges.
 model: sonnet
 effort: high
 maxTurns: 12

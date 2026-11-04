@@ -1,4 +1,4 @@
-# Arriba V1 contract
+# Dale V1 contract
 
 The canonical, short definition of V1. Source: master spec v1.3 (archive) as amended by the independent review of 2026-10-31 and the owner's approvals the same day (`docs/DECISIONS.md`). Each issue links to the requirement ID it serves.
 

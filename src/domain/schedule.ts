@@ -96,7 +96,7 @@ export function nextDepartures(ds: Dataset, q: Omit<DepartureQuery, 'date'>, now
   return list.filter((d) => d.departs >= now - 60_000).slice(0, n);
 }
 
-/** Scheduled time (epoch ms) at every stop of a departure's trip, for the stop list. `estimated` marks Arriba's filled-in times. */
+/** Scheduled time (epoch ms) at every stop of a departure's trip, for the stop list. `estimated` marks Dale's filled-in times. */
 export function tripStopTimes(ds: Dataset, d: Departure): { stopId: string; at: number; estimated: boolean }[] {
   const trip = ds.trips.find((t) => t.id === d.tripId);
   if (!trip) return [];

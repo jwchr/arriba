@@ -1,4 +1,4 @@
-# Arriba
+# Dale
 
 An independent NJ Transit bus companion for the Bergen County to Manhattan commute: saved commutes that open to the next bus with zero taps, all-day timetables, Port Authority gates, and (from milestone M3) live tracking of the exact bus you are riding.
 
@@ -17,4 +17,4 @@ npm run timetable -- --built-at <ISO>   # rebuilds the committed public/data/cor
 npm run gtfs -- path/to/bus_data.zip   # M2: writes public/data/corridor.json from NJ Transit's feed instead
 ```
 
-Once the app runs on NJ Transit's data feed: schedule data was obtained from NJ Transit and is redistributed from Arriba's own server, not an NJ Transit server. This information may not be real time. Where the feed leaves a stop's time blank, the build script fills it in and the app shows it as an estimate (`~7:20 AM`).
+Once the app runs on NJ Transit's data feed: schedule data was obtained from NJ Transit and is redistributed from Dale's own server, not an NJ Transit server. This information may not be real time. Where the feed leaves a stop's time blank, the build script fills it in and the app shows it as an estimate (`~7:20 AM`).

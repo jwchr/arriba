@@ -5,8 +5,8 @@ const en = {
   demoBanner: 'Demo data: invented stops, times and gates. Do not use it to catch a real bus.',
   notAffiliated: 'Independent app. Not affiliated with or endorsed by NJ Transit.',
   // NJ Transit developer data terms: say the data was obtained from NJ Transit and is redistributed
-  // from Arriba's own server, and that it may not be real time. Shown with every dataset that is not the demo.
-  dataObtained: "Schedule data obtained from NJ Transit and redistributed from Arriba's own server, not an NJ Transit server.",
+  // from Dale's own server, and that it may not be real time. Shown with every dataset that is not the demo.
+  dataObtained: "Schedule data obtained from NJ Transit and redistributed from Dale's own server, not an NJ Transit server.",
   notRealTime: 'This information may not be real time.',
   transcribedBanner: (issued: string) =>
     `Typed in from NJ Transit's printed timetable issued ${issued}, not from NJ Transit's data feed. It lists main timepoints only, not every stop, and has no holiday schedules. Check njtransit.com before you rely on it.`,
@@ -62,7 +62,7 @@ const en = {
   arrivesLabel: 'Arrives',
   scheduledOnly: 'Scheduled only',
   scheduledOnlyHelp: 'No live bus is linked yet. Live tracking arrives with NJ Transit data (milestone M3).',
-  estimatedNote: '~ Estimated by Arriba. NJ Transit publishes no time for this stop; it is worked out from the stops before and after it.',
+  estimatedNote: '~ Estimated by Dale. NJ Transit publishes no time for this stop; it is worked out from the stops before and after it.',
   /** Read by screen readers after an estimated time, in place of the "~". */
   estimatedWord: 'estimated',
   noMoreToday: 'No more buses today.',
@@ -164,7 +164,7 @@ const en = {
         title: 'Paying in New Jersey',
         steps: [
           'Route 165 is a full-service line, so you can pay cash. The driver makes change. $1, $5, $10 and $20 bills and most coins are accepted; drivers do not have to accept bills over $20.',
-          "Tap & Ride: tap your contactless bank card or phone on the reader, then tell the driver how many zones you are going. When Arriba has NJ Transit's fare table, the trip screen shows the zones.",
+          "Tap & Ride: tap your contactless bank card or phone on the reader, then tell the driver how many zones you are going. When Dale has NJ Transit's fare table, the trip screen shows the zones.",
           'Ticket in the NJ Transit app: activate it before you board, then scan it on the reader. If the bus has no reader, show it to the driver. Paper tickets are scanned on the reader too.',
           'Fares go by zones: each fare zone line you cross adds a zone.',
         ],
@@ -173,7 +173,7 @@ const en = {
         title: 'Leaving from Port Authority',
         steps: [
           "Buy your ticket or pass before you board, in the NJ Transit app or at the terminal's ticket machines or windows. On the bus, drivers here do not accept cash, and Tap & Ride is not available.",
-          "Find your gate. The trip screen shows a gate when Arriba has one, and says where it comes from; always confirm on the terminal's departure screens.",
+          "Find your gate. The trip screen shows a gate when Dale has one, and says where it comes from; always confirm on the terminal's departure screens.",
           'Need an accessible gate? Call NJ Transit at 973-275-5555 before you travel.',
         ],
       },
@@ -193,18 +193,18 @@ const en = {
         ],
       },
       {
-        title: 'Put Arriba on your home screen',
+        title: 'Put Dale on your home screen',
         steps: [
           'Android with Chrome: open the ⋮ menu and choose Add to home screen or Install app.',
           'Samsung Internet (Galaxy phones): open the ≡ menu, choose Add page to, then Home screen.',
           'iPhone with Safari: tap the Share button, then Add to Home Screen.',
-          'After one visit with signal, Arriba opens without signal and shows the schedule it saved, with its date.',
+          'After one visit with signal, Dale opens without signal and shows the schedule it saved, with its date.',
         ],
       },
     ],
     call: 'Call NJ Transit: 973-275-5555',
     sources:
-      'From NJ Transit\'s printed route 165 timetable (issued 7/1/26) and njtransit.com\'s "How to Ride - Bus", "Rider Guide for Bus Customers" and Tap & Ride pages, checked 11/3/2026. The home-screen steps are general phone steps, and their wording varies by phone. Arriba is not NJ Transit, and rules can change.',
+      'From NJ Transit\'s printed route 165 timetable (issued 7/1/26) and njtransit.com\'s "How to Ride - Bus", "Rider Guide for Bus Customers" and Tap & Ride pages, checked 11/3/2026. The home-screen steps are general phone steps, and their wording varies by phone. Dale is not NJ Transit, and rules can change.',
   },
 };
 
@@ -214,7 +214,7 @@ const es: Strings = {
   appTagline: 'Cuando viajas en NJ Transit, necesitas toda la ayuda posible.',
   demoBanner: 'Datos de demostración: paradas, horarios y puertas inventados. No los uses para tomar un autobús real.',
   notAffiliated: 'App independiente. No está afiliada ni respaldada por NJ Transit.',
-  dataObtained: 'Datos de horarios obtenidos de NJ Transit y redistribuidos desde el servidor propio de Arriba, no desde un servidor de NJ Transit.',
+  dataObtained: 'Datos de horarios obtenidos de NJ Transit y redistribuidos desde el servidor propio de Dale, no desde un servidor de NJ Transit.',
   notRealTime: 'Es posible que esta información no sea en tiempo real.',
   transcribedBanner: (issued: string) =>
     `Transcrito del horario impreso de NJ Transit emitido el ${issued}, no del sistema de datos de NJ Transit. Solo incluye los puntos de control principales, no todas las paradas, y no tiene horarios de días feriados. Verifica en njtransit.com antes de confiar en él.`,
@@ -270,7 +270,7 @@ const es: Strings = {
   arrivesLabel: 'Llega',
   scheduledOnly: 'Solo horario',
   scheduledOnlyHelp: 'Aún no hay un autobús en vivo vinculado. El seguimiento en vivo llega con los datos de NJ Transit (etapa M3).',
-  estimatedNote: '~ Hora estimada por Arriba. NJ Transit no publica una hora para esta parada; se calcula con las horas de la parada anterior y la siguiente.',
+  estimatedNote: '~ Hora estimada por Dale. NJ Transit no publica una hora para esta parada; se calcula con las horas de la parada anterior y la siguiente.',
   estimatedWord: 'estimada',
   noMoreToday: 'No hay más autobuses hoy.',
   noBusesThisDay: 'No hay autobuses este día.',
@@ -369,7 +369,7 @@ const es: Strings = {
         title: 'Cómo pagar en Nueva Jersey',
         steps: [
           'La ruta 165 es de servicio completo, así que puedes pagar en efectivo. El chofer da cambio. Se aceptan billetes de $1, $5, $10 y $20 y casi todas las monedas; el chofer no tiene que aceptar billetes de más de $20.',
-          'Tap & Ride: toca el lector con tu tarjeta bancaria sin contacto o tu teléfono y dile al chofer por cuántas zonas vas a viajar. Cuando Arriba tiene la tabla de tarifas de NJ Transit, la pantalla del viaje muestra las zonas.',
+          'Tap & Ride: toca el lector con tu tarjeta bancaria sin contacto o tu teléfono y dile al chofer por cuántas zonas vas a viajar. Cuando Dale tiene la tabla de tarifas de NJ Transit, la pantalla del viaje muestra las zonas.',
           'Boleto en la app de NJ Transit: actívalo antes de subir y escanéalo en el lector. Si el autobús no tiene lector, muéstraselo al chofer. Los boletos de papel también se escanean en el lector.',
           'La tarifa depende de las zonas: cada línea de zona que cruzas suma una zona.',
         ],
@@ -378,7 +378,7 @@ const es: Strings = {
         title: 'Si sales de Port Authority',
         steps: [
           'Compra tu boleto o pase antes de subir, en la app de NJ Transit o en las máquinas o ventanillas de la terminal. Al salir de aquí, en el autobús el chofer no acepta efectivo y no se puede pagar con Tap & Ride (tarjeta sin contacto).',
-          'Busca tu puerta. La pantalla del viaje muestra una puerta cuando Arriba la tiene, y dice de dónde viene; confírmala siempre en las pantallas de salidas de la terminal.',
+          'Busca tu puerta. La pantalla del viaje muestra una puerta cuando Dale la tiene, y dice de dónde viene; confírmala siempre en las pantallas de salidas de la terminal.',
           '¿Necesitas una puerta accesible? Llama a NJ Transit al 973-275-5555 antes de viajar.',
         ],
       },
@@ -398,18 +398,18 @@ const es: Strings = {
         ],
       },
       {
-        title: 'Pon Arriba en tu pantalla de inicio',
+        title: 'Pon Dale en tu pantalla de inicio',
         steps: [
           'Android con Chrome: abre el menú ⋮ y elige la opción para agregar a la pantalla principal o instalar la app.',
           'Samsung Internet (teléfonos Galaxy): abre el menú ≡, elige agregar página y luego pantalla de inicio.',
           'iPhone con Safari: toca el botón Compartir y luego la opción para agregar a la pantalla de inicio.',
-          'Después de una visita con señal, Arriba abre sin señal y muestra el horario que guardó, con su fecha.',
+          'Después de una visita con señal, Dale abre sin señal y muestra el horario que guardó, con su fecha.',
         ],
       },
     ],
     call: 'Llamar a NJ Transit: 973-275-5555',
     sources:
-      'Del horario impreso de la ruta 165 de NJ Transit (emitido el 1/7/26) y de las páginas "How to Ride - Bus", "Rider Guide for Bus Customers" y Tap & Ride de njtransit.com, consultadas el 3/11/2026. Los pasos para la pantalla de inicio son pasos generales del teléfono, y sus nombres cambian según el teléfono. Arriba no es NJ Transit, y las reglas pueden cambiar.',
+      'Del horario impreso de la ruta 165 de NJ Transit (emitido el 1/7/26) y de las páginas "How to Ride - Bus", "Rider Guide for Bus Customers" y Tap & Ride de njtransit.com, consultadas el 3/11/2026. Los pasos para la pantalla de inicio son pasos generales del teléfono, y sus nombres cambian según el teléfono. Dale no es NJ Transit, y las reglas pueden cambiar.',
   },
 };
 
