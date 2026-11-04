@@ -25,10 +25,14 @@ export function BackupDeadlines({ ds, session, alightIndex, now, t, lang, gateTe
   const b = t.backupBuses;
   const [late, setLate] = useState(readLate);
   const choose = (n: LateChoice) => { setLate(n); try { window.localStorage.setItem(KEY, String(n)); } catch { /* not saved */ } };
-  // Minutes left round down to whole minutes, so working it out once a minute is enough (the clock
-  // ticks every second during a lock). The session's own changes (reports, lock status) re-run it.
+  // The list is worked out once a minute (the clock ticks every second during a lock); the session's
+  // own changes (reports, lock status) re-run it. Minutes left always use the live clock, rounded
+  // down, so they are never a minute optimistic, and a bus that has just left drops off at once.
   const minute = Math.floor(now / 60_000);
-  const state = useMemo(() => backupDeadlines(ds, session, alightIndex, minute * 60_000, late), [ds, session, alightIndex, minute, late]);
+  const listed = useMemo(() => backupDeadlines(ds, session, alightIndex, minute * 60_000, late), [ds, session, alightIndex, minute, late]);
+  const state = listed.show
+    ? { ...listed, backups: listed.backups.filter((x) => x.option.dep.departs >= now).map((x) => ({ ...x, minutesLeft: Math.floor((x.option.dep.departs - now) / 60_000) })) }
+    : listed;
   const name = (id: string) => ds.stops.find((s) => s.id === id)?.name ?? id;
   const clock = (at: number, estimated: boolean) => `${estimated ? '~' : ''}${formatTime12(at, ds.meta.timezone, lang)}`;
   return (
