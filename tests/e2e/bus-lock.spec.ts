@@ -243,3 +243,36 @@ test('full-screen ride: keep the screen on, Escape exits, "I got off" ends the r
   await expect(page.locator('.bus-lock .lock-phase')).toHaveText('Session ended');
 });
 
+test('a lock survives a reload: offered back, never resumed silently, original times kept', async ({ page }) => {
+  await page.goto('/?now=2026-11-04T07:50');
+  await page.getByRole('button', { name: 'Find a stop' }).first().click();
+  await page.getByRole('searchbox').fill('irvington');
+  await page.getByRole('button', { name: /Irvington St\. \(to New York\)/ }).click();
+  await page.getByRole('button', { name: /Port Authority Bus Terminal/ }).click();
+  await page.getByRole('button', { name: 'Save to my commutes' }).click();
+  await page.locator('.dep').first().click();
+  await page.getByRole('button', { name: 'Lock onto this bus' }).click();
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await expect(page.locator('.bus-lock')).toContainText('kept on this phone until you unlock or end the ride');
+
+  await page.reload();
+  const offer = page.locator('.lock-return[role="note"]');
+  await expect(offer).toContainText(/Resume watching your 7:52 AM 165 from Westwood - Broadway at Irvington St\. \(to New York\)\?/);
+  await expect(page.locator('.bus-lock')).toHaveCount(0); // not resumed until asked
+  await offer.getByRole('button', { name: 'Resume' }).click();
+  await expect(page.locator('.bus-lock .lock-phase')).toHaveText('Waiting at this stop');
+  await expect(page.locator('.bus-lock')).toContainText('7:50 AM'); // the wait began before the reload
+
+  // Unlocking forgets it: no offer after the next reload.
+  await page.getByRole('button', { name: 'Unlock' }).click();
+  await page.reload();
+  await expect(page.locator('.lock-return[role="note"]')).toHaveCount(0);
+
+  // "Forget it" also clears a saved lock.
+  await page.locator('.dep').first().click();
+  await page.getByRole('button', { name: 'Lock onto this bus' }).click();
+  await page.reload();
+  await page.locator('.lock-return[role="note"]').getByRole('button', { name: 'Forget it' }).click();
+  await page.reload();
+  await expect(page.locator('.lock-return[role="note"]')).toHaveCount(0);
+});

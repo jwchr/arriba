@@ -122,6 +122,7 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
         </div>}
         <p className="muted small">{b.noBusMeaning}</p>
         <p className="lock-local small" role="note">{b.localOnly}</p>
+        {!ds.meta.demo && <p className="muted small">{b.keptOnPhone}</p>}
       </div>
 
       {lock.status === 'needs_confirmation' && lock.pending && <div className="warn">
