@@ -147,3 +147,22 @@ export function destinationsFrom(ds: Dataset, stopId: string): Stop[] {
     .sort((a, b) => a.g - b.g || Number(!!b.s.terminal) - Number(!!a.s.terminal) || a.i - b.i)
     .map(({ s }) => s);
 }
+
+/**
+ * Stops a bus serves within `radiusM` (straight line) of a position, nearest first (issue #31).
+ * A suggestion only: the rider confirms the stop, and the direction guard still applies. Stops without
+ * coordinates (a printed timetable) never appear. The position is not kept by this function.
+ */
+export function nearbyStops(ds: Dataset, pos: { lat: number; lon: number }, radiusM = 500, limit = 6): { stop: Stop; distanceM: number }[] {
+  const served = new Set(ds.patterns.flatMap((p) => p.stopIds.slice(0, -1)));
+  return ds.stops
+    .filter((s): s is Located => served.has(s.id) && located(s))
+    .map((s) => ({ stop: s as Stop, distanceM: Math.round(distanceM(pos, s)) }))
+    .filter((x) => x.distanceM <= radiusM)
+    .sort((a, b) => a.distanceM - b.distanceM || a.stop.name.localeCompare(b.stop.name))
+    .slice(0, limit);
+}
+
+/** True when the dataset has stop coordinates, so a location-based suggestion can work at all. */
+export const hasStopLocations = (ds: Dataset): boolean => ds.stops.some(located);
+

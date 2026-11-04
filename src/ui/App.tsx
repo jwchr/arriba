@@ -10,6 +10,7 @@ import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule'
 import { addDays, clockChangeBetween, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
 import type { Dataset, Departure, Stop } from '../domain/types';
 import { strings, type Lang, type Strings } from './i18n';
+import { NearMe } from './NearMe';
 import { RiderGuide } from './RiderGuide';
 import { TicketGuide } from './TicketGuide';
 import { BusLockPanel } from './BusLockPanel';
@@ -389,6 +390,7 @@ function Search({ ctx, onSave }: { ctx: Ctx; onSave: (f: Favorite) => void }) {
           ))}
           {q && !results.length && <li className="muted">{t.noResults}</li>}
         </ul>
+        {!q && <NearMe ds={ds} t={t} onPick={setStop} />}
       </section>
     );
   }

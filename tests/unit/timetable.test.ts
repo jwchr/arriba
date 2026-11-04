@@ -299,3 +299,11 @@ describe('clock changes (DST) with printed wall-clock times', () => {
     expect(shown('20261107').slice(-3)).toEqual(['1:57 AM', '2:03 AM', '2:08 AM']);
   });
 });
+
+describe('stops near me on the printed timetable', () => {
+  it('is not offered: the printed stops have no coordinates', async () => {
+    const { nearbyStops, hasStopLocations } = await import('../../src/domain/direction');
+    expect(hasStopLocations(ds)).toBe(false);
+    expect(nearbyStops(ds, { lat: 40.99, lon: -74.03 }, 5_000)).toEqual([]);
+  });
+});
