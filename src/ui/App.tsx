@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type Ref } from 'react';
 import { demoDataset, demoUsualGates } from '../data/demo';
 import { checkDirection, destinationsFrom, returnLeg, searchStops } from '../domain/direction';
-import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, type Favorite } from '../domain/favorites';
+import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, setLeavePlan, type Favorite } from '../domain/favorites';
+import { ARRIVE_BY_WINDOW_MS, arriveByDeadline, arriveByPick, canWalkTo, earliestArrival, leaveAdvice, MAX_CUSHION_MIN, MAX_WALK_MIN, type LeaveOption, type LeavePlan } from '../domain/leaveBy';
 import { fareBetween } from '../domain/fare';
 import { gateFor, type GateAnswer } from '../domain/gate';
 import { isNjtHoliday } from '../domain/holidays';
@@ -129,7 +130,8 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
   const [resumable, setResumable] = useState<SavedLock<Leg> | undefined>();
   const [demoAdvanceMs, setDemoAdvanceMs] = useState(0);
   const [keepAwake, setKeepAwake] = useState(true);
-  const now = useNow(tz, activeLock ? 1000 : 30_000);
+  // Every 10 s at least, so a leave-by countdown is never a minute optimistic for long (issue #54).
+  const now = useNow(tz, activeLock ? 1000 : 10_000);
   const lockNow = now + (ds.meta.demo ? demoAdvanceMs : 0);
   const [settings, setSettings] = useState<Settings>(readSettings);
   const [favorites, setFavorites] = useState<Favorite[]>(() => loadFavorites(store));
@@ -366,6 +368,7 @@ function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed
               onMove={(dlt) => setFavorites((l) => moveFavorite(l, f.id, dlt))}
               onRemove={() => setFavorites((l) => removeFavorite(l, f.id))}
               onRename={(name) => setFavorites((l) => renameFavorite(l, f.id, name))}
+              onLeavePlan={(plan) => setFavorites((l) => setLeavePlan(l, f.id, reversedIds.has(f.id) ? 'back' : 'out', plan))}
               onAllDay={onAllDay} onDeparture={onDeparture} />
           </li>
         ))}
@@ -399,15 +402,25 @@ function HighwayPlace({ place, label, end }: { place: { name: string; detail: st
   </div>;
 }
 
-function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, onMove, onRemove, onRename, onAllDay, onDeparture }: {
+function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, onMove, onRemove, onRename, onLeavePlan, onAllDay, onDeparture }: {
   ctx: Ctx; fav: Favorite; count: number; editing: boolean; rev: boolean; onReverse: () => void; first: boolean; last: boolean;
-  onMove: (d: -1 | 1) => void; onRemove: () => void; onRename: (s: string) => void;
+  onMove: (d: -1 | 1) => void; onRemove: () => void; onRename: (s: string) => void; onLeavePlan: (p: LeavePlan | undefined) => void;
   onAllDay: (leg: Leg, title: string) => void; onDeparture: (d: Departure, leg: Leg) => void;
 }) {
   const { ds, t, now, stopName } = ctx;
   const leg = legFor(ds, fav, rev);
-  const deps = leg ? nextDepartures(ds, { stopId: leg.fromStopId, toStopId: leg.toStopId, routeIds: leg.routeIds }, now, count) : [];
-  const rows = deps.map((d) => ({ d, arr: leg ? arrivalAt(ds, d, leg.toStopId) : undefined }));
+  // More than the shown rows, so leave-by and arrive-by can look past them.
+  const ahead: LeaveOption[] = leg ? nextDepartures(ds, { stopId: leg.fromStopId, toStopId: leg.toStopId, routeIds: leg.routeIds }, now, 40)
+    .map((d) => { const arrives = arrivalAt(ds, d, leg.toStopId); return arrives ? { dep: d, arrives } : { dep: d }; }) : [];
+  const deps = ahead.slice(0, count).map((o) => o.dep);
+  const rows = ahead.slice(0, count).map((o) => ({ d: o.dep, arr: o.arrives }));
+  const plan = fav.leave?.[rev ? 'back' : 'out'];
+  const [planning, setPlanning] = useState(false);
+  // After the form closes, focus returns to the control that opened it.
+  const planButton = useRef<HTMLButtonElement>(null);
+  const closedForm = useRef(false);
+  useEffect(() => { if (!planning && closedForm.current) planButton.current?.focus(); closedForm.current = planning; }, [planning]);
+  const soonest = earliestArrival(ahead.slice(0, count), now, plan);
   const anyEstimated = rows.some((r) => r.d.estimated || r.arr?.estimated);
   const title = leg ? `${stopName(leg.fromStopId)} → ${stopName(leg.toStopId)}` : '';
   const defaultLabel = `${stopName(fav.fromStopId)} → ${stopName(fav.toStopId)}`;
@@ -448,6 +461,10 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
         </div>
       ) : (
         <>
+          {leg && (planning
+            ? <LeavePlanForm ctx={ctx} plan={plan} onDone={(p) => { if (p !== 'cancel') onLeavePlan(p); setPlanning(false); }} />
+            : plan ? <LeaveBy ctx={ctx} plan={plan} options={ahead} onEdit={() => setPlanning(true)} editRef={planButton} />
+              : <button ref={planButton} className="link leave-set" onClick={() => setPlanning(true)}>{t.leave.set}</button>)}
           {!leg ? null : deps.length === 0 ? <p className="muted">{t.noMoreToday}</p> : (
             <ul className="deps">
               {rows.map(({ d, arr }, i) => (
@@ -456,7 +473,9 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
                     <RouteBadge ds={ds} routeId={d.route.id} />
                     <span className="dep-main">
                       <span className="dep-time"><TimeText ctx={ctx} at={d.departs} estimated={d.estimated} /></span>
+                      {soonest?.index === i && <span className="tag tag-first">{t.leave.arrivesFirst}</span>}
                       <span className="dep-sub">{arr ? <>{t.arrives} <TimeText ctx={ctx} at={arr.at} estimated={arr.estimated} /></> : d.pattern.headsign}</span>
+                      {plan && !canWalkTo({ dep: d }, now, plan) && <span className="dep-toosoon">{t.leave.tooSoon}</span>}
                       {(() => { const g = departureGate(ds, d); return g && <span className="dep-gate" data-status={g.status}>{gateLine(t, g)}</span>; })()}
                     </span>
                     <span className="dep-right">
@@ -468,11 +487,72 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
               ))}
             </ul>
           )}
+          {soonest && rows[soonest.index] && <p className="small leave-why">{t.leave.arrivesFirstWhy(
+            rows[soonest.index]!.d.route.shortName,
+            `${rows[soonest.index]!.d.estimated ? '~' : ''}${formatTime12(rows[soonest.index]!.d.departs, ctx.tz, ctx.lang)}`, soonest.laterMin, soonest.earlierMin, soonest.estimated)}</p>}
           {anyEstimated && <p className="muted small">{t.estimatedNote}</p>}
           {leg && <button className="link" onClick={() => onAllDay(leg, title)}>{t.allDay} →</button>}
         </>
       )}
     </article>
+  );
+}
+
+/** Leave-by countdown and arrive-by line for one direction of a saved commute (issue #54). Scheduled times only. */
+function LeaveBy({ ctx, plan, options, onEdit, editRef }: { ctx: Ctx; plan: LeavePlan; options: LeaveOption[]; onEdit: () => void; editRef: Ref<HTMLButtonElement> }) {
+  const { t, now, tz, lang } = ctx;
+  const l = t.leave;
+  const clock = (at: number, estimated = false) => `${estimated ? '~' : ''}${formatTime12(at, tz, lang)}`;
+  const advice = leaveAdvice(options, now, plan);
+  const deadline = plan.arriveBy ? arriveByDeadline(now, plan.arriveBy, tz) : undefined;
+  const pick = deadline !== undefined && deadline - now <= ARRIVE_BY_WINDOW_MS ? arriveByPick(options, now, plan, deadline) : undefined;
+  return (
+    <div className="leave-by">
+      <div className="row-between">
+        <p className="leave-count"><strong>{advice.kind === 'leave_in' ? l.leaveIn(advice.minutes) : advice.kind === 'leave_now' ? l.leaveNow : l.none}</strong></p>
+        <button ref={editRef} className="ghost" onClick={onEdit}>{l.edit}</button>
+      </div>
+      {advice.kind === 'leave_in' && <p className="small">{l.forBus(clock(advice.dep.departs, advice.dep.estimated), plan.walkMin, plan.cushionMin)}</p>}
+      {advice.kind === 'leave_now' && <p className="small">{l.spareLeft(clock(advice.dep.departs, advice.dep.estimated), advice.spareMin, plan.cushionMin)}</p>}
+      {pick && <p className="small leave-arrive">{pick.kind === 'pick'
+        ? pick.leaveNow
+          ? l.arrivePickNow(clock(pick.deadline), clock(pick.option.dep.departs, pick.option.dep.estimated), clock(pick.option.arrives.at, pick.option.arrives.estimated))
+          : l.arrivePick(clock(pick.deadline), clock(pick.leaveAt, pick.option.dep.estimated), clock(pick.option.dep.departs, pick.option.dep.estimated), clock(pick.option.arrives.at, pick.option.arrives.estimated))
+        : pick.kind === 'none_in_time' ? l.arriveNone(clock(pick.deadline)) : l.arriveUnknown(clock(pick.deadline))}</p>}
+      <p className="muted small">{l.note}</p>
+    </div>
+  );
+}
+
+function LeavePlanForm({ ctx, plan, onDone }: { ctx: Ctx; plan?: LeavePlan; onDone: (p: LeavePlan | undefined | 'cancel') => void }) {
+  const l = ctx.t.leave;
+  const [walk, setWalk] = useState(String(plan?.walkMin ?? 5));
+  const [cushion, setCushion] = useState(String(plan?.cushionMin ?? 2));
+  const [by, setBy] = useState(plan?.arriveBy ?? '');
+  const [bad, setBad] = useState(false);
+  const errorId = useId();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { heading.current?.focus(); }, []);
+  function save() {
+    const w = Number(walk), c = Number(cushion);
+    const ok = (v: number, max: number) => walk.trim() !== '' && Number.isInteger(v) && v >= 0 && v <= max;
+    if (!ok(w, MAX_WALK_MIN) || cushion.trim() === '' || !ok(c, MAX_CUSHION_MIN)) { setBad(true); return; }
+    onDone({ walkMin: w, cushionMin: c, ...(/^\d{2}:\d{2}$/.test(by) ? { arriveBy: by } : {}) });
+  }
+  return (
+    <div className="leave-form">
+      <h3 tabIndex={-1} ref={heading}>{l.formTitle}</h3>
+      <label>{l.walk}<input type="number" inputMode="numeric" min={0} max={MAX_WALK_MIN} value={walk} aria-invalid={bad || undefined} aria-describedby={bad ? errorId : undefined} onChange={(e) => setWalk(e.currentTarget.value)} /></label>
+      <label>{l.cushion}<input type="number" inputMode="numeric" min={0} max={MAX_CUSHION_MIN} value={cushion} aria-invalid={bad || undefined} aria-describedby={bad ? errorId : undefined} onChange={(e) => setCushion(e.currentTarget.value)} /></label>
+      <label>{l.arriveBy}<input type="time" value={by} onChange={(e) => setBy(e.currentTarget.value)} /></label>
+      {bad && <p className="warn small" role="alert" id={errorId}>{l.invalid}</p>}
+      <p className="muted small">{l.help}</p>
+      <div className="edit-row">
+        <button className="primary" onClick={save}>{l.save}</button>
+        {plan && <button className="danger" onClick={() => onDone(undefined)}>{l.clear}</button>}
+        <button className="ghost" onClick={() => onDone('cancel')}>{l.cancel}</button>
+      </div>
+    </div>
   );
 }
 
