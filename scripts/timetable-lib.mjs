@@ -1,4 +1,4 @@
-// Build an Dale dataset from a hand-checked transcription of an NJ Transit PRINTED timetable
+// Build a Dale dataset from a hand-checked transcription of an NJ Transit PRINTED timetable
 // (data/t0165/transcription.json). This is not NJ Transit's data feed; the dataset says so in
 // meta.transcribed and the app shows a banner. The real GTFS build is scripts/gtfs-lib.mjs.
 
