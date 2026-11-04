@@ -24,7 +24,7 @@ test('waiting survives overdue time; GPS history, estimates and reports keep the
   await selectDemoTrip(page, true);
   const panel = page.locator('.bus-lock');
   await expect(panel).toContainText('Scheduled 11/4/2026, ~8:06 AM');
-  await expect(panel).toContainText('NJ Transit does not publish a time for this stop');
+  await expect(panel).toContainText('NJ Transit publishes no time for this stop');
   await expect(panel).toContainText('No GPS observation received');
   await expect(panel).toContainText('ESTIMATED FROM TIMETABLE · NOT GPS');
   await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
