@@ -6,6 +6,7 @@ import { fareBetween } from '../domain/fare';
 import { gateFor, type GateAnswer } from '../domain/gate';
 import { isNjtHoliday } from '../domain/holidays';
 import { createBusSession, reduceBusSession, type BusSession, type BusSessionEvent } from '../domain/busLock';
+import { forgetLock, loadLock, saveLock, type SavedLock } from '../domain/lockStore';
 import { departuresOn, nextDepartures, tripStopTimes } from '../domain/schedule';
 import { addDays, clockChangeBetween, formatTime12, localYmd, weekdayIndex, zonedWallTime } from '../domain/time';
 import type { Dataset, Departure, Stop } from '../domain/types';
@@ -124,6 +125,8 @@ function LoadScreen({ failed, onRetry }: { failed: boolean; onRetry: () => void 
 function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | undefined; savedAt?: number | undefined }) {
   const tz = ds.meta.timezone;
   const [activeLock, setActiveLock] = useState<ActiveLock | undefined>();
+  /** A lock saved on this phone before a refresh or close, offered back (never resumed silently). */
+  const [resumable, setResumable] = useState<SavedLock<Leg> | undefined>();
   const [demoAdvanceMs, setDemoAdvanceMs] = useState(0);
   const [keepAwake, setKeepAwake] = useState(true);
   const now = useNow(tz, activeLock ? 1000 : 30_000);
@@ -167,6 +170,11 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
   const toggleReversed = (id: string) => setReversedIds((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const t = strings[settings.lang];
 
+  // Offer a lock saved before the app was closed; keep the current lock saved on this phone as it changes.
+  useEffect(() => { setResumable(loadLock<Leg>(store, ds, now)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // An offer left on screen expires like a saved lock does (and is cleared from the phone then).
+  useEffect(() => { if (resumable && !loadLock<Leg>(store, ds, now)) setResumable(undefined); }, [now]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (activeLock) saveLock(store, ds, activeLock, now); }, [activeLock]); // eslint-disable-line react-hooks/exhaustive-deps
   const lockOnScreen = screen.name === 'departure' && activeLock?.dep.tripInstanceId === screen.dep.tripInstanceId && activeLock.dep.stopIndex === screen.dep.stopIndex;
   const lockEvent = (event: BusSessionEvent) => setActiveLock((current) => current ? { ...current, session: reduceBusSession(current.session, event) } : current);
   useEffect(() => {
@@ -201,6 +209,13 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
       <FeedStatus ctx={ctx} />
       {ds.meta.transcribed && isNjtHoliday(localYmd(now, tz)) && <p className="status-line" data-level="warn" role="note">{t.holidayToday}</p>}
       <main>
+        {resumable && !activeLock && <aside className="lock-return" role="note">
+          <p>{t.busLock.resumePrompt(formatTime12(resumable.dep.departs, tz, settings.lang), resumable.dep.route.shortName, stopName(resumable.dep.pattern.stopIds[resumable.dep.stopIndex]!))}</p>
+          <div className="row-between">
+            <button className="primary" onClick={() => { setActiveLock({ dep: resumable.dep, leg: resumable.leg, session: resumable.session }); setScreen({ name: 'departure', dep: resumable.dep, leg: resumable.leg }); setResumable(undefined); }}>{t.busLock.resumeYes}</button>
+            <button onClick={() => { forgetLock(store); setResumable(undefined); }}>{t.busLock.resumeNo}</button>
+          </div>
+        </aside>}
         {activeLock && !lockOnScreen && <aside className="lock-return">
           <button className="primary wide" onClick={() => setScreen({ name: 'departure', dep: activeLock.dep, leg: activeLock.leg })}>
             {t.busLock.resume} · {activeLock.dep.route.shortName} · {formatTime12(activeLock.dep.departs, tz, settings.lang)}
@@ -225,12 +240,12 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             busSession={lockOnScreen ? activeLock?.session : undefined} anotherLock={!!activeLock && !lockOnScreen}
             lockNow={lockNow} keepAwake={keepAwake} onKeepAwake={setKeepAwake} onLockEvent={lockEvent}
             onAdvanceDemo={(minutes) => { if (ds.meta.demo) setDemoAdvanceMs((value) => value + minutes * 60_000); }}
-            onLock={() => { if (!activeLock) setActiveLock({ dep: screen.dep, leg: screen.leg, session: createBusSession(screen.dep, lockNow) }); }}
+            onLock={() => { if (!activeLock) { setResumable(undefined); setActiveLock({ dep: screen.dep, leg: screen.leg, session: createBusSession(screen.dep, lockNow) }); } }}
             onReturn={(dep, leg) => setScreen({ name: 'departure', dep, leg })}
             onBoarding={() => setScreen({ name: 'boarding', dep: screen.dep, leg: screen.leg })}
             onRescue={() => setScreen({ name: 'rescue', fromStopId: screen.leg.fromStopId, homeStopId: screen.leg.toStopId, usualRouteId: screen.dep.route.id,
               label: ds.stops.find((s) => s.id === screen.leg.toStopId)?.terminal ? 'other' : 'home' })}
-            onUnlock={() => { setActiveLock(undefined); setDemoAdvanceMs(0); }} />
+            onUnlock={() => { setActiveLock(undefined); if (!ds.meta.demo) forgetLock(store); setDemoAdvanceMs(0); }} />
         )}
         {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} onGuide={() => setScreen({ name: 'guide' })} />}
         {screen.name === 'guide' && <RiderGuide t={t} />}
@@ -363,6 +378,27 @@ function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed
 // Only remove the dataset's trailing direction hint, never place names or other parentheses.
 const stopPlace = (name: string): string => name.replace(/\s+\(to [^)]+\)$/i, '');
 
+// The printed dataset explicitly uses "Town (landmark) - stop"; other sources keep their full place name.
+function commutePlace(stop: Stop | undefined, name: string, printed: boolean, t: Strings): { name: string; detail: string } {
+  if (stop?.terminal === 'PABT') return { name: t.commuteNewYork, detail: t.commutePabt };
+  const place = stopPlace(name);
+  const split = printed ? place.indexOf(' - ') : -1;
+  if (split < 1) return { name: place, detail: '' };
+  const town = place.slice(0, split);
+  const landmark = /^(.+?)\s+(\([^()]+\))$/.exec(town);
+  return { name: landmark?.[1] ?? town, detail: `${landmark ? `${landmark[2]} · ` : ''}${place.slice(split + 3)}` };
+}
+
+function HighwayPlace({ place, label, end }: { place: { name: string; detail: string }; label: string; end: 'from' | 'to' }) {
+  return <div className="commute-place" data-end={end}>
+    <div className="highway-sign">
+      <span className="highway-label">{label}</span>
+      <strong className="highway-name">{place.name}</strong>
+    </div>
+    {place.detail && <p className="commute-stop">{place.detail}</p>}
+  </div>;
+}
+
 function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, onMove, onRemove, onRename, onAllDay, onDeparture }: {
   ctx: Ctx; fav: Favorite; count: number; editing: boolean; rev: boolean; onReverse: () => void; first: boolean; last: boolean;
   onMove: (d: -1 | 1) => void; onRemove: () => void; onRename: (s: string) => void;
@@ -379,27 +415,28 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
   const fromId = leg?.fromStopId ?? (rev ? fav.toStopId : fav.fromStopId);
   const from = ds.stops.find((s) => s.id === fromId);
   const to = leg && ds.stops.find((s) => s.id === leg.toStopId);
-  const origin = from?.terminal === 'PABT' ? t.commutePabt : stopPlace(stopName(fromId));
-  const heading = customName ? fav.label : origin;
-  const destination = leg && (to?.terminal === 'PABT' ? t.commuteToPabt : t.commuteTo(stopPlace(stopName(leg.toStopId))));
+  const origin = commutePlace(from, stopName(fromId), !!ds.meta.transcribed, t);
+  const destination = leg && commutePlace(to, stopName(leg.toStopId), !!ds.meta.transcribed, t);
   const fullLeg = title || `${stopName(fromId)} → ${stopName(rev ? fav.fromStopId : fav.toStopId)}`;
   return (
     <article className="card fav" aria-label={customName ? `${fav.label}: ${fullLeg}` : fullLeg}>
       <div className="commute-header">
-        <div className={editing ? 'commute-edit' : 'commute-sign'}>
-          {editing ? (
+        {editing ? (
+          <div className="commute-edit">
             <label className="rename">{t.rename}
               <input defaultValue={fav.label} onBlur={(e) => onRename(e.currentTarget.value)} />
             </label>
-          ) : <>
-            {!customName && <p className="commute-sign-label">{t.commuteFrom}</p>}
-            <h2 className="commute-led">{heading}</h2>
-          </>}
-        </div>
+          </div>
+        ) : <>
+          {customName ? <div className="commute-sign"><h2 className="commute-led">{fav.label}</h2></div>
+            : <h2 className="sr-only">{fullLeg}</h2>}
+          <div className="commute-places">
+            <HighwayPlace place={origin} label={t.commuteFrom} end="from" />
+            {destination && <HighwayPlace place={destination} label={t.commuteToLabel} end="to" />}
+          </div>
+        </>}
         {editing && leg && title !== fav.label && <p className="leg">{title}</p>}
-        {!editing && customName && <p className="leg commute-origin">{t.commuteFrom} {origin}</p>}
         <div className="commute-controls">
-          {!editing && destination && <p className="commute-direction"><span aria-hidden="true">→ </span>{destination}</p>}
           <button className="chip commute-reverse" aria-pressed={rev} onClick={onReverse}>⇄ {t.reverse}</button>
         </div>
       </div>
