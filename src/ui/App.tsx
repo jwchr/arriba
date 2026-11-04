@@ -170,6 +170,8 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
 
   // Offer a lock saved before the app was closed; keep the current lock saved on this phone as it changes.
   useEffect(() => { setResumable(loadLock<Leg>(store, ds, now)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // An offer left on screen expires like a saved lock does (and is cleared from the phone then).
+  useEffect(() => { if (resumable && !loadLock<Leg>(store, ds, now)) setResumable(undefined); }, [now]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (activeLock) saveLock(store, ds, activeLock, now); }, [activeLock]); // eslint-disable-line react-hooks/exhaustive-deps
   const lockOnScreen = screen.name === 'departure' && activeLock?.dep.tripInstanceId === screen.dep.tripInstanceId && activeLock.dep.stopIndex === screen.dep.stopIndex;
   const lockEvent = (event: BusSessionEvent) => setActiveLock((current) => current ? { ...current, session: reduceBusSession(current.session, event) } : current);

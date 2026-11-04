@@ -22,7 +22,9 @@ type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined;
 
 export function saveLock<L>(store: Store, ds: Dataset, lock: { dep: Departure; leg: L; session: BusSession } | undefined, now: number): void {
   try {
-    if (!lock || ds.meta.demo || lock.session.phase === 'left' || lock.session.phase === 'ended') { store?.removeItem(LOCK_KEY); return; }
+    // The invented demo neither reads nor writes the saved lock, so opening it never touches a real one.
+    if (ds.meta.demo) return;
+    if (!lock || lock.session.phase === 'left' || lock.session.phase === 'ended') { store?.removeItem(LOCK_KEY); return; }
     const saved: SavedLock<L> = { v: 1, feedVersion: ds.meta.feedVersion, savedAt: now, dep: lock.dep, leg: lock.leg, session: lock.session };
     store?.setItem(LOCK_KEY, JSON.stringify(saved));
   } catch { /* storage full or blocked: the lock simply is not kept */ }
@@ -30,10 +32,11 @@ export function saveLock<L>(store: Store, ds: Dataset, lock: { dep: Departure; l
 
 /** The saved lock, if it is still valid for this dataset and time; otherwise undefined (and forgotten). */
 export function loadLock<L>(store: Store, ds: Dataset, now: number): SavedLock<L> | undefined {
+  if (ds.meta.demo) return undefined;
   let saved: SavedLock<L> | undefined;
   try { saved = JSON.parse(store?.getItem(LOCK_KEY) ?? 'null') as SavedLock<L> | undefined; } catch { saved = undefined; }
   if (!saved) return undefined;
-  const ok = saved.v === 1 && !ds.meta.demo && saved.feedVersion === ds.meta.feedVersion && validFor(ds, saved, now);
+  const ok = saved.v === 1 && saved.feedVersion === ds.meta.feedVersion && validFor(ds, saved, now);
   if (!ok) { forgetLock(store); return undefined; }
   return saved;
 }
@@ -46,6 +49,8 @@ function validFor<L>(ds: Dataset, s: SavedLock<L>, now: number): boolean {
   const dep = s.dep;
   const session = s.session;
   if (!dep || !session || typeof dep.tripId !== 'string' || !Number.isFinite(dep.departs) || !Number.isFinite(dep.arrivesEnd)) return false;
+  // The saved shape must be the one this version understands (bump `v` whenever BusSession changes).
+  if (!Array.isArray(session.reports) || !Array.isArray(session.history) || !session.lock || !Number.isFinite(session.lastActionAt)) return false;
   // Same trip, same pattern, same boarding stop as the schedule now loaded.
   const trip = ds.trips.find((t) => t.id === dep.tripId);
   const pattern = ds.patterns.find((p) => p.id === dep.pattern?.id);
@@ -53,6 +58,6 @@ function validFor<L>(ds: Dataset, s: SavedLock<L>, now: number): boolean {
   if (pattern.stopIds[dep.stopIndex] === undefined || session.departure?.tripInstanceId !== dep.tripInstanceId) return false;
   if (session.phase === 'left' || session.phase === 'ended') return false;
   // Not before it was made (a clock set back), and not long after the trip's scheduled end.
-  if (!(now >= session.lock.lockedAt) || now > dep.arrivesEnd + RESUME_AFTER_END_MS) return false;
+  if (!(now >= session.lock.lockedAt) || !(now >= session.lastActionAt) || now > dep.arrivesEnd + RESUME_AFTER_END_MS) return false;
   return true;
 }

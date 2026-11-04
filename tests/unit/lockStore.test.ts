@@ -42,6 +42,18 @@ describe('Bus Lock kept on this phone (issue #53)', () => {
     expect(store.m.has(LOCK_KEY)).toBe(false);
   });
 
+  it('never touches a real saved lock from the demo, and catches a clock set back past the last action', () => {
+    const store = memory();
+    saveLock(store, ds, { dep, leg, session: waiting() }, lockedAt + 60_000);
+    expect(loadLock(store, demoDataset, lockedAt + 2 * 60_000)).toBeUndefined();
+    saveLock(store, demoDataset, undefined, lockedAt + 2 * 60_000);
+    expect(store.m.has(LOCK_KEY)).toBe(true); // still there for the real schedule
+    expect(loadLock(store, ds, lockedAt + 30_000)).toBeUndefined(); // after the lock was made, before its last action
+    saveLock(store, ds, { dep, leg, session: waiting() }, lockedAt + 60_000);
+    store.setItem(LOCK_KEY, JSON.stringify({ ...JSON.parse(store.getItem(LOCK_KEY)!), session: { ...waiting(), reports: 'x' } }));
+    expect(loadLock(store, ds, lockedAt + 2 * 60_000)).toBeUndefined(); // an unknown shape is dropped
+  });
+
   it('never keeps the invented demo, and survives storage errors', () => {
     const store = memory();
     const demoDep = departuresOn(demoDataset, { stopId: 'D2', toStopId: 'PABT', date: '20261104' })[0]!;
