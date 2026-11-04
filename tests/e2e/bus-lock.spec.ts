@@ -150,6 +150,7 @@ test('ride mode counts down 3, 2, 1 stops from fresh demo GPS and says when it c
   await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
   await page.getByRole('button', { name: 'I boarded', exact: true }).click();
   const ride = panel.locator('.ride-mode');
+  await expect(page.getByRole('dialog', { name: 'Riding to Port Authority Bus Terminal' })).toBeVisible(); // full screen on boarding
   await expect(ride.getByRole('heading', { level: 3 })).toHaveText('Riding to Port Authority Bus Terminal');
   await expect(ride.locator('.ride-message')).toHaveText(/No GPS from this bus yet, so Dale can’t count stops/);
   await expect(ride.locator('.ride-message')).not.toContainText('stops to');
@@ -163,7 +164,9 @@ test('ride mode counts down 3, 2, 1 stops from fresh demo GPS and says when it c
   await ride.getByRole('button', { name: 'Move the demo bus to the next stop' }).click();
   await expect(ride.locator('.ride-message')).toHaveText('This is your stop: Port Authority Bus Terminal. Get off when the bus stops.');
 
-  // Old GPS: no confident instruction.
+  // Old GPS: no confident instruction. (Exit full screen to reach the demo controls underneath.)
+  await ride.getByRole('button', { name: 'Exit full screen' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByText('Try Bus Lock · invented demo only', { exact: true }).click();
   await page.getByRole('button', { name: 'Advance 3 minutes' }).click();
   await expect(ride.locator('.ride-message')).toHaveText(/GPS is old, so Dale can’t tell which stop it is at/);
@@ -218,3 +221,25 @@ test('capacity: one local answer from a rider who saw the bus, with honest limit
   const { violations } = await new AxeBuilder({ page }).include('.lock-capacity').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
   expect(violations.map((v) => v.id)).toEqual([]);
 });
+
+test('full-screen ride: keep the screen on, Escape exits, "I got off" ends the ride', async ({ page }) => {
+  await selectDemoTrip(page);
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: /Riding to/ });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('heading', { level: 3 })).toBeFocused();
+  await dialog.getByRole('checkbox', { name: 'Keep the screen on during the ride' }).check();
+  await expect(dialog.getByTestId('ride-wake')).not.toBeEmpty();
+  const { violations } = await new AxeBuilder({ page }).include('.ride-full').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  expect(violations.map((v) => v.id)).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.locator('.ride-mode').getByRole('button', { name: 'Full screen' }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'I got off' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.bus-lock .lock-phase')).toHaveText('Session ended');
+});
+
