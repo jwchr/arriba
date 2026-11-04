@@ -53,8 +53,12 @@ describe('missed stop and wrong bus (issue #60)', () => {
     expect(recoveryStops(ds, out, w19, 'missed')).toEqual(['W20']);
     const r = recoveryOptions(ds, 'W20', 'W19', out.arrivesEnd);
     expect(r.options).toEqual([]);
-    expect(r.otherSideUnknown).toBe(true);
+    expect(r.otherSideUnknown).toBe('here');
     // A stop with a twin and buses back is not flagged.
-    expect(recoveryOptions(ds, 'W12', 'W8', out.arrivesEnd).otherSideUnknown).toBe(false);
+    expect(recoveryOptions(ds, 'W12', 'W8', out.arrivesEnd).otherSideUnknown).toBeUndefined();
+    // Missing W18 (no twin) and getting off at W19 (which has one): the unknown side is the destination's.
+    const w18 = recoveryOptions(ds, 'W19', 'W18', out.arrivesEnd);
+    expect(w18.options).toEqual([]);
+    expect(w18.otherSideUnknown).toBe('destination');
   });
 });
