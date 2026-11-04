@@ -5,6 +5,7 @@ import { formatTime12 } from '../domain/time';
 import type { Dataset } from '../domain/types';
 import type { Lang, Strings } from './i18n';
 import { RideMode } from './RideMode';
+import { ShareUpdate } from './ShareUpdate';
 import { useScreenWakeLock } from './useScreenWakeLock';
 
 interface Props {
@@ -112,6 +113,8 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
         </>}
         {session.phase === 'arrived' && <div className="lock-actions"><button className="primary" onClick={() => record('boarded')}>{b.boarded}</button><button onClick={() => record('left')}>{b.left}</button></div>}
         {session.phase === 'onboard' && <><RideMode ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} onEvent={onEvent} onAdvanceDemo={onAdvanceDemo} /><p className="small">{b.ridePrivacy}</p><button onClick={() => record('end')}>{b.stopRide}</button></>}
+        {/* On board, ride mode carries its own share button (it may fill the screen). */}
+        {session.phase !== 'onboard' && <ShareUpdate ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} />}
         {canReportCapacity && <div className="lock-capacity">
           <p className="small">{b.capacityQ}</p>
           <div className="choice-list">
