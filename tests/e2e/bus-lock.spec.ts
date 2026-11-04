@@ -174,8 +174,7 @@ test('ride mode counts down 3, 2, 1 stops from fresh demo GPS and says when it c
   expect(violations.map((v) => `${v.id}: ${v.nodes.map((x) => x.target.join(' ')).join(' | ')}`)).toEqual([]);
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Español' }).click();
-  await page.getByRole('button', { name: 'Atrás' }).click();
-  await page.locator('.dep').first().click();
+  await page.getByRole('button', { name: 'Atrás' }).click(); // back to the trip it came from, still riding
   await expect(page.locator('.ride-mode h3')).toHaveText('Vas a Port Authority Bus Terminal');
   const es = await new AxeBuilder({ page }).include('.ride-mode').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
   expect(es.violations.map((v) => v.id)).toEqual([]);

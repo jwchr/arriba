@@ -74,6 +74,8 @@ test('reverse, gate card, exact-bus lock, all-day timetable, Spanish', async ({ 
   // Spanish everywhere, 12-hour clock kept.
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Español' }).click();
+  await page.getByRole('button', { name: 'Atrás' }).click(); // back to the timetable it came from
+  await expect(page.locator('table.timetable')).toBeVisible();
   await page.getByRole('button', { name: 'Atrás' }).click();
   await expect(page.getByRole('button', { name: /Invertir/ })).toBeVisible();
   await expect(page.getByRole('article').locator('.dep-time').first()).toHaveText(/^\d{1,2}:\d{2} (a|p)\.? ?m\.?$/i);
@@ -414,6 +416,8 @@ test.describe('Get me home (issue #32)', () => {
     await page.locator('.dep').first().click();
     await page.getByRole('button', { name: 'Other buses there' }).click(); // heading into New York
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Other buses there');
+    await page.getByRole('button', { name: 'Back' }).click(); // back to the trip it came from
+    await expect(page.locator('.trip-ticket')).toBeVisible();
     await page.getByRole('button', { name: 'Back' }).click();
     await page.getByRole('button', { name: /Reverse/ }).click();
     await page.locator('.dep').first().click();
@@ -429,5 +433,60 @@ test.describe('Get me home (issue #32)', () => {
     expect(violations.map((v) => v.id)).toEqual([]);
     await items.first().click();
     await expect(page.locator('.trip-ticket')).toBeVisible();
+  });
+});
+
+test('Back returns to the screen the rider came from, and home starts over', async ({ page }) => {
+  await page.goto(URL);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click(); // a second tap does not stack a copy
+  await page.getByRole('button', { name: 'First time riding? How it works' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your first ride');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Settings');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Save your stop once');
+  await expect(page.getByRole('button', { name: 'Back' })).toHaveCount(0); // home has no Back
+});
+
+test.describe('history (issue #48)', () => {
+  test.use({ serviceWorkers: 'block' });
+
+  test('more than 20 screens deep, Back still reaches home', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T18:00');
+    await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.getByRole('button', { name: /Reverse/ }).click();
+    await page.locator('.dep').first().click();
+    for (let i = 0; i < 12; i++) {
+      await page.getByRole('button', { name: 'Get me the fuck home' }).click();
+      await page.locator('.rescue-list li').first().click();
+    }
+    for (let i = 0; i < 30 && (await page.getByRole('button', { name: 'Back' }).count()); i++) await page.getByRole('button', { name: 'Back' }).click();
+    await expect(page.getByRole('button', { name: /Reverse/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Back' })).toHaveCount(0);
+  });
+
+  test('the timetable keeps its chosen day when the rider comes back from a trip', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T07:50');
+    await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.getByRole('button', { name: /All day/ }).click();
+    await page.getByRole('tab', { name: 'Tomorrow' }).click();
+    await page.locator('table.timetable .link-cell').first().click();
+    await page.getByRole('button', { name: 'Back' }).click();
+    await expect(page.getByRole('tab', { name: 'Tomorrow' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('the phone’s or browser’s own Back steps back inside Dale', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T07:50');
+    await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    const url = page.url();
+    await page.locator('.dep').first().click();
+    await expect(page.locator('.trip-ticket')).toBeVisible();
+    await page.goBack();
+    await expect(page.getByRole('button', { name: /Reverse/ })).toBeVisible();
+    expect(page.url()).toBe(url); // nothing about the trip was put in the address
   });
 });
