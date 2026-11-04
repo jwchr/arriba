@@ -121,7 +121,7 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
         {/* After NJ Transit cancels the trip the waiting controls go, but the backups are what matter. */}
         {session.phase === 'waiting' && lock.status === 'cancelled' && <BackupDeadlines ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} gateText={gateText} badge={badge} onOpen={onOpenBackup} />}
         {session.phase === 'arrived' && <div className="lock-actions"><button className="primary" onClick={() => record('boarded')}>{b.boarded}</button><button onClick={() => record('left')}>{b.left}</button></div>}
-        {session.phase === 'onboard' && <><RideMode ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} onEvent={onEvent} onAdvanceDemo={onAdvanceDemo} /><p className="small">{b.ridePrivacy}</p><button onClick={() => record('end')}>{b.stopRide}</button></>}
+        {session.phase === 'onboard' && <><RideMode ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} onEvent={onEvent} onAdvanceDemo={onAdvanceDemo} gateText={gateText} badge={badge} onOpenTrip={onOpenBackup} /><p className="small">{b.ridePrivacy}</p><button onClick={() => record('end')}>{b.stopRide}</button></>}
         {/* On board, ride mode carries its own share button (it may fill the screen). */}
         {session.phase !== 'onboard' && <ShareUpdate ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} />}
         {canReportCapacity && <div className="lock-capacity">
