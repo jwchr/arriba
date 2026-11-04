@@ -61,7 +61,7 @@ test('reverse, gate card, exact-bus lock, all-day timetable, Spanish', async ({ 
   await page.screenshot({ path: 'test-results/departure.png', fullPage: true });
 
   // Back on home the card is still reversed; its all-day timetable is the return leg.
-  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.getByRole('button', { name: /Reverse/ })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: /All day/ }).click();
   const rows = page.locator('table.timetable tbody tr');
@@ -151,7 +151,7 @@ test('ticket guide: labeled drawings of paper and app tickets, never a usable ti
   await expect(guide.locator('image, img')).toHaveCount(0);
 
   // From a New Jersey stop the guide starts closed.
-  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
   await page.getByRole('button', { name: /Reverse/ }).click();
   await page.getByRole('article').locator('.dep').first().click();
   await expect(page.locator('details.ticket-guide')).not.toHaveAttribute('open', '');
@@ -304,7 +304,7 @@ test.describe('printed timetable data (route 165)', () => {
     await expect(page.locator('.stop-list li[data-role="alight"] .stop-time')).toHaveText('1:57 AM');
     await expect(page.getByRole('note').filter({ hasText: 'Clocks go' })).toHaveCount(0);
     // ...but boarding the same bus after the change (River Edge to Oradell, 1:03 AM) does get the note.
-    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
     await saveCommute(page, 'river edge', /^River Edge .*\(to Westwood\)$/, /^Oradell - Kinderkamack Rd\. at New Milford Ave\./);
     await page.getByRole('button', { name: 'Save to my commutes' }).click();
     // In real time the 1:14 AM bus (old clock) leaves before the 1:03 AM bus (new clock), so 1:14 is listed first.
@@ -315,7 +315,7 @@ test.describe('printed timetable data (route 165)', () => {
     await expect(page.locator('.trip-ticket .big-time').first()).toContainText('1:03 AM');
     await expect(page.getByRole('note').filter({ hasText: 'Clocks go back an hour at 2 AM during this trip' })).toBeVisible();
     // The all-day timetable for that day explains the order too; the next day has no note.
-    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.getByRole('article').nth(2).getByRole('button', { name: /All day/ }).click();
     await expect(page.locator('table.timetable .link-cell').first()).toBeVisible();
     const listed = await page.locator('table.timetable .link-cell').allTextContents();
@@ -335,7 +335,7 @@ test.describe('printed timetable data (route 165)', () => {
     expect(await page.locator('table.timetable .link-cell').allTextContents()).toContain('3:03 AM');
     await expect(page.getByRole('note').filter({ hasText: 'Clocks go ahead an hour at 2 AM on this day' })).toBeVisible();
     // Same day, Weehawken to West New York: no bus runs through 2 AM there, every time reads as printed, no note.
-    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
     await saveCommute(page, '47/48th', /^Weehawken - Blvd\. East at 47\/48th St\. \(to Westwood\)$/, /^West New York .*\(to Westwood\)$/);
     await page.getByRole('button', { name: 'Save to my commutes' }).click();
     await page.getByRole('article').nth(1).getByRole('button', { name: /All day/ }).click();
@@ -425,9 +425,9 @@ test.describe('Get me home (issue #32)', () => {
     await page.locator('.dep').first().click();
     await page.getByRole('button', { name: 'Other buses there' }).click(); // heading into New York
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Other buses there');
-    await page.getByRole('button', { name: 'Back' }).click(); // back to the trip it came from
+    await page.getByRole('button', { name: 'Back', exact: true }).click(); // back to the trip it came from
     await expect(page.locator('.trip-ticket')).toBeVisible();
-    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.getByRole('button', { name: /Reverse/ }).click();
     await page.locator('.dep').first().click();
     await page.getByRole('button', { name: 'Get me the fuck home' }).click();
@@ -451,11 +451,11 @@ test('Back returns to the screen the rider came from, and home starts over', asy
   await page.getByRole('button', { name: 'Settings' }).click(); // a second tap does not stack a copy
   await page.getByRole('button', { name: 'First time riding? How it works' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your first ride');
-  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Settings');
-  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Save your stop once');
-  await expect(page.getByRole('button', { name: 'Back' })).toHaveCount(0); // home has no Back
+  await expect(page.getByRole('button', { name: 'Back', exact: true })).toHaveCount(0); // home has no Back
 });
 
 test.describe('history (issue #48)', () => {
@@ -471,9 +471,9 @@ test.describe('history (issue #48)', () => {
       await page.getByRole('button', { name: 'Get me the fuck home' }).click();
       await page.locator('.rescue-list li').first().click();
     }
-    for (let i = 0; i < 30 && (await page.getByRole('button', { name: 'Back' }).count()); i++) await page.getByRole('button', { name: 'Back' }).click();
+    for (let i = 0; i < 30 && (await page.getByRole('button', { name: 'Back', exact: true }).count()); i++) await page.getByRole('button', { name: 'Back', exact: true }).click();
     await expect(page.getByRole('button', { name: /Reverse/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Back' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Back', exact: true })).toHaveCount(0);
   });
 
   test('the timetable keeps its chosen day when the rider comes back from a trip', async ({ page }) => {
@@ -483,7 +483,7 @@ test.describe('history (issue #48)', () => {
     await page.getByRole('button', { name: /All day/ }).click();
     await page.getByRole('tab', { name: 'Tomorrow' }).click();
     await page.locator('table.timetable .link-cell').first().click();
-    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
     await expect(page.getByRole('tab', { name: 'Tomorrow' })).toHaveAttribute('aria-selected', 'true');
   });
 
@@ -623,5 +623,59 @@ test.describe('leave-by countdown (issue #54)', () => {
     await page.getByRole('article').getByRole('button', { name: 'Tiempo a pie' }).click();
     await page.getByRole('button', { name: 'Quitar' }).click();
     await expect(page.getByRole('article').locator('.leave-by')).toHaveCount(0);
+  });
+});
+test.describe('saved backup plans (issue #62)', () => {
+  test.use({ serviceWorkers: 'block' });
+  test('the rider keeps their own plans on the rescue screen, labeled as their notes', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T18:00');
+    await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.getByRole('button', { name: /Reverse/ }).click();
+    await page.locator('.dep').first().click();
+    await page.getByRole('button', { name: 'Get me the fuck home' }).click();
+    const box = page.locator('.backups');
+    await expect(box.getByRole('heading', { name: 'Your backup plans' })).toBeVisible();
+    await expect(box).toContainText('Your own notes, not Dale schedule data');
+
+    await box.getByRole('button', { name: 'Add a backup plan' }).click();
+    await expect(box.getByLabel('Plan', { exact: true })).toBeFocused();
+    await box.getByRole('button', { name: 'Save' }).click();
+    await expect(box.getByRole('alert')).toHaveText('Write the plan first.');
+    await box.getByLabel('Plan', { exact: true }).fill('  Take the 167 to Hackensack  ');
+    await box.getByLabel('Drop-off or pickup place (optional)').fill('Hackensack Bus Terminal');
+    await box.getByLabel('Notes (optional)').fill('Text Diego first.\nWait inside.');
+    await box.getByRole('button', { name: 'Save' }).click();
+    await expect(box.locator('.backup-plan')).toHaveText('Take the 167 to Hackensack');
+    await expect(box).toContainText('Drop-off or pickup: Hackensack Bus Terminal');
+    await expect(box.getByRole('button', { name: 'Add a backup plan' })).toBeFocused();
+    expect((await new AxeBuilder({ page }).include('.backups').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations).toEqual([]);
+    // Not in the schedule list: Dale never ranks or checks it.
+    await expect(page.locator('.rescue-list')).not.toContainText('167');
+
+    // Kept on this phone across a reload, and edited in place.
+    await page.reload();
+    await page.getByRole('button', { name: /Reverse/ }).click();
+    await page.locator('.dep').first().click();
+    await page.getByRole('button', { name: 'Get me the fuck home' }).click();
+    await expect(box.locator('.backup-plan')).toHaveText('Take the 167 to Hackensack');
+    await box.getByRole('button', { name: 'Edit' }).click();
+    await box.getByLabel('Plan', { exact: true }).fill('Take the 167 to Hackensack, Diego picks me up');
+    await box.getByRole('button', { name: 'Save' }).click();
+    await expect(box.locator('.backup-plan')).toHaveText('Take the 167 to Hackensack, Diego picks me up');
+    await expect(box.getByRole('button', { name: 'Edit' })).toBeFocused();
+    await expect(box.locator('.backup-note')).toHaveText('Text Diego first.\nWait inside.');
+
+    // Removing asks first.
+    await box.getByRole('button', { name: 'Remove' }).click();
+    await expect(box.getByRole('button', { name: 'Yes, remove' })).toBeFocused();
+    await box.getByRole('button', { name: 'Keep it' }).click();
+    await expect(box.locator('.backup')).toHaveCount(1);
+    await expect(box.getByRole('button', { name: 'Remove' })).toBeFocused();
+    await box.getByRole('button', { name: 'Remove' }).click();
+    await box.getByRole('button', { name: 'Yes, remove' }).click();
+    await expect(box.locator('.backup')).toHaveCount(0);
+    await expect(box.getByRole('button', { name: 'Add a backup plan' })).toBeFocused();
+    await expect(box).toContainText('Write down what you would do if the bus never comes');
   });
 });

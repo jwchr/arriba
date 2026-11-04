@@ -65,7 +65,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await audit(page, 'demo home');
     await page.locator('.dep').first().click();
     await audit(page, 'demo trip with usual gate');
-    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.getByRole('button', { name: 'Edit' }).click();
     await audit(page, 'edit mode');
 
