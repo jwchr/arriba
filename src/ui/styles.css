@@ -54,8 +54,9 @@ p { margin: 6px 0; }
 
 .app { max-width: 560px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; padding: 0 16px env(safe-area-inset-bottom); }
 main { flex: 1; padding-bottom: 24px; }
-.top { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; margin: 8px -4px 8px; position: sticky; top: 8px; z-index: 2;
-  background: var(--glass-strong); border: 1px solid var(--glass-border); border-radius: 18px; box-shadow: var(--glass-shadow); }
+/* Flush with the top edge, so nothing scrolls into view above it. */
+.top { display: flex; justify-content: space-between; align-items: center; padding: calc(8px + env(safe-area-inset-top)) 16px 8px; margin: 0 -16px 8px; position: sticky; top: 0; z-index: 2;
+  background: var(--glass-strong); border-bottom: 1px solid var(--glass-edge); border-radius: 0 0 18px 18px; box-shadow: var(--glass-shadow); }
 .wordmark { font-weight: 900; letter-spacing: 0.08em; font-size: 1.35rem; color: var(--brand-text); }
 .wordmark .bang { color: var(--accent); -webkit-text-stroke: 1px var(--brand); }
 .icon-btn { border: none; background: transparent; font-size: 1.5rem; min-width: 44px; padding: 4px 8px; }
