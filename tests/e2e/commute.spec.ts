@@ -580,7 +580,7 @@ test.describe('leave-by countdown (issue #54)', () => {
     await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
     await page.getByRole('button', { name: 'Save to my commutes' }).click();
     const card = page.getByRole('article');
-    await card.getByRole('button', { name: 'Set walking time for a leave-by countdown' }).click();
+    await card.getByRole('button', { name: '⏱ Leave by' }).click();
     await expect(card.getByRole('heading', { name: 'Leave-by countdown' })).toBeFocused();
     await card.getByLabel('Minutes to walk to the stop').fill('75');
     await card.getByRole('button', { name: 'Save' }).click();
@@ -677,5 +677,22 @@ test.describe('saved backup plans (issue #62)', () => {
     await expect(box.locator('.backup')).toHaveCount(0);
     await expect(box.getByRole('button', { name: 'Add a backup plan' })).toBeFocused();
     await expect(box).toContainText('Write down what you would do if the bus never comes');
+  });
+});
+test.describe('home card actions and version (owner request 2026-11-04)', () => {
+  test.use({ serviceWorkers: 'block' });
+  test('the commute card opens Get me home directly, and the footer and Settings show the version and build time', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T18:00');
+    await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    const card = page.getByRole('article');
+    await expect(card).toContainText('Tap a bus to lock onto it, ride, check it or share');
+    await card.getByRole('button', { name: /Reverse/ }).click();
+    await card.getByRole('button', { name: 'Get me the fuck home' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Get me the fuck home');
+    await expect(page.locator('.rescue-list li').first()).toBeVisible();
+    await expect(page.locator('.version-line')).toHaveText(/^Dale \d+\.\d+\.\d+ \([0-9a-z]+\) · updated \d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d\d [AP]M$/);
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByRole('heading', { name: 'About this version' })).toBeVisible();
   });
 });

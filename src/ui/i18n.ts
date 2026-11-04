@@ -13,6 +13,8 @@ const en = {
   appTagline: 'When you ride NJ Transit, you need all the help you can get.',
   demoBanner: 'Demo data: invented stops, times and gates. Do not use it to catch a real bus.',
   notAffiliated: 'Independent app. Not affiliated with or endorsed by NJ Transit.',
+  version: (v: string, commit: string, when: string) => `Dale ${v} (${commit}) · updated ${when}`,
+  about: 'About this version',
   // NJ Transit developer data terms: say the data was obtained from NJ Transit and is redistributed
   // from Dale's own server, and that it may not be real time. Shown with every dataset that is not the demo.
   dataObtained: "Schedule data obtained from NJ Transit and redistributed from Dale's own server, not an NJ Transit server.",
@@ -70,6 +72,7 @@ const en = {
   commuteNewYork: 'New York',
   commutePabt: 'Port Authority',
   allDay: 'All day',
+  tapHint: 'Tap a bus to lock onto it, ride, check it or share',
   inMin: (n: number) => (n <= 0 ? 'now' : n === 1 ? 'in 1 min' : `in ${n} min`),
   arrives: 'arrives',
   arrivesLabel: 'Arrives',
@@ -264,7 +267,7 @@ const en = {
     ended: 'Tracking ended',
   },
   leave: {
-    set: 'Set walking time for a leave-by countdown',
+    set: 'Leave by',
     edit: 'Walking time',
     formTitle: 'Leave-by countdown',
     walk: 'Minutes to walk to the stop',
@@ -539,6 +542,8 @@ const es: Strings = {
   appTagline: 'Cuando viajas en NJ Transit, necesitas toda la ayuda posible.',
   demoBanner: 'Datos de demostración: paradas, horarios y puertas inventados. No los uses para tomar un autobús real.',
   notAffiliated: 'App independiente. No está afiliada ni respaldada por NJ Transit.',
+  version: (v: string, commit: string, when: string) => `Dale ${v} (${commit}) · actualizada el ${when}`,
+  about: 'Sobre esta versión',
   dataObtained: 'Datos de horarios obtenidos de NJ Transit y redistribuidos desde el servidor propio de Dale, no desde un servidor de NJ Transit.',
   notRealTime: 'Es posible que esta información no sea en tiempo real.',
   transcribedBanner: (issued: string) =>
@@ -594,6 +599,7 @@ const es: Strings = {
   commuteNewYork: 'Nueva York',
   commutePabt: 'Port Authority',
   allDay: 'Todo el día',
+  tapHint: 'Toca un autobús para seguirlo, viajar, revisarlo o compartir',
   inMin: (n: number) => (n <= 0 ? 'ahora' : n === 1 ? 'en 1 min' : `en ${n} min`),
   arrives: 'llega',
   arrivesLabel: 'Llega',
@@ -787,7 +793,7 @@ const es: Strings = {
     ended: 'Seguimiento terminado',
   },
   leave: {
-    set: 'Poner tiempo a pie para una cuenta regresiva',
+    set: 'Hora de salir',
     edit: 'Tiempo a pie',
     formTitle: 'Cuenta regresiva para salir',
     walk: 'Minutos a pie hasta la parada',
