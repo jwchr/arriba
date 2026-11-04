@@ -495,7 +495,8 @@ function DepartureDetail({ ctx, dep, leg, busSession, anotherLock, lockNow, keep
 }) {
   const { ds, t, stopName } = ctx;
   const times = tripStopTimes(ds, dep);
-  const alightIndex = dep.pattern.stopIds.indexOf(leg.toStopId);
+  // Search after the boarding stop: on a loop pattern the destination can also appear earlier.
+  const alightIndex = dep.pattern.stopIds.indexOf(leg.toStopId, dep.stopIndex + 1);
   const boardStop = ds.stops.find((s) => s.id === dep.pattern.stopIds[dep.stopIndex]);
   const alightStop = alightIndex > dep.stopIndex ? ds.stops.find((s) => s.id === dep.pattern.stopIds[alightIndex]) : undefined;
   // The printed Park/Ride note is about Parkway express (P, FP) trips only; other trips stop there as usual.
