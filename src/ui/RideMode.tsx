@@ -2,6 +2,7 @@
 // honestly count stops (every stop listed, fresh unambiguous bus GPS); otherwise a plain statement of
 // what it cannot know, with scheduled times labeled as timetable. Foreground only: no background alerts.
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { BusSession, BusSessionEvent } from '../domain/busLock';
 import { distanceM } from '../domain/direction';
 import { rideGuide, STAGE_RANK, type RideStage } from '../domain/rideGuide';
@@ -49,19 +50,30 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
     return next;
   });
   const canVibrate = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+  const hasDestination = alightIndex > dep.stopIndex;
   const [full, setFullState] = useState(() => fullBySession.get(session.id) ?? true);
   const setFull = (v: boolean) => { fullBySession.set(session.id, v); setFullState(v); };
   // Keep the screen on during the ride only if the rider asks, and only while ride mode is showing.
-  const wake = useScreenWakeLock(prefs.awake);
+  const wake = useScreenWakeLock(prefs.awake && hasDestination);
+  // Full screen steps aside while the rider must decide about a changed vehicle (the buttons are below).
+  const showFull = full && hasDestination && session.lock.status !== 'needs_confirmation';
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { if (full) heading.current?.focus(); }, [full]);
+  useEffect(() => { if (showFull) heading.current?.focus(); }, [showFull]);
+  // While full screen, the rest of the app is unreachable (inert) and does not scroll underneath.
   useEffect(() => {
-    if (!full) return;
+    if (!showFull) return;
+    const root = document.getElementById('root');
+    root?.setAttribute('inert', '');
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { root?.removeAttribute('inert'); document.body.style.overflow = overflow; };
+  }, [showFull]);
+  useEffect(() => {
+    if (!showFull) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFull(false); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [full]); // eslint-disable-line react-hooks/exhaustive-deps
-  const hasDestination = alightIndex > dep.stopIndex;
+  }, [showFull]); // eslint-disable-line react-hooks/exhaustive-deps
   const guide = hasDestination ? rideGuide(ds, dep.pattern.stopIds, dep.stopIndex, alightIndex, session.lock, now, session.history) : undefined;
   const times = tripStopTimes(ds, dep);
   const dest = hasDestination ? stopName(dep.pattern.stopIds[alightIndex]!) : '';
@@ -107,12 +119,17 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
     onEvent({ type: 'observation', obs: { tripInstanceId: dep.tripInstanceId, vehicleId: session.lock.vehicleId ?? 'DEMO-BUS', observedAt: later, lat: stop.lat, lon: stop.lon }, source: 'demo', receivedAt: later });
   }
 
-  return (
-    <div className={full ? 'ride-mode ride-full' : 'ride-mode'} data-large={prefs.large ? 'true' : undefined} data-stage={stage ?? guide.basis}
-      {...(full ? { role: 'dialog', 'aria-modal': true, 'aria-labelledby': `ride-title-${session.id}` } : {})}>
+  const issued = ds.meta.transcribed?.issued;
+  const view = (
+    <div className={showFull ? 'ride-mode ride-full' : 'ride-mode'} data-large={prefs.large ? 'true' : undefined} data-stage={stage ?? guide.basis}
+      {...(showFull ? { role: 'dialog', 'aria-modal': true, 'aria-labelledby': `ride-title-${session.id}` } : {})}>
+      {/* The page's DEMO and printed-timetable banners are covered in full screen, so they repeat here. */}
+      {showFull && ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner}</div>}
+      {showFull && issued && <div className="data-banner" role="note">{t.transcribedBanner(lang === 'es'
+        ? `${+issued.slice(6, 8)}/${+issued.slice(4, 6)}/${issued.slice(0, 4)}` : `${+issued.slice(4, 6)}/${+issued.slice(6, 8)}/${issued.slice(0, 4)}`)}</div>}
       <div className="row-between ride-top">
         <h3 id={`ride-title-${session.id}`} tabIndex={-1} ref={heading}>{r.title(dest)}</h3>
-        <button className="ghost" onClick={() => setFull(!full)}>{full ? r.exitFull : r.fullScreen}</button>
+        <button className="ghost" onClick={() => setFull(!showFull)}>{showFull ? r.exitFull : r.fullScreen}</button>
       </div>
       <p className="ride-message" aria-live={stage && URGENT.includes(stage) ? 'assertive' : 'polite'}>{message}</p>
       {guide.basis === 'gps' && <p className="small">{session.history.at(-1)?.source === 'demo' ? r.demoGps : r.fromGps(clock(guide.observedAt), Math.max(0, Math.floor((now - guide.observedAt) / 1000)))}</p>}
@@ -140,4 +157,6 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
       <button className="primary wide ride-off" onClick={() => onEvent({ type: 'end', now })}>{r.gotOff}</button>
     </div>
   );
+  // Outside the app root, so the root can be inert without taking the dialog with it.
+  return showFull ? createPortal(view, document.body) : view;
 }

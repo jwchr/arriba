@@ -149,7 +149,7 @@ test('ride mode counts down 3, 2, 1 stops from fresh demo GPS and says when it c
   await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
   await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
   await page.getByRole('button', { name: 'I boarded', exact: true }).click();
-  const ride = panel.locator('.ride-mode');
+  const ride = page.locator('.ride-mode');
   await expect(page.getByRole('dialog', { name: 'Riding to Port Authority Bus Terminal' })).toBeVisible(); // full screen on boarding
   await expect(ride.getByRole('heading', { level: 3 })).toHaveText('Riding to Port Authority Bus Terminal');
   await expect(ride.locator('.ride-message')).toHaveText(/No GPS from this bus yet, so Dale can’t count stops/);
@@ -275,4 +275,39 @@ test('a lock survives a reload: offered back, never resumed silently, original t
   await page.locator('.lock-return[role="note"]').getByRole('button', { name: 'Forget it' }).click();
   await page.reload();
   await expect(page.locator('.lock-return[role="note"]')).toHaveCount(0);
+});
+
+test('full screen keeps the DEMO banner, makes the app behind it inert, and steps aside for a vehicle decision', async ({ page }) => {
+  await selectDemoTrip(page);
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByText('Try Bus Lock · invented demo only', { exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate GPS observations' }).click();
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: /Riding to/ });
+  await expect(dialog.locator('.demo-banner')).toContainText('Demo data');
+  await expect(page.locator('#root')).toHaveAttribute('inert', '');
+  // A different vehicle reports on this trip: the decision buttons must be reachable.
+  await dialog.getByRole('button', { name: 'Exit full screen' }).click();
+  await expect(page.locator('#root')).not.toHaveAttribute('inert', '');
+  await page.getByRole('button', { name: 'Simulate vehicle replacement' }).click();
+  await page.locator('.ride-mode').getByRole('button', { name: 'Full screen' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0); // stays aside while the decision is pending
+  await page.getByRole('button', { name: 'Accept this replacement vehicle' }).click();
+  await expect(dialog).toBeVisible(); // back once decided
+});
+
+test('full screen on the printed timetable keeps its "typed in" banner', async ({ page }) => {
+  await page.goto('/?now=2026-11-04T07:50');
+  await page.getByRole('button', { name: 'Find a stop' }).first().click();
+  await page.getByRole('searchbox').fill('irvington');
+  await page.getByRole('button', { name: /Irvington St\. \(to New York\)/ }).click();
+  await page.getByRole('button', { name: /Port Authority Bus Terminal/ }).click();
+  await page.getByRole('button', { name: 'Save to my commutes' }).click();
+  await page.locator('.dep').first().click();
+  await page.getByRole('button', { name: 'Lock onto this bus' }).click();
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+  await expect(page.getByRole('dialog').locator('.data-banner')).toContainText("printed timetable issued 7/1/2026");
 });
