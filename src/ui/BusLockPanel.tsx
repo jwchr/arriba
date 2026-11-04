@@ -48,6 +48,8 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
     heading.current?.focus({ preventScroll: true });
     heading.current?.scrollIntoView({ block: 'start' });
   }, [session.id]);
+  // After "I got off" or leaving the stop, the ride view is gone: put focus back on Bus Lock.
+  useEffect(() => { if (session.phase === 'ended' || session.phase === 'left') heading.current?.focus({ preventScroll: true }); }, [session.phase]);
 
   function record(type: 'start_waiting' | 'no_bus' | 'arrived' | 'boarded' | 'left' | 'passed_without_stopping' | 'end') {
     onEvent({ type, now });
@@ -122,6 +124,7 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
         </div>}
         <p className="muted small">{b.noBusMeaning}</p>
         <p className="lock-local small" role="note">{b.localOnly}</p>
+        {!ds.meta.demo && <p className="muted small">{b.keptOnPhone}</p>}
       </div>
 
       {lock.status === 'needs_confirmation' && lock.pending && <div className="warn">

@@ -25,8 +25,9 @@ test('first run: wrong-side guard, save, zero-tap home on return', async ({ page
   await page.getByRole('button', { name: 'Save to my commutes' }).click();
 
   const card = page.getByRole('article');
-  await expect(card.locator('.commute-sign h2')).toHaveText('Maple Ave & Main St');
-  await expect(card.locator('.commute-direction')).toHaveText('→ To New York · Port Authority');
+  await expect(card.locator('[data-end="from"] .highway-name')).toHaveText('Maple Ave & Main St');
+  await expect(card.locator('[data-end="to"] .highway-name')).toHaveText('New York');
+  await expect(card.locator('[data-end="to"] .commute-stop')).toHaveText('Port Authority');
   await expect(card.locator('.dep-time')).toHaveText(['8:06 AM', '8:06 AM', '8:26 AM']);
   await expect(card.locator('.route-badge')).toHaveText(['165', '165T', '165T']);
   await expect(card.locator('.dep-sub').first()).toHaveText('arrives 8:55 AM');
@@ -46,8 +47,8 @@ test('reverse, gate card, exact-bus lock, all-day timetable, Spanish', async ({ 
   // One tap reverses the commute; the return leg ends at the home stop's twin across the street.
   await page.getByRole('button', { name: /Reverse/ }).click();
   const card = page.getByRole('article');
-  await expect(card.locator('.commute-sign h2')).toHaveText('Port Authority');
-  await expect(card.locator('.commute-direction')).toHaveText('→ To Maple Ave & Main St');
+  await expect(card.locator('[data-end="from"] .highway-name')).toHaveText('New York');
+  await expect(card.locator('[data-end="to"] .highway-name')).toHaveText('Maple Ave & Main St');
   await expect(card).toHaveAccessibleName('Port Authority Bus Terminal → Maple Ave & Main St (to Demo Terminal)');
   await expect(card.locator('.dep-gate').first()).toHaveText('Usually gate 212, door 2'); // same answer as the trip screen
   await card.locator('.dep').first().click();
@@ -103,8 +104,8 @@ test('favorites keep the rider order', async ({ page }) => {
   const renamed = page.getByRole('article').first();
   await renamed.getByRole('button', { name: /Reverse/ }).click();
   await expect(renamed.locator('h2')).toHaveText('Mañana · mi viaje (to New York)');
-  await expect(renamed.locator('.commute-origin')).toHaveText('From Port Authority');
-  await expect(renamed.locator('.commute-direction')).toHaveText('→ To Oak St & River Rd');
+  await expect(renamed.locator('[data-end="from"] .highway-name')).toHaveText('New York');
+  await expect(renamed.locator('[data-end="to"] .highway-name')).toHaveText('Oak St & River Rd');
 });
 
 test('first-ride guide from home and Settings, in English and Spanish', async ({ page }) => {
@@ -239,10 +240,13 @@ test.describe('printed timetable data (route 165)', () => {
     const card = page.getByRole('article');
     await expect(card.locator('.dep-time')).toHaveCount(3);
     // The selected destination is Hackensack even though this stop's suffix says "to New York".
-    await expect(card.locator('.commute-direction')).toHaveText('→ To Hackensack (Sears) - Main St. at Anderson St.');
+    await expect(card.locator('[data-end="to"] .highway-name')).toHaveText('Hackensack');
+    await expect(card.locator('[data-end="to"] .commute-stop')).toHaveText('(Sears) · Main St. at Anderson St.');
     await page.getByRole('button', { name: /Reverse/ }).click();
-    await expect(card.locator('.commute-sign h2')).toHaveText('Hackensack (Sears) - Main St. at Anderson St.');
-    await expect(card.locator('.commute-direction')).toHaveText('→ To Westwood - Broadway at Irvington St.');
+    await expect(card.locator('[data-end="from"] .highway-name')).toHaveText('Hackensack');
+    await expect(card.locator('[data-end="from"] .commute-stop')).toHaveText('(Sears) · Main St. at Anderson St.');
+    await expect(card.locator('[data-end="to"] .highway-name')).toHaveText('Westwood');
+    await expect(card.locator('[data-end="to"] .commute-stop')).toHaveText('Broadway at Irvington St.');
     await expect(card.locator('.dep-time')).toHaveCount(3);
   });
 
@@ -258,16 +262,20 @@ test.describe('printed timetable data (route 165)', () => {
       row: Math.max(...[...document.querySelectorAll('.dep')].flatMap((b) => [...b.querySelectorAll('*')].map((e) => e.getBoundingClientRect().right - b.getBoundingClientRect().right))),
     }));
     await expect(page.locator('.dep-gate')).toHaveCount(3);
-    await expect(page.locator('.commute-sign h2')).toHaveText('Port Authority');
-    await expect(page.locator('.commute-direction')).toHaveText('→ To Westwood - Broadway at Irvington St.');
+    await expect(page.locator('[data-end="from"] .highway-name')).toHaveText('New York');
+    await expect(page.locator('[data-end="from"] .commute-stop')).toHaveText('Port Authority');
+    await expect(page.locator('[data-end="to"] .highway-name')).toHaveText('Westwood');
+    await expect(page.locator('[data-end="to"] .commute-stop')).toHaveText('Broadway at Irvington St.');
     expect(await overflow()).toEqual(expect.objectContaining({ page: 0 }));
     expect((await overflow()).row).toBeLessThanOrEqual(0);
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByRole('button', { name: 'Español' }).click();
     await page.getByRole('button', { name: 'Atrás' }).click();
     await expect(page.locator('.dep-gate').first()).toContainText('regla impresa');
-    await expect(page.locator('.commute-direction')).toHaveText('→ A Westwood - Broadway at Irvington St.');
-    await expect(page.locator('.commute-sign-label')).toHaveText('Desde');
+    await expect(page.locator('[data-end="from"] .highway-name')).toHaveText('Nueva York');
+    await expect(page.locator('[data-end="from"] .highway-label')).toHaveText('Desde');
+    await expect(page.locator('[data-end="to"] .highway-name')).toHaveText('Westwood');
+    await expect(page.locator('[data-end="to"] .highway-label')).toHaveText('A');
     expect(await overflow()).toEqual(expect.objectContaining({ page: 0 }));
     expect((await overflow()).row).toBeLessThanOrEqual(0);
   });
@@ -361,8 +369,9 @@ test.describe('printed timetable data (route 165)', () => {
 
     // Return trip: board at Port Authority, get off at the same corner's twin on the Westwood-bound side.
     await page.getByRole('button', { name: /Reverse/ }).click();
-    await expect(card.locator('.commute-sign h2')).toHaveText('Port Authority');
-    await expect(card.locator('.commute-direction')).toHaveText('→ To Westwood - Broadway at Irvington St.');
+    await expect(card.locator('[data-end="from"] .highway-name')).toHaveText('New York');
+    await expect(card.locator('[data-end="to"] .highway-name')).toHaveText('Westwood');
+    await expect(card.locator('[data-end="to"] .commute-stop')).toHaveText('Broadway at Irvington St.');
     // Leaving Port Authority, each row names the gate and says it is the printed rule, not a posted gate.
     await expect(card.locator('.dep-gate')).toHaveCount(3);
     await expect(card.locator('.dep-gate').first()).toHaveText(/^Gate (212|311|312|310)(, door \d+)? · printed rule$/);
@@ -511,3 +520,44 @@ test.describe('last-bus reminder (issue #58)', () => {
     expect(ics.replace(/\r\n /g, '')).toContain('SUMMARY:Last listed 165 home');
   });
 });
+test.describe('boarding check (issue #55)', () => {
+  test.use({ serviceWorkers: 'block' });
+  test('confirms the scheduled trip serves your stop and shows the driver a bilingual card', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T18:00');
+    await saveCommute(page, 'irvington', /Irvington St\. \(to New York\)/, /Port Authority Bus Terminal/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.getByRole('button', { name: /Reverse/ }).click();
+    await page.locator('.dep').first().click();
+    await page.getByRole('button', { name: 'Boarding check' }).click();
+    const check = page.locator('.boarding-check');
+    await expect(check.getByRole('status')).toContainText('This scheduled trip stops at Westwood - Broadway at Irvington St. (to Westwood)');
+    await expect(check).toContainText(/Gate \d+.*printed rule/);
+    await expect(check).toContainText('not the bus in front of you');
+    const { violations } = await new AxeBuilder({ page }).include('.boarding-check').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    expect(violations.map((v) => v.id)).toEqual([]);
+    await check.getByRole('button', { name: 'Show the driver' }).click();
+    const card = page.locator('.driver-card');
+    await expect(card.locator('[lang="en"]')).toHaveText('Does this bus stop at Westwood - Broadway at Irvington St.?');
+    await expect(card.locator('[lang="es"]')).toHaveText('¿Este autobús para en Westwood - Broadway at Irvington St.?');
+    await expect(card.locator('[lang="en"]')).toBeFocused();
+    await card.getByRole('button', { name: 'Done' }).click();
+    await expect(check).toBeVisible();
+    await expect(check.getByRole('button', { name: 'Show the driver' })).toBeFocused();
+  });
+});
+
+test.describe('boarding check on a request-only stop', () => {
+  test.use({ serviceWorkers: 'block' });
+  test('a PM Parkway express to the Exit 165 Park/Ride says it stops only if you ask', async ({ page }) => {
+    await page.goto('/?now=2026-11-04T17:10');
+    await saveCommute(page, 'port authority', /^New York - Port Authority Bus Terminal$/, /^Paramus - GSP Exit 165 Park\/Ride Lot/);
+    await page.getByRole('button', { name: 'Save to my commutes' }).click();
+    await page.getByRole('button', { name: /All day/ }).click();
+    await page.locator('table.timetable tr').filter({ hasText: '5:15 PM' }).locator('.link-cell').click();
+    await page.getByRole('button', { name: 'Boarding check' }).click();
+    const check = page.locator('.boarding-check');
+    await expect(check.getByRole('status')).toContainText('stops there only if you ask the driver when you board');
+    await expect(check.getByRole('note').filter({ hasText: 'Exit 165 Park/Ride lot' })).toBeVisible();
+  });
+});
+

@@ -73,11 +73,14 @@ main { flex: 1; padding-bottom: 24px; }
 .fav h2 { margin: 0; font-size: 1.05rem; }
 .commute-header { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 8px; min-width: 0; }
 .commute-sign { padding: 13px 14px; background: #090e15; border: 1px solid #34445b; border-radius: 9px; box-shadow: inset 0 2px 8px #0009, 0 1px 0 #ffffff12; min-width: 0; }
-.commute-sign-label { margin: 0 0 6px; color: #bac7d6; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 .fav .commute-led { color: #ffc45a; font-family: 'Arial Narrow', 'Roboto Condensed', ui-monospace, monospace; font-size: 1.2rem; font-weight: 900; line-height: 1.4; letter-spacing: 0.035em; text-transform: uppercase; overflow-wrap: anywhere; }
+.commute-places { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; min-width: 0; }
+.commute-place { flex: 1 1 10rem; min-width: 0; }
+.highway-sign { padding: 9px 12px 11px; background: #006b47; color: #fff; border: 2px solid #fff; border-radius: 10px; box-shadow: 0 2px 3px #0003; }
+.highway-label { display: block; margin-bottom: 4px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.highway-name { display: block; font-family: 'Arial Narrow', 'Roboto Condensed', 'Liberation Sans Narrow', sans-serif; font-stretch: condensed; font-size: 1.1rem; font-weight: 700; line-height: 1.15; letter-spacing: 0.025em; text-transform: uppercase; overflow-wrap: anywhere; }
+.commute-stop { margin: 7px 0 0; padding: 8px 9px; border: 1px solid #34445b; border-radius: 6px; background: #090e15; color: #ffc45a; font-family: ui-monospace, monospace; font-size: 0.85rem; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
 .commute-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
-.commute-direction { flex: 1 1 10rem; min-width: 0; margin: 0; color: var(--brand-text); font-size: 0.85rem; font-weight: 700; line-height: 1.4; text-transform: uppercase; overflow-wrap: anywhere; }
-.commute-origin { margin: 0; overflow-wrap: anywhere; }
 .commute-reverse { margin-left: auto; flex-shrink: 0; }
 .commute-edit, .commute-edit .rename, .commute-edit input { min-width: 0; max-width: 100%; }
 /* Real, selectable text with a fine LED texture; solid amber is the baseline fallback. */
@@ -85,8 +88,8 @@ main { flex: 1; padding-bottom: 24px; }
   .commute-led { background-image: radial-gradient(circle at center, #ffd078 0 0.85px, #ffb941 0.9px 1.15px, #996015 1.25px); background-size: 3px 3px; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 }
 @media (forced-colors: active) {
-  .commute-sign { background: Canvas; border-color: CanvasText; box-shadow: none; }
-  .fav .commute-led, .commute-sign-label { color: CanvasText; background: none; -webkit-text-fill-color: currentColor; }
+  .commute-sign, .highway-sign, .commute-stop { background: Canvas; color: CanvasText; border-color: CanvasText; box-shadow: none; }
+  .fav .commute-led { color: CanvasText; background: none; -webkit-text-fill-color: currentColor; }
 }
 .leg { color: var(--muted); font-size: 0.9rem; margin: 4px 0 8px; }
 .edit-row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -221,3 +224,15 @@ main { flex: 1; padding-bottom: 24px; }
 .ride-mode[data-stage='one'], .ride-mode[data-stage='arrived'] { border-width: 4px; }
 .ride-controls { flex-wrap: wrap; }
 .near-me { margin: 12px 0; }
+/* Boarding check and driver card (issue #55). */
+.boarding-open { margin: 10px 0; }
+.boarding-ok { font-weight: 700; }
+.driver-card { text-align: center; padding: 24px 8px; }
+.driver-q { font-size: 1.9rem; font-weight: 800; line-height: 1.2; margin: 16px 0; }
+.driver-route { font-size: 1.1rem; color: var(--muted); }
+/* Full-screen ride mode (issue #56): fills the phone after boarding; exit is always visible. */
+.ride-full { position: fixed; inset: 0; z-index: 50; margin: 0; border-radius: 0; overflow-y: auto; background: var(--bg);
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+.ride-top { align-items: flex-start; }
+.ride-off { margin-top: 12px; }
+
