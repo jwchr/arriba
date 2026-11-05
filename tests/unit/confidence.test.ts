@@ -23,6 +23,14 @@ describe('honest estimates and alternatives', () => {
     const arrived = reduceBusSession(waiting, { type: 'arrived', now: dep.departs });
     expect(offerAlternatives(arrived, dep.departs)).toBe(false);
   });
+  it('offers backups on official cancellation or a witnessed pass-up before the due time', () => {
+    const waiting = reduceBusSession(createBusSession(dep, now), { type: 'start_waiting', now });
+    const cancelled = reduceBusSession(waiting, { type: 'official_cancellation', tripInstanceId: dep.tripInstanceId, now });
+    const passed = reduceBusSession(waiting, { type: 'passed_without_stopping', now });
+    expect(offerAlternatives(cancelled, now)).toBe(true);
+    expect(offerAlternatives(passed, now)).toBe(true);
+    expect(gpsLost(cancelled, now)).toBe(false);
+  });
   it('only calls GPS lost after a received fix ages, and recovers when fresh data arrives', () => {
     const selected = createBusSession(dep, now);
     const obs = { tripInstanceId: dep.tripInstanceId, vehicleId: 'demo', lat: 40.8, lon: -74, observedAt: now };

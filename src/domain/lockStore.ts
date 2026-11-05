@@ -52,6 +52,10 @@ function validFor<L>(ds: Dataset, s: SavedLock<L>, now: number): boolean {
   if (!dep || !session || typeof session.id !== 'string' || typeof dep.tripId !== 'string' || !Number.isFinite(dep.departs) || !Number.isFinite(dep.arrivesEnd)) return false;
   // The saved shape must be the one this version understands (bump `v` whenever BusSession changes).
   if (!Array.isArray(session.reports) || !Array.isArray(session.history) || !session.lock || !Number.isFinite(session.lastActionAt)) return false;
+  const optionalTime = (n: unknown) => n === undefined || (typeof n === 'number' && Number.isFinite(n) && n >= 0);
+  if (!optionalTime(session.waitingSince) || !optionalTime(session.lastReceivedAt)
+    || (session.phase === 'waiting' && session.waitingSince === undefined)
+    || !Number.isFinite(session.lock.lockedAt) || (session.lock.vehicleId !== undefined && typeof session.lock.vehicleId !== 'string')) return false;
   // Same trip, same pattern, same boarding stop as the schedule now loaded.
   if (!Array.isArray(dep.pattern?.stopIds) || !dep.pattern.stopIds.every((id) => typeof id === 'string')) return false;
   if (!Number.isInteger(dep.stopIndex) || !/^\d{8}$/.test(dep.serviceDate) || dep.tripInstanceId !== `${dep.tripId}@${dep.serviceDate}`) return false;
@@ -60,9 +64,11 @@ function validFor<L>(ds: Dataset, s: SavedLock<L>, now: number): boolean {
   const position = (p: NonNullable<BusSession['lock']['last']>) => p && typeof p.vehicleId === 'string' && typeof p.tripInstanceId === 'string'
     && Number.isFinite(p.observedAt) && Number.isFinite(p.lat) && Math.abs(p.lat) <= 90 && Number.isFinite(p.lon) && Math.abs(p.lon) <= 180;
   if (session.lock.last && !position(session.lock.last) || session.lock.pending && !position(session.lock.pending)) return false;
-  if (!session.history.every((p) => position(p) && ['demo', 'official'].includes(p.source) && Number.isFinite(p.receivedAt))) return false;
+  const record = (p: NonNullable<BusSession['pendingPosition']>) => position(p) && ['demo', 'official'].includes(p.source) && Number.isFinite(p.receivedAt);
+  if (!session.history.every(record) || (session.pendingPosition !== undefined && !record(session.pendingPosition))) return false;
   if (!session.reports.every((r) => r && ['no_bus', 'arrived', 'boarded', 'left', 'passed_without_stopping', 'capacity'].includes(r.kind)
-    && Number.isFinite(r.reportedAt) && typeof r.stopId === 'string' && r.tripInstanceId === dep.tripInstanceId
+    && Number.isFinite(r.reportedAt) && optionalTime(r.waitingSince) && typeof r.sessionId === 'string'
+    && Number.isInteger(r.stopIndex) && r.stopId === dep.pattern.stopIds[r.stopIndex] && r.tripInstanceId === dep.tripInstanceId
     && (r.kind !== 'capacity' || ['seats', 'standing', 'full'].includes(r.capacity ?? '')))) return false;
   const leg = s.leg as { fromStopId?: unknown; toStopId?: unknown; routeIds?: unknown } | null;
   if (!leg || typeof leg.fromStopId !== 'string' || typeof leg.toStopId !== 'string' || !Array.isArray(leg.routeIds)

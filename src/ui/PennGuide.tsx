@@ -12,7 +12,7 @@ export function PennGuide({ t, demo = false }: { t: Strings; demo?: boolean }) {
   const [focusStep, setFocusStep] = useState(false);
   useEffect(() => { if (!demo) setSaved(saveChecklist(storage, state)); }, [state, storage, demo]);
   useEffect(() => { if (focusStep) { stepHeading.current?.focus(); setFocusStep(false); } }, [focusStep]);
-  const select = (patch: Partial<JourneyChecklist>) => setState((s) => ({ ...s, ...patch, step: 0 }));
+  const select = (patch: Partial<JourneyChecklist>) => setState((s) => Object.entries(patch).every(([key, value]) => s[key as keyof JourneyChecklist] === value) ? s : { ...s, ...patch, step: 0 });
   const station = j.stations[state.station];
   const steps = state.mode === 'train' ? (state.direction === 'outbound' ? j.railOut(station) : j.railReturn(station))
     : state.direction === 'outbound' ? j.busOut : j.busReturn;

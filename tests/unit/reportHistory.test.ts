@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { demoDataset } from '../../src/data/demo';
 import { createBusSession, reduceBusSession, type BusSession, type BusSessionEvent } from '../../src/domain/busLock';
-import { clearHistory, HISTORY_KEY, KEEP_DAYS, loadHistory, pruneHistory, recordSession, summarize } from '../../src/domain/reportHistory';
+import { clearHistory, HISTORY_CLEAR_KEY, HISTORY_KEY, KEEP_DAYS, loadHistory, pruneHistory, recordSession, summarize } from '../../src/domain/reportHistory';
 import { departuresOn } from '../../src/domain/schedule';
 import type { Dataset, Departure } from '../../src/domain/types';
 import { strings } from '../../src/ui/i18n';
@@ -96,4 +96,18 @@ it('does not resurrect cleared reports from an active or resumed ride', () => {
   expect(recordSession(store, ds, resumed, dep.departs + 6 * MIN).map((r) => r.kind)).toEqual(['capacity']);
   expect(session.reports.map((r) => r.kind)).toEqual(['arrived', 'capacity']); // keep current ride evidence
   expect(clearHistory({ ...store, setItem: () => { throw new Error('blocked'); } }, dep.departs + 7 * MIN)).toBe(false);
+});
+
+it('a future demo clock cannot suppress subsequent real reports, and malformed boundaries recover', () => {
+  const store = memory(), dep = sameBus('20261104');
+  const realNow = dep.departs + 4 * MIN;
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(realNow);
+  try {
+    expect(clearHistory(store, realNow + 86_400_000)).toBe(true);
+    expect(Number(store.getItem(HISTORY_CLEAR_KEY))).toBe(realNow);
+    const session = ride(dep, 'after-clear', arrived(5));
+    expect(recordSession(store, ds, session, realNow + 2 * MIN)).toHaveLength(1);
+    store.setItem(HISTORY_CLEAR_KEY, 'damaged');
+    expect(recordSession(store, ds, ride(dep, 'after-damage', arrived(6)), realNow + 3 * MIN)).toHaveLength(2);
+  } finally { clock.mockRestore(); }
 });

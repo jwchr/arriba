@@ -3,7 +3,7 @@
 Updated 2026-11-04 (renamed Dale; repository jwchr/dale, site https://jwchr.github.io/dale/). Bus Lock and last-return work is in issue #30; merge and Pages deployment must be verified separately. Keep this short; replace stale lines rather than appending.
 
 ## Current implementation slice (issue #79, awaiting separate merge/deployment)
-- Local validation: TypeScript, 211 unit tests, production build and 75 Playwright flows pass; phone-width guide preview checked (English/Spanish accessibility covered). CI and independent review belong to the PR head.
+- Local validation: TypeScript, 213 unit tests, production build and 76 Playwright flows pass; phone-width guide preview checked (English/Spanish accessibility covered). CI and independent review belong to the PR head.
 - Penn journey guide: English/Spanish bus and train rehearsal, Anderson/Essex choices, both directions, ticket and missed-connection instructions, manual travel checklist, private saved progress and optional walking minutes. No rail departures or fastest-route claim yet.
 - Lost-GPS warnings and an explicitly estimated schedule-progress bar; alternatives at signal loss or a due/unconfirmed bus, preserving the lock. Links to scoped bus/rail guidance and Uber/Lyft; no booking or location transfer.
 - Reliability repairs: malformed saved locks are forgotten, a persistent history-clear boundary prevents active/resumed reports reappearing, failed basemap resources show fallback, stop-time calculations reuse one time base, and stale GPS milestones no longer prolong live-looking projections.

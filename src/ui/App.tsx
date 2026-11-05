@@ -269,7 +269,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             onUnlock={() => { setActiveLock(undefined); if (!ds.meta.demo) forgetLock(store); setDemoAdvanceMs(0); }} />
         )}
         {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} onGuide={() => setScreen({ name: 'guide' })}
-          historyCount={pastReports.length} onClearHistory={() => { const ok = clearHistory(store, lockNow); if (ok) setPastReports([]); return ok; }} />}
+          historyCount={pastReports.length} onClearHistory={() => { const ok = clearHistory(store, Math.min(lockNow, Date.now())); if (ok) setPastReports([]); return ok; }} />}
         {screen.name === 'guide' && <RiderGuide t={t} />}
         {screen.name === 'boarding' && (
           <BoardingCheck ds={ds} dep={screen.dep} toStopId={screen.leg.toStopId} t={t} lang={settings.lang}

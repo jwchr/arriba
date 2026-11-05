@@ -77,6 +77,9 @@ it('forgets malformed nested saved state without crashing startup', () => {
     (x: any) => { x.session.departure.pattern = null; },
     (x: any) => { x.leg = null; },
     (x: any) => { x.dep.route = null; },
+    (x: any) => { x.session.waitingSince = 'invalid'; },
+    (x: any) => { x.session.lastReceivedAt = {}; },
+    (x: any) => { x.session.pendingPosition = null; },
   ];
   for (const corrupt of corruptions) {
     const store = memory();

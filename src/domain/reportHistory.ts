@@ -59,7 +59,7 @@ function clearedAt(storage: Pick<Storage, 'getItem'> | undefined): number {
     const raw = storage?.getItem(HISTORY_CLEAR_KEY);
     if (!raw) return -Infinity;
     const at = Number(raw);
-    return Number.isFinite(at) ? at : Infinity;
+    return Number.isFinite(at) ? at : -Infinity;
   } catch { return Infinity; }
 }
 
@@ -120,8 +120,9 @@ export function clearHistory(storage: Pick<Storage, 'getItem' | 'setItem' | 'rem
   try {
     // Keep a deletion boundary across reloads: an active/resumed lock still contains its old reports.
     // Save it before removing history; if storage fails, do not claim success to the rider.
+    // Demo/pinned clocks must never suppress real reports made after the actual clear time.
     const previous = clearedAt(storage);
-    storage?.setItem(HISTORY_CLEAR_KEY, String(Math.max(Number.isFinite(previous) ? previous : now, now)));
+    storage?.setItem(HISTORY_CLEAR_KEY, String(Math.min(Math.max(Number.isFinite(previous) ? previous : now, now), Date.now())));
     storage?.removeItem(HISTORY_KEY);
     return true;
   } catch { return false; }
