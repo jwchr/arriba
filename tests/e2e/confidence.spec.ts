@@ -98,6 +98,7 @@ test('an overdue wait without any GPS offers alternatives without a moving marke
   await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
   await page.getByText('Try Bus Lock · invented demo only', { exact: true }).click();
   await page.getByRole('button', { name: 'Advance 12 minutes' }).click();
+  await page.getByRole('button', { name: 'Advance 12 minutes' }).click();
   await expect(page.locator('.lock-waiting')).toContainText('arrival unconfirmed');
   await expect(page.getByRole('progressbar')).toHaveCount(0);
   await expect(page.locator('.signal-warning')).toHaveCount(0);
