@@ -12,6 +12,11 @@ const tidy = (text: string) => text.replace(/\.\.(?=\s|$)/g, '.');
 const en = {
   appTagline: 'When you ride NJ Transit, you need all the help you can get.',
   demoBanner: 'Demo data: invented stops, times and gates. Do not use it to catch a real bus.',
+  leaveDemo: 'Leave the demo',
+  unknownStop: 'a stop not in this schedule',
+  savedCommute: 'Saved commute',
+  commuteNotInDemo: 'This commute was saved from the real route 165 schedule. The demo has only invented stops, so it has no buses for it. Leave the demo to see your buses.',
+  commuteNotInSchedule: "This commute's stop is no longer in the schedule Dale has. Tap Edit to remove it, then find your stop again.",
   notAffiliated: 'Independent app. Not affiliated with or endorsed by NJ Transit.',
   version: (v: string, commit: string, when: string) => `Dale ${v} (${commit}) · app updated ${when}`,
   about: 'About this version',
@@ -582,6 +587,11 @@ export type Strings = typeof en;
 const es: Strings = {
   appTagline: 'Cuando viajas en NJ Transit, necesitas toda la ayuda posible.',
   demoBanner: 'Datos de demostración: paradas, horarios y puertas inventados. No los uses para tomar un autobús real.',
+  leaveDemo: 'Salir de la demostración',
+  unknownStop: 'una parada que no está en este horario',
+  savedCommute: 'Viaje guardado',
+  commuteNotInDemo: 'Este viaje se guardó con el horario real de la ruta 165. La demostración solo tiene paradas inventadas, así que no tiene autobuses para él. Sal de la demostración para ver tus autobuses.',
+  commuteNotInSchedule: 'La parada de este viaje ya no está en el horario que tiene Dale. Toca Editar para quitarlo y vuelve a buscar tu parada.',
   notAffiliated: 'App independiente. No está afiliada ni respaldada por NJ Transit.',
   version: (v: string, commit: string, when: string) => `Dale ${v} (${commit}) · app actualizada el ${when}`,
   about: 'Sobre esta versión',

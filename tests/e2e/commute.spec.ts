@@ -696,3 +696,20 @@ test.describe('home card actions and version (owner request 2026-11-04)', () => 
     await expect(page.getByRole('heading', { name: 'About this version' })).toBeVisible();
   });
 });
+test.describe('a real commute opened on the demo (owner report 2026-11-05)', () => {
+  test.use({ serviceWorkers: 'block' });
+  test('says why there are no buses, never shows a stop code, and leads back to the real schedule', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('arriba.favorites.v1', JSON.stringify([{ id: 'f', label: 'Hackensack - State St. at Lawerence St. (to New York) → New York - Port Authority Bus Terminal', fromStopId: 'N10', toStopId: 'PABT', routeIds: [] }])));
+    await page.goto('/?now=2026-11-05T07:30&demo');
+    const card = page.getByRole('article');
+    await expect(card).toContainText('This commute was saved from the real route 165 schedule');
+    await expect(card).toContainText('Hackensack - State St. at Lawerence St.');
+    await expect(page.locator('main')).not.toContainText('N10');
+    expect((await new AxeBuilder({ page }).include('.fav-missing').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations).toEqual([]);
+    await card.getByRole('link', { name: 'Leave the demo' }).click();
+    await expect(page).toHaveURL(/\?now=2026-11-05T07:30$/);
+    await expect(page.locator('.demo-banner')).toHaveCount(0);
+    await expect(page.getByRole('article').locator('[data-end="from"] .highway-name')).toHaveText('Hackensack');
+    await expect(page.getByRole('article').locator('.dep').first()).toBeVisible();
+  });
+});

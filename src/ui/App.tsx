@@ -206,7 +206,8 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
     document.documentElement.dataset.skin = settings.skin;
   }, [settings]);
 
-  const stopName = (id: string) => ds.stops.find((s) => s.id === id)?.name ?? id;
+  // Never show a stop's internal code: a stop this dataset doesn't have reads as "a stop not in this schedule".
+  const stopName = (id: string) => ds.stops.find((s) => s.id === id)?.name ?? t.unknownStop;
   const ctx: Ctx = { ds, tz, now, t, lang: settings.lang, stopName, fromCache, savedAt };
 
   return (
@@ -218,7 +219,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
         ) : <span className="wordmark" role="img" aria-label="Dale">DALE<span className="bang" aria-hidden="true">!</span></span>}
         <button className="icon-btn" onClick={() => setScreen({ name: 'settings' })} aria-label={t.settings}>⚙</button>
       </header>
-      {ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner}</div>}
+      {ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner} <a className="link demo-leave" href={leaveDemoHref()}>{t.leaveDemo}</a></div>}
       {ds.meta.transcribed && <div className="data-banner" role="note">{t.transcribedBanner(fmtYmd(ds.meta.transcribed.issued, settings.lang))}</div>}
       <FeedStatus ctx={ctx} />
       {ds.meta.transcribed && isNjtHoliday(localYmd(now, tz)) && <p className="status-line" data-level="warn" role="note">{t.holidayToday}</p>}
@@ -335,6 +336,13 @@ function TimeText({ ctx, at, estimated }: { ctx: Ctx; at: number; estimated: boo
   const s = formatTime12(at, ctx.tz, ctx.lang);
   if (!estimated) return <>{s}</>;
   return <><span aria-hidden="true">~</span>{s}<span className="sr-only">, {ctx.t.estimatedWord}</span></>;
+}
+
+/** The same address without `?demo`, so the rider gets the real schedule back. */
+function leaveDemoHref(): string {
+  // Only the `demo` part goes; the rest of the address stays as typed.
+  const rest = location.search.slice(1).split('&').filter((p) => p && p !== 'demo' && !p.startsWith('demo=')).join('&');
+  return location.pathname + (rest ? `?${rest}` : '') + location.hash;
 }
 
 /** "Dale 0.2.0 (abc1234) · updated 11/4/2026, 3:42 PM": which build this is and when it was made, in New York time. */
@@ -456,6 +464,17 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
   const origin = commutePlace(from, stopName(fromId), !!ds.meta.transcribed, t);
   const destination = leg && commutePlace(to, stopName(leg.toStopId), !!ds.meta.transcribed, t);
   const fullLeg = title || `${stopName(fromId)} → ${stopName(rev ? fav.fromStopId : fav.toStopId)}`;
+  // Saved from the real schedule but opened on the demo (or the schedule changed): say which, plainly.
+  const missing = !ds.stops.some((s) => s.id === fav.fromStopId) || !ds.stops.some((s) => s.id === fav.toStopId);
+  if (missing && !editing) {
+    return (
+      <article className="card fav fav-missing" aria-label={t.savedCommute}>
+        <h2>{fav.label}</h2>
+        <p className="warn" role="note">{ds.meta.demo ? t.commuteNotInDemo : t.commuteNotInSchedule}</p>
+        {ds.meta.demo && <a className="link" href={leaveDemoHref()}>{t.leaveDemo}</a>}
+      </article>
+    );
+  }
   return (
     <article className="card fav" aria-label={customName ? `${fav.label}: ${fullLeg}` : fullLeg}>
       <div className="commute-header">
