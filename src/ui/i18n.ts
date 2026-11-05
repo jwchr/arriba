@@ -431,7 +431,7 @@ const en = {
     mapDotSeen: 'The dot is where GPS last saw the bus.',
     mapDotEstimate: 'The dot is an estimate on the line, not a GPS position.',
     mapNote: "The line is drawn stop to stop, not along the bus's exact streets. Map data © OpenStreetMap contributors, stored on Dale's own site.",
-    mapFailed: "The map can't load right now (no connection yet, or this phone can't draw it). Everything else in ride mode still works.",
+    mapFailed: "The map can't load right now (no connection yet, or this phone can't draw it). Everything else in ride mode still works. Close and reopen Dale to try the map again.",
   },
   lastReturn: {
     leavesIn: (h: number, m: number) => `Leaves in ${h ? `${h} h ` : ''}${m} min (scheduled).`,
@@ -998,7 +998,7 @@ const es: Strings = {
     mapDotSeen: 'El punto es donde el GPS vio el autobús por última vez.',
     mapDotEstimate: 'El punto es una estimación sobre la línea, no una posición GPS.',
     mapNote: 'La línea va de parada a parada, no por las calles exactas del autobús. Datos del mapa © colaboradores de OpenStreetMap, guardados en el propio sitio de Dale.',
-    mapFailed: 'El mapa no puede cargarse ahora (todavía sin conexión, o este teléfono no puede dibujarlo). Todo lo demás del modo de viaje sigue funcionando.',
+    mapFailed: 'El mapa no puede cargarse ahora (todavía sin conexión, o este teléfono no puede dibujarlo). Todo lo demás del modo de viaje sigue funcionando. Cierra y vuelve a abrir Dale para intentar de nuevo el mapa.',
   },
   lastReturn: {
     leavesIn: (h: number, m: number) => `Sale en ${h ? `${h} h ` : ''}${m} min (según el horario).`,

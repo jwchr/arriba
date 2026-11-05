@@ -617,5 +617,5 @@ test('Settings links the open-source and map data licences', async ({ page }) =>
   const res = await page.request.get(href!);
   expect(res.status()).toBe(200);
   const text = await res.text();
-  for (const s of ['© OpenStreetMap contributors', 'Open Database License', 'maplibre-gl 6.15.0', 'pmtiles 4.5.0', '@protomaps/basemaps 5.7.2', 'react 19.3.1']) expect(text).toContain(s);
+  for (const s of ['© OpenStreetMap contributors', 'Open Database License', 'maplibre-gl 6.15.0', 'pmtiles 4.5.0', 'fflate', '@protomaps/basemaps 5.7.2', 'react 19.3.1']) expect(text).toContain(s);
 });
