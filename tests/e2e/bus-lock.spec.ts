@@ -550,6 +550,72 @@ test('ride progress on the printed timetable: no stop locations, so taps only, s
   const dialog = page.getByRole('dialog', { name: /Riding to/ });
   await expect(dialog).toContainText("This timetable has no stop locations, so GPS can't place the bus on the line yet");
   await expect(dialog.getByRole('checkbox', { name: "Follow the ride with my phone's location" })).toHaveCount(0);
+  await expect(dialog.locator('.route-map')).toHaveCount(0); // no stop locations, no trip map
   await dialog.locator('.strip li').nth(2).locator('button').click();
   await expect(dialog.locator('.led-pace')).toHaveText(/^(On time|\d+ min (ahead of|behind) schedule)$/);
+});
+
+test('street map of the ride: self-hosted OpenStreetMap, read in pieces from Dale’s own site', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  const outside: string[] = [];
+  page.on('request', (r) => { const u = new URL(r.url()); if (u.hostname !== 'localhost') outside.push(r.url()); });
+  const ranges: number[] = [];
+  page.on('response', (r) => { if (r.url().includes('/map/') && r.url().endsWith('.pmtiles')) ranges.push(r.status()); });
+  await selectDemoTrip(page);
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: /Riding to/ });
+  const map = dialog.getByRole('region', { name: /^Street map of the trip\. Next stop/ });
+  await expect(map.locator('canvas')).toBeVisible({ timeout: 15_000 });
+  await expect(map).toContainText('OpenStreetMap');
+  await expect(dialog).toContainText("The line is drawn stop to stop, not along the bus's exact streets");
+  await expect.poll(() => ranges.length, { timeout: 15_000 }).toBeGreaterThan(0);
+  expect(ranges.every((s) => s === 206)).toBe(true);
+  // Nothing is fetched from any other site: no tile company sees the map.
+  expect(outside).toEqual([]);
+  await dialog.getByRole('button', { name: 'Hide the map' }).click();
+  await expect(dialog.locator('.route-map')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Show the map' }).click();
+  await expect(dialog.locator('.route-map canvas')).toBeVisible({ timeout: 15_000 });
+  expect(errors.filter((e) => !/favicon/.test(e))).toEqual([]);
+});
+
+for (const [why, setup] of [
+  ['the map code cannot load (offline before it was ever opened)', async (page: Page) => { await page.route('**/assets/RouteMap-*.js', (r) => r.abort()); }],
+  ['the phone cannot draw it (no WebGL)', async (page: Page) => {
+    await page.addInitScript(() => {
+      const real = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+        return /webgl/i.test(type) ? null : (real as (...a: unknown[]) => unknown).call(this, type, ...rest);
+      } as typeof real;
+    });
+  }],
+] as const) {
+  test(`when ${why}, the map says so and ride mode keeps working`, async ({ page }) => {
+    await setup(page);
+    await selectDemoTrip(page);
+    await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+    await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+    await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: /Riding to/ });
+    await expect(dialog).toContainText("The map can't load right now", { timeout: 15_000 });
+    await expect(dialog.locator('.led-bar')).toBeVisible();
+    await dialog.locator('.strip li').nth(1).locator('button').click();
+    await expect(dialog.locator('.progress-source')).toContainText('From your tap at');
+    await dialog.getByRole('button', { name: 'I got off' }).click();
+    await expect(page.locator('.bus-lock .lock-phase')).toHaveText('Session ended');
+  });
+}
+
+test('Settings links the open-source and map data licences', async ({ page }) => {
+  await page.goto('/?now=2026-11-04T07:50');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const link = page.getByRole('link', { name: 'Open-source software and map data licences' });
+  const href = await link.getAttribute('href');
+  const res = await page.request.get(href!);
+  expect(res.status()).toBe(200);
+  const text = await res.text();
+  for (const s of ['© OpenStreetMap contributors', 'Open Database License', 'maplibre-gl 6.15.0', 'pmtiles 4.5.0', 'fflate', '@protomaps/basemaps 5.7.2', 'react 19.3.1']) expect(text).toContain(s);
 });

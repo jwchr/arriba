@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 const ORIGIN = 'https://jwchr.github.io';
 const source = readFileSync(join(__dirname, '../../public/sw.js'), 'utf8').replace('const NETWORK_TIMEOUT_MS = 4000;', 'const NETWORK_TIMEOUT_MS = 30;');
 
-interface FakeRequest { url: string; method: string; mode: string }
+interface FakeRequest { url: string; method: string; mode: string; headers?: Headers }
 type Key = FakeRequest | string;
 type Net = (url: string, init?: RequestInit) => Promise<Response>;
 interface FakeEvent { request?: FakeRequest; respondWith: (p: Promise<Response>) => void; waitUntil: (p: Promise<unknown>) => void }
@@ -23,7 +23,11 @@ beforeEach(() => {
   handlers = {};
   net = () => Promise.reject(new TypeError('offline'));
   const caches = {
-    open: async () => ({ put: async (k: Key, res: Response) => { saved.set(urlOf(k), res); } }),
+    open: async () => ({
+      put: async (k: Key, res: Response) => { saved.set(urlOf(k), res); },
+      keys: async () => [...saved.keys()],
+      delete: async (k: Key) => saved.delete(urlOf(k)),
+    }),
     match: async (k: Key, opts?: { ignoreSearch?: boolean }) => {
       const base = (u: string) => u.split('?')[0];
       const key = opts?.ignoreSearch ? [...saved.keys()].find((s) => base(s) === base(urlOf(k))) : urlOf(k);
@@ -136,5 +140,41 @@ describe('service worker', () => {
   it('leaves other sites and non-GET requests alone', () => {
     expect(handle({ url: 'https://www.njtransit.com/x', method: 'GET', mode: 'cors' }).res).toBeUndefined();
     expect(handle({ url: `${ORIGIN}${DATA}`, method: 'POST', mode: 'cors' }).res).toBeUndefined();
+  });
+
+  it('saves each byte range of the map file on its own and answers it offline as a partial response', async () => {
+    const MAP = '/dale/map/nj-nyc-20261104.pmtiles';
+    const ranged = (range: string) => ({ ...get(MAP), headers: new Headers({ range }) });
+    net = async () => new Response('abcd', { status: 206, headers: { 'content-range': 'bytes 0-3/100', 'content-type': 'application/octet-stream' } });
+    const first = handle(ranged('bytes=0-3'));
+    expect((await first.res!).status).toBe(206);
+    await Promise.all(first.kept);
+    // Offline now: the same range comes from the saved copy, still as a 206 with its range.
+    net = () => Promise.reject(new TypeError('offline'));
+    const again = await answer(ranged('bytes=0-3'));
+    expect(again.status).toBe(206);
+    expect(again.headers.get('content-range')).toBe('bytes 0-3/100');
+    expect(await again.text()).toBe('abcd');
+    // A range never seen is not invented.
+    await expect(answer(ranged('bytes=4-7'))).rejects.toThrow();
+  });
+
+  it('does not keep a whole map file, and drops pieces of an older map file once a new one is in use', async () => {
+    const OLD = '/dale/map/nj-nyc-20261001.pmtiles';
+    const NEW = '/dale/map/nj-nyc-20261104.pmtiles';
+    saved.set(`${ORIGIN}${OLD}?dale-range=${encodeURIComponent('bytes=0-3')}`, new Response('old'));
+    // A server that ignores the range and sends 19 MB: passed through, not saved.
+    net = async () => new Response('x', { status: 200, headers: { 'content-length': '19212137' } });
+    const whole = handle({ ...get(NEW), headers: new Headers() });
+    expect((await whole.res!).status).toBe(200);
+    await Promise.all(whole.kept);
+    expect([...saved.keys()].some((k) => k.includes('20261104'))).toBe(false);
+    // A real range from the new file is saved, and the old file's pieces go.
+    net = async () => new Response('abcd', { status: 206, headers: { 'content-range': 'bytes 0-3/100' } });
+    const part = handle({ ...get(NEW), headers: new Headers({ range: 'bytes=0-3' }) });
+    await part.res;
+    await Promise.all(part.kept);
+    expect([...saved.keys()].some((k) => k.includes('20261104'))).toBe(true);
+    expect([...saved.keys()].some((k) => k.includes('20261001'))).toBe(false);
   });
 });

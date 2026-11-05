@@ -866,6 +866,7 @@ function SettingsScreen({ ctx, settings, setSettings, onGuide, historyCount, onC
       <p className="small" role="status">{cleared ? t.history.cleared : ''}</p>
       <h2>{t.about}</h2>
       <p className="small">{versionLine(t, ctx.lang, ctx.tz)}</p>
+      <p className="small"><a className="link" href={`${import.meta.env.BASE_URL}licenses.txt`}>{t.licenses}</a></p>
       <h2>{t.dataSource}</h2>
       <p className="small">{ds.meta.source} · {ds.meta.feedVersion}</p>
       <p className="small muted">{dataNotice(ds, t)}</p>

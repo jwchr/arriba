@@ -16,6 +16,9 @@
     "verify": "npm run check && npm test && npm run build && npm run test:e2e"
   },
   "dependencies": {
+    "@protomaps/basemaps": "5.7.2",
+    "maplibre-gl": "6.15.0",
+    "pmtiles": "4.5.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },

@@ -17,7 +17,7 @@ Household tool for Jeff and Diego. Bergen County corridor to and from Port Autho
 | UX-09 | Ticket-before-boarding warning at Port Authority; Tap & Ride guidance in NJ; zone count only from a real fare table | M1 ✅ PABT warning, M4 ✅ printed route 165 cash fare and zone count, ✅ Tap & Ride steps in the guide |
 | UX-07 | First-time-rider guide, English and Spanish | M1 ✅ languages, M4 ✅ route 165 first-ride guide |
 | GATE-02 | Gate cards (floor, gate, door, nearest escalator or elevator, photo) for corridor gates | M4: needs owner photos and notes from Port Authority (no official source found for floors and escalators) |
-| MAP-01/02 | Geographic map (MapLibre + OpenStreetMap); Clean, dark, Turnpike styles | M3-M4: needs stop coordinates (M2 feed; the print has none) and an owner choice of map tile provider |
+| MAP-01/02 | Geographic map (MapLibre + OpenStreetMap); Clean, dark, Turnpike styles | Built (D47: self-hosted OpenStreetMap, light and dark); shows a trip only where stops have coordinates, so the 165 waits for the M2 feed |
 | OFF-01 | Offline: last known schedule with its age | M1 ✅ service worker, M4 ✅ network timeout and saved-copy age |
 
 ## Not in V1
