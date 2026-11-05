@@ -15,6 +15,7 @@ const en = {
   notAffiliated: 'Independent app. Not affiliated with or endorsed by NJ Transit.',
   version: (v: string, commit: string, when: string) => `Dale ${v} (${commit}) · app updated ${when}`,
   about: 'About this version',
+  licenses: 'Open-source software and map data licences',
   // NJ Transit developer data terms: say the data was obtained from NJ Transit and is redistributed
   // from Dale's own server, and that it may not be real time. Shown with every dataset that is not the demo.
   dataObtained: "Schedule data obtained from NJ Transit and redistributed from Dale's own server, not an NJ Transit server.",
@@ -429,7 +430,8 @@ const en = {
     mapLabel: (next: string, yours: string) => `Street map of the trip. Next stop ${next}; your stop ${yours}.`,
     mapDotSeen: 'The dot is where GPS last saw the bus.',
     mapDotEstimate: 'The dot is an estimate on the line, not a GPS position.',
-    mapNote: "The line is drawn stop to stop, not along the bus's exact streets. Map: OpenStreetMap, stored on Dale's own site.",
+    mapNote: "The line is drawn stop to stop, not along the bus's exact streets. Map data © OpenStreetMap contributors, stored on Dale's own site.",
+    mapFailed: "The map can't load right now (no connection yet, or this phone can't draw it). Everything else in ride mode still works.",
   },
   lastReturn: {
     leavesIn: (h: number, m: number) => `Leaves in ${h ? `${h} h ` : ''}${m} min (scheduled).`,
@@ -583,6 +585,7 @@ const es: Strings = {
   notAffiliated: 'App independiente. No está afiliada ni respaldada por NJ Transit.',
   version: (v: string, commit: string, when: string) => `Dale ${v} (${commit}) · app actualizada el ${when}`,
   about: 'Sobre esta versión',
+  licenses: 'Licencias del software libre y de los datos del mapa',
   dataObtained: 'Datos de horarios obtenidos de NJ Transit y redistribuidos desde el servidor propio de Dale, no desde un servidor de NJ Transit.',
   notRealTime: 'Es posible que esta información no sea en tiempo real.',
   transcribedBanner: (issued: string) =>
@@ -994,7 +997,8 @@ const es: Strings = {
     mapLabel: (next: string, yours: string) => `Mapa del viaje. Próxima parada ${next}; tu parada ${yours}.`,
     mapDotSeen: 'El punto es donde el GPS vio el autobús por última vez.',
     mapDotEstimate: 'El punto es una estimación sobre la línea, no una posición GPS.',
-    mapNote: 'La línea va de parada a parada, no por las calles exactas del autobús. Mapa: OpenStreetMap, guardado en el propio sitio de Dale.',
+    mapNote: 'La línea va de parada a parada, no por las calles exactas del autobús. Datos del mapa © colaboradores de OpenStreetMap, guardados en el propio sitio de Dale.',
+    mapFailed: 'El mapa no puede cargarse ahora (todavía sin conexión, o este teléfono no puede dibujarlo). Todo lo demás del modo de viaje sigue funcionando.',
   },
   lastReturn: {
     leavesIn: (h: number, m: number) => `Sale en ${h ? `${h} h ` : ''}${m} min (según el horario).`,

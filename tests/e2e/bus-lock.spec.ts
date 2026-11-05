@@ -581,3 +581,41 @@ test('street map of the ride: self-hosted OpenStreetMap, read in pieces from Dal
   await expect(dialog.locator('.route-map canvas')).toBeVisible({ timeout: 15_000 });
   expect(errors.filter((e) => !/favicon/.test(e))).toEqual([]);
 });
+
+for (const [why, setup] of [
+  ['the map code cannot load (offline before it was ever opened)', async (page: Page) => { await page.route('**/assets/RouteMap-*.js', (r) => r.abort()); }],
+  ['the phone cannot draw it (no WebGL)', async (page: Page) => {
+    await page.addInitScript(() => {
+      const real = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+        return /webgl/i.test(type) ? null : (real as (...a: unknown[]) => unknown).call(this, type, ...rest);
+      } as typeof real;
+    });
+  }],
+] as const) {
+  test(`when ${why}, the map says so and ride mode keeps working`, async ({ page }) => {
+    await setup(page);
+    await selectDemoTrip(page);
+    await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+    await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+    await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: /Riding to/ });
+    await expect(dialog).toContainText("The map can't load right now", { timeout: 15_000 });
+    await expect(dialog.locator('.led-bar')).toBeVisible();
+    await dialog.locator('.strip li').nth(1).locator('button').click();
+    await expect(dialog.locator('.progress-source')).toContainText('From your tap at');
+    await dialog.getByRole('button', { name: 'I got off' }).click();
+    await expect(page.locator('.bus-lock .lock-phase')).toHaveText('Session ended');
+  });
+}
+
+test('Settings links the open-source and map data licences', async ({ page }) => {
+  await page.goto('/?now=2026-11-04T07:50');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const link = page.getByRole('link', { name: 'Open-source software and map data licences' });
+  const href = await link.getAttribute('href');
+  const res = await page.request.get(href!);
+  expect(res.status()).toBe(200);
+  const text = await res.text();
+  for (const s of ['© OpenStreetMap contributors', 'Open Database License', 'maplibre-gl 6.15.0', 'pmtiles 4.5.0', '@protomaps/basemaps 5.7.2', 'react 19.3.1']) expect(text).toContain(s);
+});

@@ -79,16 +79,32 @@ function rangeSaved(req, url) {
   const result = caches.match(key).then(async (hit) => {
     if (hit) return { res: await asPartial(hit), done: undefined };
     const res = await fetch(req);
-    // The Cache API cannot hold a 206; keep the bytes as a 200 with the range it covered.
-    const done = (res.status === 206 || res.status === 200) ? (async () => {
+    // The Cache API cannot hold a 206; keep the bytes as a 200 with the range it covered. A whole-file
+    // answer (no range, or a server that ignored it) is not kept: the map file is 19 MB.
+    const small = res.status === 200 && Number(res.headers.get('content-length') || Infinity) <= MAX_WHOLE_BYTES;
+    const done = (res.status === 206 || small) ? (async () => {
       const headers = new Headers({ 'content-type': res.headers.get('content-type') || 'application/octet-stream' });
       const cr = res.headers.get('content-range');
       if (cr) headers.set('x-dale-content-range', cr);
-      await (await caches.open(CACHE)).put(key, new Response(await res.clone().blob(), { status: 200, headers }));
+      const cache = await caches.open(CACHE);
+      await cache.put(key, new Response(await res.clone().blob(), { status: 200, headers }));
+      await dropOtherMapFiles(cache, url.pathname);
     })().catch(() => {}) : undefined;
     return { res, done };
   });
   return { response: result.then((r) => r.res), done: result.then((r) => r.done, () => {}) };
+}
+
+const MAX_WHOLE_BYTES = 1_000_000;
+let mapFileInUse = '';
+/** Once a map file is in use, pieces saved from an older one (an earlier dated build) are dropped. */
+async function dropOtherMapFiles(cache, pathname) {
+  if (mapFileInUse === pathname || !cache.keys) return;
+  mapFileInUse = pathname;
+  for (const k of await cache.keys()) {
+    const u = new URL(typeof k === 'string' ? k : k.url);
+    if (u.pathname.endsWith('.pmtiles') && u.pathname !== pathname) await cache.delete(k);
+  }
 }
 
 async function asPartial(hit) {

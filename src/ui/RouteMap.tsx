@@ -9,7 +9,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import type { Feature, FeatureCollection } from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /** The map file: its name carries the OpenStreetMap build date, so a new build is a new file. */
 export const MAP_FILE = 'map/nj-nyc-20261104.pmtiles';
@@ -17,11 +17,12 @@ export const MAP_FILE = 'map/nj-nyc-20261104.pmtiles';
 const COVERS: [number, number, number, number] = [-74.25, 40.7, -73.9, 41.1];
 
 export interface MapStop { lat: number; lon: number; name: string; state: 'passed' | 'next' | 'alight' | 'ahead' }
-interface Props { stops: MapStop[]; bus?: { lat: number; lon: number }; dark: boolean; label: string }
+interface Props { stops: MapStop[]; bus?: { lat: number; lon: number }; dark: boolean; label: string; failedText: string }
 
 let protocolAdded = false;
 
-export default function RouteMap({ stops, bus, dark, label }: Props) {
+export default function RouteMap({ stops, bus, dark, label, failedText }: Props) {
+  const [failed, setFailed] = useState(false);
   const el = useRef<HTMLElement>(null);
   const map = useRef<MapLibreMap | undefined>(undefined);
   const latest = useRef({ stops, bus });
@@ -33,7 +34,9 @@ export default function RouteMap({ stops, bus, dark, label }: Props) {
     const base = new URL(import.meta.env.BASE_URL, location.href).href;
     const flavor = dark ? 'dark' : 'light';
     const lons = stops.map((s) => s.lon), lats = stops.map((s) => s.lat);
-    const m = new MapLibreMap({
+    let m: MapLibreMap;
+    try {
+      m = new MapLibreMap({
       container: el.current,
       style: {
         version: 8,
@@ -54,7 +57,13 @@ export default function RouteMap({ stops, bus, dark, label }: Props) {
       attributionControl: { compact: true },
       dragRotate: false,
       pitchWithRotate: false,
-    });
+      });
+    } catch {
+      // No WebGL (an old phone, or graphics turned off): say so and leave the rest of ride mode alone.
+      setFailed(true);
+      return;
+    }
+    m.on('webglcontextlost', () => setFailed(true));
     m.touchZoomRotate.disableRotation();
     m.addControl(new NavigationControl({ showCompass: false }), 'top-right');
     m.on('load', () => {
@@ -93,6 +102,7 @@ export default function RouteMap({ stops, bus, dark, label }: Props) {
   }, [stops, bus]);
 
   // A labelled region, not an image: it holds the zoom buttons and the attribution link.
+  if (failed) return <p className="warn small" role="note">{failedText}</p>;
   return <section className="route-map" ref={el} aria-label={label} />;
 }
 
