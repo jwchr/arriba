@@ -14,6 +14,8 @@ const commit = (() => {
 export default defineConfig({
   base: process.env.BASE ?? '/',
   plugins: [react()],
+  // The map's worker is an ES module (maplibre-gl 6).
+  worker: { format: 'es' },
   define: {
     __DALE_VERSION__: JSON.stringify(pkg.version),
     __DALE_COMMIT__: JSON.stringify(commit),

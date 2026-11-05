@@ -8,6 +8,8 @@
 // - Vite's hashed /assets/ files never change, so their saved copy is used first.
 // - Pages are saved under one address without the query string, so `?now=` and `?demo` share the newest page.
 // - Install saves the page, its assets and the schedule, so the app works offline after the first visit.
+// - The map file (/map/*.pmtiles) is read in byte ranges: each range is saved on its own, so map areas the
+//   rider has already looked at work offline. Map fonts and icons never change, so their saved copy is used.
 // tests/unit/sw.test.ts runs this file against stand-in fetch and caches.
 // Cache and header names keep the app's first name (Arriba) so saved copies survive the rename to Dale.
 const CACHE = 'arriba-v1';
@@ -22,7 +24,8 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
-  const { response, done } = url.pathname.includes('/assets/') ? savedFirst(req) : networkFirst(req, url);
+  const { response, done } = url.pathname.endsWith('.pmtiles') ? rangeSaved(req, url)
+    : url.pathname.includes('/assets/') || url.pathname.includes('/map/') ? savedFirst(req) : networkFirst(req, url);
   e.respondWith(response);
   e.waitUntil(done);
 });
@@ -66,6 +69,33 @@ function savedFirst(req) {
     return net.response.then((res) => ({ res, done: net.done }));
   });
   return { response: result.then((r) => r.res), done: result.then((r) => r.done, () => {}) };
+}
+
+/** One saved copy per byte range of the map file (the file name carries its build date, so it never changes). */
+function rangeSaved(req, url) {
+  const range = (req.headers && req.headers.get && req.headers.get('range')) || '';
+  // A query parameter, not a #fragment: the Cache API ignores fragments when matching.
+  const key = `${url.origin}${url.pathname}?dale-range=${encodeURIComponent(range)}`;
+  const result = caches.match(key).then(async (hit) => {
+    if (hit) return { res: await asPartial(hit), done: undefined };
+    const res = await fetch(req);
+    // The Cache API cannot hold a 206; keep the bytes as a 200 with the range it covered.
+    const done = (res.status === 206 || res.status === 200) ? (async () => {
+      const headers = new Headers({ 'content-type': res.headers.get('content-type') || 'application/octet-stream' });
+      const cr = res.headers.get('content-range');
+      if (cr) headers.set('x-dale-content-range', cr);
+      await (await caches.open(CACHE)).put(key, new Response(await res.clone().blob(), { status: 200, headers }));
+    })().catch(() => {}) : undefined;
+    return { res, done };
+  });
+  return { response: result.then((r) => r.res), done: result.then((r) => r.done, () => {}) };
+}
+
+async function asPartial(hit) {
+  const cr = hit.headers.get('x-dale-content-range');
+  const body = await hit.blob();
+  if (!cr) return new Response(body, { status: 200, headers: { 'content-type': hit.headers.get('content-type') || 'application/octet-stream' } });
+  return new Response(body, { status: 206, headers: { 'content-type': hit.headers.get('content-type') || 'application/octet-stream', 'content-range': cr, 'content-length': String(body.size) } });
 }
 
 async function markSaved(hit) {

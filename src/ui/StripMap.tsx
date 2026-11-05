@@ -3,7 +3,7 @@
 // the next stop lit, the rider's stop marked and a progress bar. Evidence: the matched bus's GPS,
 // the rider's own phone GPS (opt-in, on this phone only while ride mode is open, never saved or
 // sent), and the rider's taps on a stop. Without evidence it shows the timetable's position, labeled.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { BusSession } from '../domain/busLock';
 import { DEFAULT_TIMING } from '../domain/lock';
 import { tripStopTimes } from '../domain/schedule';
@@ -11,9 +11,13 @@ import { formatTime12 } from '../domain/time';
 import { fixPosition, hasLocations, stopReached, tripProgress, type Fix, type Milestone } from '../domain/tripProgress';
 import type { Dataset } from '../domain/types';
 import type { Lang, Strings } from './i18n';
+import type { MapStop } from './RouteMap';
+
+// The street map is large: it loads only when a ride with located stops opens it.
+const RouteMap = lazy(() => import('./RouteMap'));
 
 /** Per ride session, so leaving or entering full screen keeps the taps and the GPS choice. */
-const kept = new Map<string, { milestones: Milestone[]; follow: boolean }>();
+const kept = new Map<string, { milestones: Milestone[]; follow: boolean; hideMap?: boolean }>();
 
 /** "Hackensack - Main St. at Anderson St. (to New York)" → town and detail, without the direction hint. */
 export function stopLabel(name: string): { town: string; detail: string } {
@@ -142,6 +146,37 @@ export function StripMap({ ds, session, alightIndex, now, t, lang }: { ds: Datas
         </ol>
       </div>
       <p className="muted small">{p.tapHelp}</p>
+      {located && <>
+        <button className="ghost" aria-expanded={!state.hideMap} onClick={() => update({ ...state, hideMap: !state.hideMap })}>{state.hideMap ? p.showMap : p.hideMap}</button>
+        {!state.hideMap && (() => {
+          // From the boarding stop on, like the strip.
+          const mapStops: MapStop[] = ids.slice(first).map((_, k) => {
+            const i = first + k;
+            const s = stops[i] as { lat: number; lon: number };
+            const passed = i <= progress.reachedIndex;
+            return { lat: s.lat, lon: s.lon, name: stopLabel(name(i)).town, state: i === alightIndex ? 'alight' : i === nextIndex && !atEnd ? 'next' : passed ? 'passed' : 'ahead' };
+          });
+          // The bus dot: the GPS fix itself when that is the evidence, otherwise a point on the line.
+          const fix = progress.basis === 'bus_gps' ? bus : progress.basis === 'phone_gps' ? phone : undefined;
+          const at = (q: number) => {
+            const r = q - first;
+            const i = Math.max(0, Math.min(mapStops.length - 2, Math.floor(r)));
+            const f = Math.max(0, Math.min(1, r - i));
+            return { lat: mapStops[i]!.lat + f * (mapStops[i + 1]!.lat - mapStops[i]!.lat), lon: mapStops[i]!.lon + f * (mapStops[i + 1]!.lon - mapStops[i]!.lon) };
+          };
+          const dot = fix && !progress.projected ? { lat: fix.lat, lon: fix.lon } : at(progress.position);
+          const dark = document.documentElement.dataset.skin !== 'clean'
+            || document.documentElement.dataset.theme === 'dark'
+            || (document.documentElement.dataset.theme !== 'light' && matchMedia?.('(prefers-color-scheme: dark)').matches);
+          return <>
+            <Suspense fallback={<p className="small">{p.mapLoading}</p>}>
+              <RouteMap stops={mapStops} bus={dot} dark={!!dark} label={p.mapLabel(nextLabel.town, stopLabel(name(alightIndex)).town)} />
+            </Suspense>
+            <p className="muted small">{progress.basis === 'timetable' || progress.projected ? p.mapDotEstimate : p.mapDotSeen}</p>
+            <p className="muted small">{p.mapNote}</p>
+          </>;
+        })()}
+      </>}
       {undo && <button className="ghost" onClick={() => { update({ ...state, milestones: undo }); setUndo(undefined); }}>{p.undo}</button>}
 
       {located ? <>

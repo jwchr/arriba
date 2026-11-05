@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 const ORIGIN = 'https://jwchr.github.io';
 const source = readFileSync(join(__dirname, '../../public/sw.js'), 'utf8').replace('const NETWORK_TIMEOUT_MS = 4000;', 'const NETWORK_TIMEOUT_MS = 30;');
 
-interface FakeRequest { url: string; method: string; mode: string }
+interface FakeRequest { url: string; method: string; mode: string; headers?: Headers }
 type Key = FakeRequest | string;
 type Net = (url: string, init?: RequestInit) => Promise<Response>;
 interface FakeEvent { request?: FakeRequest; respondWith: (p: Promise<Response>) => void; waitUntil: (p: Promise<unknown>) => void }
@@ -136,5 +136,22 @@ describe('service worker', () => {
   it('leaves other sites and non-GET requests alone', () => {
     expect(handle({ url: 'https://www.njtransit.com/x', method: 'GET', mode: 'cors' }).res).toBeUndefined();
     expect(handle({ url: `${ORIGIN}${DATA}`, method: 'POST', mode: 'cors' }).res).toBeUndefined();
+  });
+
+  it('saves each byte range of the map file on its own and answers it offline as a partial response', async () => {
+    const MAP = '/dale/map/nj-nyc-20261104.pmtiles';
+    const ranged = (range: string) => ({ ...get(MAP), headers: new Headers({ range }) });
+    net = async () => new Response('abcd', { status: 206, headers: { 'content-range': 'bytes 0-3/100', 'content-type': 'application/octet-stream' } });
+    const first = handle(ranged('bytes=0-3'));
+    expect((await first.res!).status).toBe(206);
+    await Promise.all(first.kept);
+    // Offline now: the same range comes from the saved copy, still as a 206 with its range.
+    net = () => Promise.reject(new TypeError('offline'));
+    const again = await answer(ranged('bytes=0-3'));
+    expect(again.status).toBe(206);
+    expect(again.headers.get('content-range')).toBe('bytes 0-3/100');
+    expect(await again.text()).toBe('abcd');
+    // A range never seen is not invented.
+    await expect(answer(ranged('bytes=4-7'))).rejects.toThrow();
   });
 });
