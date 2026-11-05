@@ -691,8 +691,27 @@ test.describe('home card actions and version (owner request 2026-11-04)', () => 
     await card.getByRole('button', { name: 'Get me the fuck home' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Get me the fuck home');
     await expect(page.locator('.rescue-list li').first()).toBeVisible();
-    await expect(page.locator('.version-line')).toHaveText(/^Dale \d+\.\d+\.\d+ \([0-9a-z]+\) · app updated \d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d\d [AP]M$/);
+    await expect(page.locator('.version-line')).toHaveText(/^Dale \d+\.\d+\.(\d+|local) \([0-9a-z]+\) · app updated \d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d\d [AP]M$/);
+    // Always in view in the top bar, on every screen (owner request 2026-11-05).
+    await expect(page.locator('.top .top-version')).toHaveText(/^Version and when this app was updated: v\d+\.\d+\.(\d+|local) · \d{1,2}\/\d{1,2} \d{1,2}:\d\d [AP]M$/);
     await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByRole('heading', { name: 'About this version' })).toBeVisible();
+  });
+});
+test.describe('a real commute opened on the demo (owner report 2026-11-05)', () => {
+  test.use({ serviceWorkers: 'block' });
+  test('says why there are no buses, never shows a stop code, and leads back to the real schedule', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('arriba.favorites.v1', JSON.stringify([{ id: 'f', label: 'Hackensack - State St. at Lawerence St. (to New York) → New York - Port Authority Bus Terminal', fromStopId: 'N10', toStopId: 'PABT', routeIds: [] }])));
+    await page.goto('/?now=2026-11-05T07:30&demo');
+    const card = page.getByRole('article');
+    await expect(card).toContainText('This commute was saved from the real schedule');
+    await expect(card).toContainText('Hackensack - State St. at Lawerence St.');
+    await expect(page.locator('main')).not.toContainText('N10');
+    expect((await new AxeBuilder({ page }).include('.fav-missing').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations).toEqual([]);
+    await card.getByRole('link', { name: 'Leave the demo' }).click();
+    await expect(page).toHaveURL(/\?now=2026-11-05T07:30$/);
+    await expect(page.locator('.demo-banner')).toHaveCount(0);
+    await expect(page.getByRole('article').locator('[data-end="from"] .highway-name')).toHaveText('Hackensack');
+    await expect(page.getByRole('article').locator('.dep').first()).toBeVisible();
   });
 });
