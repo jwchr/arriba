@@ -691,7 +691,9 @@ test.describe('home card actions and version (owner request 2026-11-04)', () => 
     await card.getByRole('button', { name: 'Get me the fuck home' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Get me the fuck home');
     await expect(page.locator('.rescue-list li').first()).toBeVisible();
-    await expect(page.locator('.version-line')).toHaveText(/^Dale \d+\.\d+\.\d+ \([0-9a-z]+\) · app updated \d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d\d [AP]M$/);
+    await expect(page.locator('.version-line')).toHaveText(/^Dale \d+\.\d+\.(\d+|local) \([0-9a-z]+\) · app updated \d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d\d [AP]M$/);
+    // Always in view in the top bar, on every screen (owner request 2026-11-05).
+    await expect(page.locator('.top .top-version')).toHaveText(/^Version and when this app was updated: v\d+\.\d+\.(\d+|local) · \d{1,2}\/\d{1,2} \d{1,2}:\d\d [AP]M$/);
     await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByRole('heading', { name: 'About this version' })).toBeVisible();
   });

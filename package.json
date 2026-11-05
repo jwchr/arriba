@@ -1,7 +1,7 @@
 {
   "name": "arriba",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Independent North Jersey to Manhattan NJ Transit bus commuter app. Not affiliated with NJ Transit.",
   "scripts": {

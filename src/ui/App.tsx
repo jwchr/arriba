@@ -217,6 +217,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
         {screen.name !== 'home' ? (
           <button className="icon-btn" onClick={back} aria-label={t.back}>‹</button>
         ) : <span className="wordmark" role="img" aria-label="Dale">DALE<span className="bang" aria-hidden="true">!</span></span>}
+        <span className="top-version" title={versionLine(t, settings.lang, tz)}><span className="sr-only">{t.versionLabel} </span>{(() => { const [v, when] = versionShort(settings.lang, tz); return <><span className="nowrap">{v}</span>{when && <> <span className="nowrap">· {when}</span></>}</>; })()}</span>
         <button className="icon-btn" onClick={() => setScreen({ name: 'settings' })} aria-label={t.settings}>⚙</button>
       </header>
       {ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner} <a className="link demo-leave" href={leaveDemoHref()}>{t.leaveDemo}</a></div>}
@@ -346,6 +347,15 @@ function leaveDemoHref(): string {
 }
 
 /** "Dale 0.2.0 (abc1234) · updated 11/4/2026, 3:42 PM": which build this is and when it was made, in New York time. */
+/** "v0.3.157 · 11/5 7:42 AM": the short form for the top bar, so the rider always sees which Dale they have. */
+function versionShort(lang: Lang, tz: string): [string, string] {
+  const built = Date.parse(__DALE_BUILT_AT__);
+  if (!Number.isFinite(built)) return [`v${__DALE_VERSION__}`, ''];
+  const d = localYmd(built, tz);
+  const day = lang === 'es' ? `${+d.slice(6, 8)}/${+d.slice(4, 6)}` : `${+d.slice(4, 6)}/${+d.slice(6, 8)}`;
+  return [`v${__DALE_VERSION__}`, `${day} ${formatTime12(built, tz, lang)}`];
+}
+
 function versionLine(t: Strings, lang: Lang, tz: string): string {
   const built = Date.parse(__DALE_BUILT_AT__);
   const when = Number.isFinite(built) ? `${fmtYmd(localYmd(built, tz), lang)}, ${formatTime12(built, tz, lang)}` : '?';

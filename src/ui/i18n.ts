@@ -20,6 +20,7 @@ const en = {
   notAffiliated: 'Independent app. Not affiliated with or endorsed by NJ Transit.',
   version: (v: string, commit: string, when: string) => `Dale ${v} (${commit}) · app updated ${when}`,
   about: 'About this version',
+  versionLabel: 'Version and when this app was updated:',
   licenses: 'Open-source software and map data licences',
   // NJ Transit developer data terms: say the data was obtained from NJ Transit and is redistributed
   // from Dale's own server, and that it may not be real time. Shown with every dataset that is not the demo.
@@ -595,6 +596,7 @@ const es: Strings = {
   notAffiliated: 'App independiente. No está afiliada ni respaldada por NJ Transit.',
   version: (v: string, commit: string, when: string) => `Dale ${v} (${commit}) · app actualizada el ${when}`,
   about: 'Sobre esta versión',
+  versionLabel: 'Versión y cuándo se actualizó esta app:',
   licenses: 'Licencias del software libre y de los datos del mapa',
   dataObtained: 'Datos de horarios obtenidos de NJ Transit y redistribuidos desde el servidor propio de Dale, no desde un servidor de NJ Transit.',
   notRealTime: 'Es posible que esta información no sea en tiempo real.',
