@@ -67,3 +67,24 @@ describe('Bus Lock kept on this phone (issue #53)', () => {
     expect(loadLock(store, ds, lockedAt)).toBeUndefined();
   });
 });
+
+// Regression: JSON can parse successfully while nested objects are unusable.
+it('forgets malformed nested saved state without crashing startup', () => {
+  const corruptions = [
+    (x: any) => { x.dep.pattern.stopIds = null; },
+    (x: any) => { x.session.history = [null]; },
+    (x: any) => { x.session.reports = [null]; },
+    (x: any) => { x.session.departure.pattern = null; },
+    (x: any) => { x.leg = null; },
+    (x: any) => { x.dep.route = null; },
+  ];
+  for (const corrupt of corruptions) {
+    const store = memory();
+    saveLock(store, ds, { dep, leg, session: waiting() }, lockedAt + 60_000);
+    const value = JSON.parse(store.getItem(LOCK_KEY)!);
+    corrupt(value);
+    store.setItem(LOCK_KEY, JSON.stringify(value));
+    expect(loadLock(store, ds, dep.departs)).toBeUndefined();
+    expect(store.getItem(LOCK_KEY)).toBeNull();
+  }
+});

@@ -27,6 +27,7 @@ export interface PastReport {
 }
 
 export const HISTORY_KEY = 'arriba.history.v1';
+export const HISTORY_CLEAR_KEY = 'arriba.history.clearedAt.v1';
 export const MAX_HISTORY = 1000;
 export const KEEP_DAYS = 180;
 const KINDS = new Set(['no_bus', 'arrived', 'passed_without_stopping', 'capacity']);
@@ -53,12 +54,22 @@ const valid = (x: unknown): x is PastReport => {
 
 const keyOf = (p: PastReport) => `${p.session}|${p.kind}|${p.reportedAt}`;
 
+function clearedAt(storage: Pick<Storage, 'getItem'> | undefined): number {
+  try {
+    const raw = storage?.getItem(HISTORY_CLEAR_KEY);
+    if (!raw) return -Infinity;
+    const at = Number(raw);
+    return Number.isFinite(at) ? at : Infinity;
+  } catch { return Infinity; }
+}
+
 export function loadHistory(storage: Pick<Storage, 'getItem'> | undefined, now: number): PastReport[] {
   try {
     const parsed: unknown = JSON.parse(storage?.getItem(HISTORY_KEY) ?? '[]');
     if (!Array.isArray(parsed)) return [];
     const cutoff = now - KEEP_DAYS * 86_400_000;
-    return parsed.filter(valid).filter((p) => p.reportedAt >= cutoff && p.reportedAt <= now + 86_400_000);
+    const deletedThrough = clearedAt(storage);
+    return parsed.filter(valid).filter((p) => p.reportedAt > deletedThrough && p.reportedAt >= cutoff && p.reportedAt <= now + 86_400_000);
   } catch { return []; }
 }
 
@@ -83,7 +94,8 @@ export function toPastReports(ds: Dataset, session: BusSession): PastReport[] {
 
 /** Adds the session's new reports to the phone's history (each once). Returns the stored list. */
 export function recordSession(storage: Pick<Storage, 'getItem' | 'setItem'> | undefined, ds: Dataset, session: BusSession, now: number): PastReport[] {
-  const fresh = toPastReports(ds, session);
+  const cutoff = Math.max(clearedAt(storage), now - KEEP_DAYS * 86_400_000);
+  const fresh = toPastReports(ds, session).filter((p) => p.reportedAt > cutoff && p.reportedAt <= now);
   const list = loadHistory(storage, now);
   if (!fresh.length) return list;
   const seen = new Set(list.map(keyOf));
@@ -104,8 +116,15 @@ export function pruneHistory(storage: Pick<Storage, 'getItem' | 'setItem'> | und
   return list;
 }
 
-export function clearHistory(storage: Pick<Storage, 'removeItem'> | undefined): void {
-  try { storage?.removeItem(HISTORY_KEY); } catch { /* nothing kept */ }
+export function clearHistory(storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined, now = Date.now()): boolean {
+  try {
+    // Keep a deletion boundary across reloads: an active/resumed lock still contains its old reports.
+    // Save it before removing history; if storage fails, do not claim success to the rider.
+    const previous = clearedAt(storage);
+    storage?.setItem(HISTORY_CLEAR_KEY, String(Math.max(Number.isFinite(previous) ? previous : now, now)));
+    storage?.removeItem(HISTORY_KEY);
+    return true;
+  } catch { return false; }
 }
 
 export interface HistorySummary {

@@ -100,9 +100,11 @@ export function nextDepartures(ds: Dataset, q: Omit<DepartureQuery, 'date'>, now
 export function tripStopTimes(ds: Dataset, d: Departure): { stopId: string; at: number; estimated: boolean }[] {
   const trip = ds.trips.find((t) => t.id === d.tripId);
   if (!trip) return [];
+  const first = trip.times[0] ?? 0;
+  const start = tripTimeAt(ds, trip, d.serviceDate, 0);
   return d.pattern.stopIds.map((stopId, i) => ({
     stopId,
-    at: tripTimeAt(ds, trip, d.serviceDate, i),
+    at: start + ((trip.times[i] ?? 0) - first) * 1000,
     estimated: trip.estimated?.includes(i) ?? false,
   }));
 }

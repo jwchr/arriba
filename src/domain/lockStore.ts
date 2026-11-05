@@ -4,6 +4,7 @@
 // loaded schedule, its trip, and its day. The invented demo is never saved.
 import type { BusSession } from './busLock';
 import type { Dataset, Departure } from './types';
+import { tripTimeAt } from './schedule';
 
 export const LOCK_KEY = 'arriba.lock.v1';
 /** A lock is offered back until this long after its trip's scheduled end. */
@@ -33,12 +34,12 @@ export function saveLock<L>(store: Store, ds: Dataset, lock: { dep: Departure; l
 /** The saved lock, if it is still valid for this dataset and time; otherwise undefined (and forgotten). */
 export function loadLock<L>(store: Store, ds: Dataset, now: number): SavedLock<L> | undefined {
   if (ds.meta.demo) return undefined;
-  let saved: SavedLock<L> | undefined;
-  try { saved = JSON.parse(store?.getItem(LOCK_KEY) ?? 'null') as SavedLock<L> | undefined; } catch { saved = undefined; }
-  if (!saved) return undefined;
-  const ok = saved.v === 1 && saved.feedVersion === ds.meta.feedVersion && validFor(ds, saved, now);
-  if (!ok) { forgetLock(store); return undefined; }
-  return saved;
+  try {
+    const saved = JSON.parse(store?.getItem(LOCK_KEY) ?? 'null') as SavedLock<L> | null;
+    if (saved && saved.v === 1 && saved.feedVersion === ds.meta.feedVersion && validFor(ds, saved, now)) return saved;
+  } catch { /* Corrupt nested state must not prevent the app from opening. */ }
+  forgetLock(store);
+  return undefined;
 }
 
 export function forgetLock(store: Store): void {
@@ -48,13 +49,31 @@ export function forgetLock(store: Store): void {
 function validFor<L>(ds: Dataset, s: SavedLock<L>, now: number): boolean {
   const dep = s.dep;
   const session = s.session;
-  if (!dep || !session || typeof dep.tripId !== 'string' || !Number.isFinite(dep.departs) || !Number.isFinite(dep.arrivesEnd)) return false;
+  if (!dep || !session || typeof session.id !== 'string' || typeof dep.tripId !== 'string' || !Number.isFinite(dep.departs) || !Number.isFinite(dep.arrivesEnd)) return false;
   // The saved shape must be the one this version understands (bump `v` whenever BusSession changes).
   if (!Array.isArray(session.reports) || !Array.isArray(session.history) || !session.lock || !Number.isFinite(session.lastActionAt)) return false;
   // Same trip, same pattern, same boarding stop as the schedule now loaded.
+  if (!Array.isArray(dep.pattern?.stopIds) || !dep.pattern.stopIds.every((id) => typeof id === 'string')) return false;
+  if (!Number.isInteger(dep.stopIndex) || !/^\d{8}$/.test(dep.serviceDate) || dep.tripInstanceId !== `${dep.tripId}@${dep.serviceDate}`) return false;
+  if (!['viewing', 'waiting', 'arrived', 'onboard'].includes(session.phase) || session.lock.tripInstanceId !== dep.tripInstanceId) return false;
+  if (!['scheduled_only', 'tracked', 'stale', 'vanished', 'needs_confirmation', 'cancelled'].includes(session.lock.status)) return false;
+  const position = (p: NonNullable<BusSession['lock']['last']>) => p && typeof p.vehicleId === 'string' && typeof p.tripInstanceId === 'string'
+    && Number.isFinite(p.observedAt) && Number.isFinite(p.lat) && Math.abs(p.lat) <= 90 && Number.isFinite(p.lon) && Math.abs(p.lon) <= 180;
+  if (session.lock.last && !position(session.lock.last) || session.lock.pending && !position(session.lock.pending)) return false;
+  if (!session.history.every((p) => position(p) && ['demo', 'official'].includes(p.source) && Number.isFinite(p.receivedAt))) return false;
+  if (!session.reports.every((r) => r && ['no_bus', 'arrived', 'boarded', 'left', 'passed_without_stopping', 'capacity'].includes(r.kind)
+    && Number.isFinite(r.reportedAt) && typeof r.stopId === 'string' && r.tripInstanceId === dep.tripInstanceId
+    && (r.kind !== 'capacity' || ['seats', 'standing', 'full'].includes(r.capacity ?? '')))) return false;
+  const leg = s.leg as { fromStopId?: unknown; toStopId?: unknown; routeIds?: unknown } | null;
+  if (!leg || typeof leg.fromStopId !== 'string' || typeof leg.toStopId !== 'string' || !Array.isArray(leg.routeIds)
+    || !leg.routeIds.every((id) => typeof id === 'string') || leg.fromStopId !== dep.pattern.stopIds[dep.stopIndex]) return false;
   const trip = ds.trips.find((t) => t.id === dep.tripId);
   const pattern = ds.patterns.find((p) => p.id === dep.pattern?.id);
   if (!trip || !pattern || trip.patternId !== pattern.id || pattern.stopIds.join() !== dep.pattern.stopIds.join()) return false;
+  if (dep.route?.id !== pattern.routeId || typeof dep.route.shortName !== 'string' || typeof dep.pattern.headsign !== 'string') return false;
+  if (dep.departs !== tripTimeAt(ds, trip, dep.serviceDate, dep.stopIndex) || dep.arrivesEnd !== tripTimeAt(ds, trip, dep.serviceDate, trip.times.length - 1)) return false;
+  // Both saved copies must describe the same trip; use the checked copy on resume.
+  if (JSON.stringify(session.departure) !== JSON.stringify(dep)) return false;
   if (pattern.stopIds[dep.stopIndex] === undefined || session.departure?.tripInstanceId !== dep.tripInstanceId) return false;
   if (session.phase === 'left' || session.phase === 'ended') return false;
   // Not before it was made (a clock set back), and not long after the trip's scheduled end.

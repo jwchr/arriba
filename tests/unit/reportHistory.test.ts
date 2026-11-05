@@ -84,3 +84,16 @@ describe('personal report history (issue #57)', () => {
     expect(Object.keys(strings.es.history).sort()).toEqual(Object.keys(strings.en.history).sort());
   });
 });
+
+it('does not resurrect cleared reports from an active or resumed ride', () => {
+  const store = memory(), dep = sameBus('20261104');
+  let session = ride(dep, 'active', arrived(2));
+  recordSession(store, ds, session, dep.departs + 3 * MIN);
+  expect(clearHistory(store, dep.departs + 4 * MIN)).toBe(true);
+  session = reduceBusSession(session, { type: 'capacity', level: 'standing', now: dep.departs + 5 * MIN });
+  expect(recordSession(store, ds, session, dep.departs + 5 * MIN).map((r) => r.kind)).toEqual(['capacity']);
+  const resumed = JSON.parse(JSON.stringify(session));
+  expect(recordSession(store, ds, resumed, dep.departs + 6 * MIN).map((r) => r.kind)).toEqual(['capacity']);
+  expect(session.reports.map((r) => r.kind)).toEqual(['arrived', 'capacity']); // keep current ride evidence
+  expect(clearHistory({ ...store, setItem: () => { throw new Error('blocked'); } }, dep.departs + 7 * MIN)).toBe(false);
+});

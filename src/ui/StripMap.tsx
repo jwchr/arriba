@@ -11,6 +11,7 @@ import { formatTime12 } from '../domain/time';
 import { fixPosition, hasLocations, stopReached, tripProgress, type Fix, type Milestone } from '../domain/tripProgress';
 import type { Dataset } from '../domain/types';
 import type { Lang, Strings } from './i18n';
+import { SignalWarning } from './SignalWarning';
 import type { MapStop } from './RouteMap';
 
 // The street map is large: it loads only when a ride with located stops opens it.
@@ -116,6 +117,7 @@ export function StripMap({ ds, session, alightIndex, now, t, lang }: { ds: Datas
 
   return (
     <div className="progress" data-basis={progress.basis}>
+      <SignalWarning session={session} now={now} t={t} estimated={progress.basis === 'timetable' || progress.projected} />
       {/* The LED bar: next stop and pace, like the sign over the car doors. */}
       <div className="led-bar" role="status" aria-live="polite">
         <p className="led-line"><span className="led-key">{atEnd ? p.at : p.next}</span> {nextLabel.town}{nextLabel.detail ? ` · ${nextLabel.detail}` : ''}</p>

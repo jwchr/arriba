@@ -27,5 +27,11 @@ Native app, widgets, watch, Live Activities; personal identity/location sharing 
 
 D45 adds GPS-assisted fare zones, a near-home rescue search, last same-line return guidance, capacity observations/history and full-screen get-off guidance. `docs/BUS_LOCK.md` defines the behavior and dependency boundaries. Printed timepoints alone cannot supply route geography, fare boundary polygons, nearby alternatives, exact intermediate-stop counts or current capacity. These additions do not lift the existing live-data/collection hold.
 
+## Owner additions, 2026-11-05
+
+D48 adds the New York Penn journey guide and explicit lost-GPS/estimated-progress warnings, with an alternatives action on signal loss or an unconfirmed due arrival (#79). Scope is the 165T/165 local, 163/164 at Summit & Essex, and Anderson Street / Essex Street (Pascack Valley) via Secaucus. User-opened Uber/Lyft links supply no quotes or bookings. The guide is a manual checklist, never location tracking or confirmation of a connection. Saved choices stay on the phone. A missing signal never cancels a trip or changes its identity.
+
+D49 permits a separate supplied-PDF transcription and scheduled comparison slice (#80); 144 is included only where it serves the same selected corridor stop. Compare the full journey to Penn, including the final leg from Port Authority, the full return chain and user-entered walking time. Static-source authorization does not release M2/M3 live access, recordings, alert or shared-report holds. Do not publish known-superseded rail connections as current service.
+
 ## Done means
 Tests prove it (`npm run verify`), the Pages build shows it, and for live features the owner's real rides confirm it (M3 acceptance in the review doc).

@@ -1,3 +1,4 @@
+import { journeyStrings, confidenceStrings } from './journeyStrings';
 import type { UncertainReason } from '../domain/rideGuide';
 import type { TripUpdate } from '../domain/tripUpdate';
 export type Lang = 'en' | 'es';
@@ -10,6 +11,8 @@ const stop_ = (name: string) => (name.endsWith('.') ? name : `${name}.`);
 const tidy = (text: string) => text.replace(/\.\.(?=\s|$)/g, '.');
 
 const en = {
+  journey: journeyStrings.en,
+  confidence: confidenceStrings.en,
   appTagline: 'When you ride NJ Transit, you need all the help you can get.',
   demoBanner: 'Demo data: invented stops, times and gates. Do not use it to catch a real bus.',
   notAffiliated: 'Independent app. Not affiliated with or endorsed by NJ Transit.',
@@ -580,6 +583,8 @@ const en = {
 export type Strings = typeof en;
 
 const es: Strings = {
+  journey: journeyStrings.es,
+  confidence: confidenceStrings.es,
   appTagline: 'Cuando viajas en NJ Transit, necesitas toda la ayuda posible.',
   demoBanner: 'Datos de demostración: paradas, horarios y puertas inventados. No los uses para tomar un autobús real.',
   notAffiliated: 'App independiente. No está afiliada ni respaldada por NJ Transit.',

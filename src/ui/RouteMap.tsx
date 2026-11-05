@@ -29,7 +29,7 @@ export default function RouteMap({ stops, bus, dark, label, failedText }: Props)
   latest.current = { stops, bus };
 
   useEffect(() => {
-    if (!el.current) return;
+    if (failed || !el.current) return;
     if (!protocolAdded) { setWorkerUrl(workerUrl); addProtocol('pmtiles', new Protocol().tile); protocolAdded = true; }
     const base = new URL(import.meta.env.BASE_URL, location.href).href;
     const flavor = dark ? 'dark' : 'light';
@@ -63,6 +63,8 @@ export default function RouteMap({ stops, bus, dark, label, failedText }: Props)
       setFailed(true);
       return;
     }
+    // Tile/archive/style failures arrive after construction (for example an offline first map load).
+    m.on('error', () => setFailed(true));
     m.on('webglcontextlost', () => setFailed(true));
     m.touchZoomRotate.disableRotation();
     m.addControl(new NavigationControl({ showCompass: false }), 'top-right');
@@ -91,7 +93,7 @@ export default function RouteMap({ stops, bus, dark, label, failedText }: Props)
     });
     map.current = m;
     return () => { m.remove(); map.current = undefined; };
-  }, [dark]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dark, failed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // New progress moves the dots and the bus without rebuilding the map.
   useEffect(() => {

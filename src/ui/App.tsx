@@ -17,6 +17,7 @@ import { strings, type Lang, type Strings } from './i18n';
 import { BoardingCheck } from './BoardingCheck';
 import { NearMe } from './NearMe';
 import { Rescue } from './Rescue';
+import { PennGuide } from './PennGuide';
 import { RiderGuide } from './RiderGuide';
 import { TicketGuide } from './TicketGuide';
 import { SKINS, SkinBackdrop, type Skin } from './SkinBackdrop';
@@ -35,6 +36,7 @@ type Screen =
   | { name: 'departure'; dep: Departure; leg: Leg }
   | { name: 'settings' }
   | { name: 'guide' }
+  | { name: 'penn' }
   | { name: 'boarding'; dep: Departure; leg: Leg }
   | { name: 'rescue'; fromStopId: string; homeStopId: string; usualRouteId?: string; label: 'home' | 'other' };
 
@@ -146,7 +148,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
     if (s.name === 'home') return [s];
     const top = st[st.length - 1]!;
     // Tapping Settings (or search, or the guide) again while already there does not stack copies.
-    if (top.name === s.name && ['settings', 'search', 'guide'].includes(s.name)) return st;
+    if (top.name === s.name && ['settings', 'search', 'guide', 'penn'].includes(s.name)) return st;
     // Keep the history short, but never drop home at the bottom: Back must always lead home.
     return st.length >= 20 ? [st[0]!, ...st.slice(2), s] : [...st, s];
   });
@@ -235,6 +237,8 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             {t.busLock.resume} · {activeLock.dep.route.shortName} · {formatTime12(activeLock.dep.departs, tz, settings.lang)}
           </button>
         </aside>}
+        {screen.name === 'home' && <button className="primary wide penn-open" onClick={() => setScreen({ name: 'penn' })}>{t.journey.open}</button>}
+        {screen.name === 'penn' && <PennGuide t={t} demo={ds.meta.demo} />}
         {screen.name === 'home' && (
           <Home ctx={ctx} favorites={favorites} count={settings.count} setFavorites={setFavorites} reversedIds={reversedIds} toggleReversed={toggleReversed}
             onSearch={() => setScreen({ name: 'search' })}
@@ -257,6 +261,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             onAdvanceDemo={(minutes) => { if (ds.meta.demo) setDemoAdvanceMs((value) => value + minutes * 60_000); }}
             onLock={() => { if (!activeLock) { setResumable(undefined); setActiveLock({ dep: screen.dep, leg: screen.leg, session: createBusSession(screen.dep, lockNow) }); } }}
             onReturn={(dep, leg) => setScreen({ name: 'departure', dep, leg })}
+            onPenn={() => setScreen({ name: 'penn' })}
             onBoarding={() => setScreen({ name: 'boarding', dep: screen.dep, leg: screen.leg })}
             onOpenBackup={(o) => setScreen({ name: 'departure', dep: o.dep, leg: { fromStopId: o.boardStopId, toStopId: o.alightStopId, routeIds: [] } })}
             onRescue={() => setScreen({ name: 'rescue', fromStopId: screen.leg.fromStopId, homeStopId: screen.leg.toStopId, usualRouteId: screen.dep.route.id,
@@ -264,7 +269,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             onUnlock={() => { setActiveLock(undefined); if (!ds.meta.demo) forgetLock(store); setDemoAdvanceMs(0); }} />
         )}
         {screen.name === 'settings' && <SettingsScreen ctx={ctx} settings={settings} setSettings={setSettings} onGuide={() => setScreen({ name: 'guide' })}
-          historyCount={pastReports.length} onClearHistory={() => { clearHistory(store); setPastReports([]); }} />}
+          historyCount={pastReports.length} onClearHistory={() => { const ok = clearHistory(store, lockNow); if (ok) setPastReports([]); return ok; }} />}
         {screen.name === 'guide' && <RiderGuide t={t} />}
         {screen.name === 'boarding' && (
           <BoardingCheck ds={ds} dep={screen.dep} toStopId={screen.leg.toStopId} t={t} lang={settings.lang}
@@ -711,7 +716,7 @@ const gateLine = (t: Strings, g: GateAnswer) =>
       : g.status === 'published' ? `${t.gatePublished(g.gate, g.door)} · ${t.gateRuleTag}`
         : t.gateUnknown;
 
-function DepartureDetail({ ctx, dep, leg, pastReports, busSession, anotherLock, lockNow, keepAwake, onKeepAwake, onLockEvent, onAdvanceDemo, onLock, onUnlock, onReturn, onRescue, onBoarding, onOpenBackup }: {
+function DepartureDetail({ ctx, dep, leg, pastReports, busSession, anotherLock, lockNow, keepAwake, onKeepAwake, onLockEvent, onAdvanceDemo, onLock, onUnlock, onReturn, onRescue, onBoarding, onOpenBackup, onPenn }: {
   ctx: Ctx; dep: Departure; leg: Leg; pastReports: PastReport[]; busSession?: BusSession; anotherLock: boolean; lockNow: number;
   keepAwake: boolean; onKeepAwake: (value: boolean) => void; onLockEvent: (event: BusSessionEvent) => void;
   onAdvanceDemo: (minutes: number) => void; onLock: () => void; onUnlock: () => void;
@@ -719,6 +724,7 @@ function DepartureDetail({ ctx, dep, leg, pastReports, busSession, anotherLock, 
   onRescue: () => void;
   onOpenBackup: (o: RescueOption) => void;
   onBoarding: () => void;
+  onPenn: () => void;
 }) {
   const { ds, t, stopName } = ctx;
   const times = tripStopTimes(ds, dep);
@@ -756,7 +762,7 @@ function DepartureDetail({ ctx, dep, leg, pastReports, busSession, anotherLock, 
       {busSession && <BusLockPanel ds={ds} session={busSession} alightIndex={alightIndex} now={lockNow} t={t} lang={ctx.lang}
         keepAwake={keepAwake} onKeepAwake={onKeepAwake} onEvent={onLockEvent} onAdvanceDemo={onAdvanceDemo} onUnlock={onUnlock}
         gateText={(o) => { const g = departureGate(ds, o.dep); return g && gateLine(t, g); }}
-        badge={(routeId) => <RouteBadge ds={ds} routeId={routeId} />} onOpenBackup={onOpenBackup} />}
+        badge={(routeId) => <RouteBadge ds={ds} routeId={routeId} />} onOpenBackup={onOpenBackup} onAlternatives={onRescue} onPenn={onPenn} />}
       <button className="boarding-open" onClick={onBoarding}>{t.boarding.open}</button>
       <div className="card trip-ticket">
         <p className="trip-ticket-label">{t.tripCard}</p>
@@ -823,11 +829,12 @@ function DepartureDetail({ ctx, dep, leg, pastReports, busSession, anotherLock, 
 }
 
 function SettingsScreen({ ctx, settings, setSettings, onGuide, historyCount, onClearHistory }: {
-  ctx: Ctx; settings: Settings; setSettings: (s: Settings) => void; onGuide: () => void; historyCount: number; onClearHistory: () => void;
+  ctx: Ctx; settings: Settings; setSettings: (s: Settings) => void; onGuide: () => void; historyCount: number; onClearHistory: () => boolean;
 }) {
   const { t, ds } = ctx;
   const [confirmClear, setConfirmClear] = useState(false);
   const [cleared, setCleared] = useState(false);
+  const [clearFailed, setClearFailed] = useState(false);
   const historyHeading = useRef<HTMLHeadingElement>(null);
   const clearButton = useRef<HTMLButtonElement>(null);
   const [focusAfter, setFocusAfter] = useState<'heading' | 'clear' | undefined>();
@@ -859,11 +866,11 @@ function SettingsScreen({ ctx, settings, setSettings, onGuide, historyCount, onC
       {historyCount > 0 && (confirmClear
         ? <div className="edit-row" role="group" aria-label={t.history.confirm}>
           <span className="small">{t.history.confirm}</span>
-          <button className="danger" autoFocus onClick={() => { onClearHistory(); setConfirmClear(false); setCleared(true); setFocusAfter('heading'); }}>{t.history.yes}</button>
+          <button className="danger" autoFocus onClick={() => { const ok = onClearHistory(); setConfirmClear(false); setCleared(ok); setClearFailed(!ok); setFocusAfter('heading'); }}>{t.history.yes}</button>
           <button className="ghost" onClick={() => { setConfirmClear(false); setFocusAfter('clear'); }}>{t.history.no}</button>
         </div>
         : <button ref={clearButton} className="ghost" onClick={() => { setCleared(false); setConfirmClear(true); }}>{t.history.clear}</button>)}
-      <p className="small" role="status">{cleared ? t.history.cleared : ''}</p>
+      <p className="small" role="status">{clearFailed ? t.confidence.clearFailed : cleared ? t.history.cleared : ''}</p>
       <h2>{t.about}</h2>
       <p className="small">{versionLine(t, ctx.lang, ctx.tz)}</p>
       <p className="small"><a className="link" href={`${import.meta.env.BASE_URL}licenses.txt`}>{t.licenses}</a></p>
