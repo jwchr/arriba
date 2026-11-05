@@ -704,7 +704,7 @@ test.describe('a real commute opened on the demo (owner report 2026-11-05)', () 
     await page.addInitScript(() => localStorage.setItem('arriba.favorites.v1', JSON.stringify([{ id: 'f', label: 'Hackensack - State St. at Lawerence St. (to New York) → New York - Port Authority Bus Terminal', fromStopId: 'N10', toStopId: 'PABT', routeIds: [] }])));
     await page.goto('/?now=2026-11-05T07:30&demo');
     const card = page.getByRole('article');
-    await expect(card).toContainText('This commute was saved from the real route 165 schedule');
+    await expect(card).toContainText('This commute was saved from the real schedule');
     await expect(card).toContainText('Hackensack - State St. at Lawerence St.');
     await expect(page.locator('main')).not.toContainText('N10');
     expect((await new AxeBuilder({ page }).include('.fav-missing').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations).toEqual([]);

@@ -220,7 +220,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
         <span className="top-version" title={versionLine(t, settings.lang, tz)}><span className="sr-only">{t.versionLabel} </span>{(() => { const [v, when] = versionShort(settings.lang, tz); return <><span className="nowrap">{v}</span>{when && <> <span className="nowrap">· {when}</span></>}</>; })()}</span>
         <button className="icon-btn" onClick={() => setScreen({ name: 'settings' })} aria-label={t.settings}>⚙</button>
       </header>
-      {ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner} <a className="link demo-leave" href={leaveDemoHref()}>{t.leaveDemo}</a></div>}
+      {ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner}{demoInAddress() && <> <a className="link demo-leave" href={leaveDemoHref()}>{t.leaveDemo}</a></>}</div>}
       {ds.meta.transcribed && <div className="data-banner" role="note">{t.transcribedBanner(fmtYmd(ds.meta.transcribed.issued, settings.lang))}</div>}
       <FeedStatus ctx={ctx} />
       {ds.meta.transcribed && isNjtHoliday(localYmd(now, tz)) && <p className="status-line" data-level="warn" role="note">{t.holidayToday}</p>}
@@ -338,6 +338,9 @@ function TimeText({ ctx, at, estimated }: { ctx: Ctx; at: number; estimated: boo
   if (!estimated) return <>{s}</>;
   return <><span aria-hidden="true">~</span>{s}<span className="sr-only">, {ctx.t.estimatedWord}</span></>;
 }
+
+/** True when the rider asked for the demo in the address (not when it is shown because no schedule is published). */
+const demoInAddress = () => location.search.slice(1).split('&').some((p) => p === 'demo' || p.startsWith('demo='));
 
 /** The same address without `?demo`, so the rider gets the real schedule back. */
 function leaveDemoHref(): string {
@@ -481,7 +484,7 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
       <article className="card fav fav-missing" aria-label={t.savedCommute}>
         <h2>{fav.label}</h2>
         <p className="warn" role="note">{ds.meta.demo ? t.commuteNotInDemo : t.commuteNotInSchedule}</p>
-        {ds.meta.demo && <a className="link" href={leaveDemoHref()}>{t.leaveDemo}</a>}
+        {ds.meta.demo && demoInAddress() && <a className="link" href={leaveDemoHref()}>{t.leaveDemo}</a>}
       </article>
     );
   }
