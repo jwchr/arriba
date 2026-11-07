@@ -1,6 +1,6 @@
 import bindings from 'gtfs-realtime-bindings';
 import { isServiceActive } from '../src/domain/schedule';
-import { validServiceDate, LIVE_MAX_AGE_MS, type LiveFeed, type LivePrediction } from '../src/domain/liveBus';
+import { validServiceDate, validVehicleId, LIVE_MAX_AGE_MS, type LiveFeed, type LivePrediction } from '../src/domain/liveBus';
 import { tripInstanceId, type Dataset, type Pattern } from '../src/domain/types';
 import type { VehicleObservation } from '../src/domain/lock';
 type Descriptor = bindings.transit_realtime.ITripDescriptor;
@@ -42,7 +42,7 @@ export function createNormalizer(ds: Dataset) {
         }
         if (kind === 'vehicles' && entity.vehicle) {
           const vehicle = entity.vehicle, match = identify(vehicle.trip), observedAt = seconds(vehicle.timestamp), pos = vehicle.position;
-          if (!match || !observedAt || observedAt > now || !vehicle.vehicle?.id || !pos
+          if (!match || !observedAt || observedAt > now || !validVehicleId(vehicle.vehicle?.id) || !pos
             || !Object.hasOwn(pos, 'latitude') || !Object.hasOwn(pos, 'longitude') || !Number.isFinite(pos.latitude) || !Number.isFinite(pos.longitude)
             || Math.abs(pos.latitude) > 90 || Math.abs(pos.longitude) > 180 || (vehicle.trip?.scheduleRelationship ?? 0) !== 0) continue;
           output.observations.push({ tripInstanceId: match.id, vehicleId: vehicle.vehicle.id, observedAt, lat: pos.latitude, lon: pos.longitude });

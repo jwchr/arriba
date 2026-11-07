@@ -12,6 +12,7 @@ export interface LiveBusSnapshot {
   vehicles: LiveFeed; updates: LiveFeed; observations: VehicleObservation[];
   updatedAt?: number; cancelledAt?: number; predictions: LivePrediction[]; skippedStops: number[];
 }
+export const validVehicleId = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0 && value.length <= 128 && !/[\u0000-\u001f\u007f]/.test(value);
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const time = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v > 0 && Number.isFinite(new Date(v).getTime());
 
@@ -26,7 +27,7 @@ export function parseLiveSnapshot(value: unknown, ds: Dataset, tripId: string, s
   const trip = ds.trips.find((t) => t.id === tripId), pattern = ds.patterns.find((p) => p.id === trip?.patternId);
   if (!pattern || !feed(value.vehicles) || !feed(value.updates)) return fail();
   if (!Array.isArray(value.observations) || value.observations.length > 10 || !value.observations.every((p) => object(p)
-    && typeof p.tripInstanceId === 'string' && p.tripInstanceId.includes('@') && typeof p.vehicleId === 'string' && p.vehicleId.length > 0 && p.vehicleId.length <= 128
+    && typeof p.tripInstanceId === 'string' && p.tripInstanceId.includes('@') && validVehicleId(p.vehicleId)
     && time(p.observedAt) && p.observedAt <= receivedAt && typeof p.lat === 'number' && Number.isFinite(p.lat) && Math.abs(p.lat) <= 90
     && typeof p.lon === 'number' && Number.isFinite(p.lon) && Math.abs(p.lon) <= 180)) return fail();
   const index = (i: unknown): i is number => typeof i === 'number' && Number.isInteger(i) && i >= 0 && i < pattern.stopIds.length;

@@ -5,8 +5,8 @@ import { LIVE_SOURCE, type LiveBusSnapshot } from '../../src/domain/liveBus';
 
 const API = 'https://dale-live.test.workers.dev';
 const oldFavorite = { id: 'old', label: 'My printed commute', fromStopId: 'N10', toStopId: 'N20', routeIds: ['165T'] };
-async function setup(page: Page, response: () => LiveBusSnapshot | null, lang = 'en') {
-  await page.clock.install({ time: NOW });
+async function setup(page: Page, response: () => LiveBusSnapshot | null, lang = 'en', wallTime = NOW, pinned = false) {
+  await page.clock.install({ time: wallTime });
   await page.addInitScript(({ favorite, lang }) => {
     localStorage.setItem('arriba.favorites.v1', JSON.stringify([favorite]));
     localStorage.setItem('arriba.favorites.v1.g2', JSON.stringify([{ id: 'live-test', label: 'My live bus', fromStopId: '2', toStopId: '3', routeIds: ['10'] }]));
@@ -18,7 +18,7 @@ async function setup(page: Page, response: () => LiveBusSnapshot | null, lang = 
     if (body) await route.fulfill({ json: body, headers: { 'access-control-allow-origin': '*' } });
     else await route.abort('failed');
   });
-  await page.goto('/?live=1&now=2026-11-04T07:20');
+  await page.goto(pinned ? '/?live=1&now=2026-11-04T07:20' : '/?live=1');
   await page.getByRole('button', { name: /7:20/ }).first().click();
   await page.getByRole('button', { name: lang === 'en' ? 'Lock onto this bus' : 'Seguir este autobús', exact: true }).click();
 }
@@ -127,4 +127,11 @@ test('known skipped stops pause automatic get-off guidance without cancelling th
   await page.getByRole('button', { name: 'I boarded', exact: true }).click();
   await expect(page.getByRole('dialog').getByText(/automatic get-off instructions are paused/)).toBeVisible();
   expect((await saved(page)).session.lock.status).not.toBe('cancelled');
+});
+
+for (const offset of [-86_400_000, 86_400_000]) test(`live reports use the app clock when pinned time differs from wall time by ${offset} ms`, async ({ page }) => {
+  await setup(page, () => packet(), 'en', NOW + offset, true);
+  await expect(page.getByTestId('live-bus-status')).toContainText('LIVE REPORT');
+  expect((await saved(page)).session.lock.status).toBe('tracked');
+  expect((await saved(page)).session.history).toHaveLength(1);
 });

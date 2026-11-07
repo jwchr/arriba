@@ -1,6 +1,6 @@
 import type { Dataset } from '../src/domain/types';
 import { isServiceActive } from '../src/domain/schedule';
-import { validServiceDate, LIVE_SOURCE, type LiveBusSnapshot } from '../src/domain/liveBus';
+import { validServiceDate, validVehicleId, LIVE_SOURCE, type LiveBusSnapshot } from '../src/domain/liveBus';
 import { authenticate, njtRequest, NjtError, type Credentials } from './njt-client';
 import { createNormalizer, type NormalizedFeed } from './normalize';
 interface Storage { get<T>(key: string): Promise<T | undefined>; put(key: string, value: unknown): Promise<void> }
@@ -64,14 +64,24 @@ export function createFeedClass(ds: Dataset, fetchImpl: typeof fetch = fetch, cl
       const age = (feed: NormalizedFeed) => ({ ...feed.feed, ...(feed.feed.timestamp && now - feed.feed.timestamp > 120_000 ? { state: 'stale' as const } : {}) });
       if (url.pathname === '/v1/status') return Response.json({ v: 1, source: LIVE_SOURCE, feedVersion: ds.meta.feedVersion,
         vehicles: age(vehicles), updates: age(updates), vehicleDiagnostics: vehicles.diagnostics, updateDiagnostics: updates.diagnostics, reportingBuses: new Set(vehicles.observations.filter((o) => now - o.observedAt <= 120_000).map((o) => o.vehicleId)).size,
-        example: vehicles.observations.find((o) => now - o.observedAt <= 120_000),
+        example: vehicles.observations.filter((o) => now - o.observedAt <= 120_000).sort((a, b) => b.observedAt - a.observedAt)[0],
       }, { headers: { 'cache-control': 'no-store' } });
       const candidates = updates.updates.filter((u) => u.tripInstanceId === id).sort((a, b) => b.observedAt - a.observedAt);
       const update = candidates.length === 1 ? candidates[0] : undefined;
+      // Keep one newest report per trip/vehicle before bounding the public packet. Duplicates
+      // must not hide a second bus on this trip or the locked bus moving to another trip.
+      const exact = new Map<string, (typeof vehicles.observations)[number]>();
+      let reassigned: (typeof vehicles.observations)[number] | undefined;
+      for (const point of vehicles.observations) {
+        if (point.tripInstanceId === id) {
+          if (!exact.has(point.vehicleId) || point.observedAt > exact.get(point.vehicleId)!.observedAt) exact.set(point.vehicleId, point);
+        } else if (point.vehicleId === vehicle && (!reassigned || point.observedAt > reassigned.observedAt)) reassigned = point;
+      }
+      const observations = [...(reassigned ? [reassigned] : []), ...[...exact.values()].sort((a, b) => b.observedAt - a.observedAt)].slice(0, 10);
       const response: LiveBusSnapshot = {
         v: 1, source: LIVE_SOURCE, feedVersion: ds.meta.feedVersion, tripInstanceId: id, receivedAt: now,
         vehicles: age(vehicles), updates: age(updates),
-        observations: vehicles.observations.filter((o) => o.tripInstanceId === id || (!!vehicle && o.vehicleId === vehicle)).slice(0, 10),
+        observations,
         ...(update ? { updatedAt: update.observedAt } : {}),
         ...(update?.cancelled ? { cancelledAt: update.observedAt } : {}),
         predictions: update?.predictions ?? [], skippedStops: update?.skippedStops ?? [],
@@ -95,7 +105,7 @@ export function createRouter(ds: Dataset) {
       if (url.pathname === '/v1/schedule') { headers.set('content-type', 'application/json'); return reply(schedule); }
       if (!['/v1/live', '/v1/status'].includes(url.pathname)) return reply('Not found', 404);
       const trip = url.searchParams.get('trip'), date = url.searchParams.get('date'), vehicle = url.searchParams.get('vehicle');
-      if (url.pathname !== '/v1/status' && (!trip || !trips.has(trip) || !date || !validServiceDate(date) || !isServiceActive(ds.calendars[trips.get(trip)!.serviceId], date) || (vehicle && (vehicle.length > 128 || !/^[\w-]+$/.test(vehicle))))) return reply('Invalid trip', 400);
+      if (url.pathname !== '/v1/status' && (!trip || !trips.has(trip) || !date || !validServiceDate(date) || !isServiceActive(ds.calendars[trips.get(trip)!.serviceId], date) || (vehicle !== null && !validVehicleId(vehicle)))) return reply('Invalid trip', 400);
       try {
         const id = env.FEED.idFromName('corridor-v1');
         const response = await env.FEED.get(id).fetch(request);

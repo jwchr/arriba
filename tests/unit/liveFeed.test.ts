@@ -15,7 +15,7 @@ const updates = () => binaryFeed([{ id: 'u', tripUpdate: update() }]);
 const dep = () => departuresOn(ds, { stopId: '2', date: '20261104' }).find((d) => d.tripId === 'T1')!;
 const request = (path = '/v1/live?trip=T1&date=20261104') => new Request('https://dale-live.test.workers.dev' + path);
 const creds = { NJT_API_USERNAME: 'synthetic-user', NJT_API_PASSWORD: 'synthetic-password' };
-function harness() {
+function harness(positions = gps) {
   let now = NOW;
   const saved = new Map<string, unknown>(), calls: string[] = [];
   const storage = { get: async <T,>(key: string) => structuredClone(saved.get(key)) as T | undefined, put: async (key: string, v: unknown) => { saved.set(key, structuredClone(v)); } };
@@ -23,7 +23,7 @@ function harness() {
   const net = (async (url: RequestInfo | URL) => {
     calls.push(String(url));
     if (String(url).endsWith('authenticateUser')) return Response.json({ Authenticated: 'True', UserToken: 'private-synthetic-token' });
-    return new Response(new Uint8Array(String(url).endsWith('getVehiclePositions') ? gps() : updates()).buffer);
+    return new Response(new Uint8Array(String(url).endsWith('getVehiclePositions') ? positions() : updates()).buffer);
   }) as typeof fetch;
   const Feed = createFeedClass(ds, net, () => now);
   const env = { ...creds, FEED: { idFromName: (name: string) => name, get: () => object } };
@@ -83,6 +83,43 @@ describe('single paced private live relay', () => {
     h.clock(NOW + 31_000); await cold.fetch(request()); expect(h.calls).toHaveLength(5);
     expect(h.calls.filter((s) => s.endsWith('authenticateUser'))).toHaveLength(1);
   });
+  it('round-trips printable fleet identifiers through normalization, protocol and subsequent exact-vehicle queries', async () => {
+    for (const vehicleId of ['NJT 5412', '165:1', 'bus.12', 'bus/12', 'autobús']) {
+      const h = harness(() => binaryFeed([{ id: 'v', vehicle: vehicle({ vehicle: { id: vehicleId } }) }]));
+      const url = new URL(request().url); url.searchParams.set('vehicle', vehicleId);
+      const response = await createRouter(ds).fetch(new Request(url), h.env);
+      expect(response.status).toBe(200);
+      expect(parseLiveSnapshot(await response.json(), ds, 'T1', '20261104', NOW).observations[0]?.vehicleId).toBe(vehicleId);
+    }
+    const h = harness();
+    for (const vehicleId of ['', ' ', 'a'.repeat(129), 'bad\u0000id']) {
+      const url = new URL(request().url); url.searchParams.set('vehicle', vehicleId);
+      expect((await createRouter(ds).fetch(new Request(url), h.env)).status).toBe(400);
+      expect(normalize(binaryFeed([{ id: 'v', vehicle: vehicle({ vehicle: { id: vehicleId } }) }]), 'vehicles', NOW).observations).toEqual([]);
+    }
+    expect(h.calls).toHaveLength(0);
+  });
+  it('retains distinct buses and the locked vehicle reassignment after duplicate reports, within the packet bound', async () => {
+    const reports = Array.from({ length: 12 }, (_, i) => ({ id: 'duplicate-' + i, vehicle: vehicle({ timestamp: NOW / 1000 - 20 + i }) }));
+    reports.push({ id: 'second', vehicle: vehicle({ vehicle: { id: 'bus-B' }, timestamp: NOW / 1000 - 1 }) });
+    reports.push({ id: 'reassigned', vehicle: vehicle({ trip: { ...descriptor, tripId: 'T2' }, vehicle: { id: 'locked-bus' }, timestamp: NOW / 1000 - 2 }) });
+    const h = harness(() => binaryFeed(reports));
+    const snapshot = parseLiveSnapshot(await (await h.object.fetch(request('/v1/live?trip=T1&date=20261104&vehicle=locked-bus'))).json(), ds, 'T1', '20261104', NOW);
+    expect(snapshot.observations).toHaveLength(3);
+    expect(snapshot.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ vehicleId: 'bus-A', observedAt: NOW - 9000 }),
+      expect.objectContaining({ vehicleId: 'bus-B' }),
+      expect.objectContaining({ vehicleId: 'locked-bus', tripInstanceId: 'T2@20261104' }),
+    ]));
+    const profile = await (await h.object.fetch(request('/v1/status'))).json();
+    expect(profile.example.vehicleId).toBe('bus-B');
+    for (let i = 0; i < 15; i++) reports.push({ id: 'extra-' + i, vehicle: vehicle({ vehicle: { id: 'extra-' + i } }) });
+    const crowded = harness(() => binaryFeed(reports));
+    const limited = parseLiveSnapshot(await (await crowded.object.fetch(request('/v1/live?trip=T1&date=20261104&vehicle=locked-bus'))).json(), ds, 'T1', '20261104', NOW);
+    expect(limited.observations).toHaveLength(10);
+    expect(limited.observations.some((o) => o.vehicleId === 'locked-bus')).toBe(true);
+    expect(new Set(limited.observations.filter((o) => o.tripInstanceId === 'T1@20261104').map((o) => o.vehicleId)).size).toBeGreaterThan(1);
+  });
   it('drops old normalized stop indices after a schedule change while preserving token reuse and pacing', async () => {
     const h = harness(); await h.object.fetch(request());
     const changed = structuredClone(ds); changed.meta.feedVersion = 'next-feed';
@@ -129,6 +166,17 @@ describe('safe live protocol and existing lock', () => {
     }
     expect(liveApiUrl('https://dale-live.test.workers.dev')).toBeDefined();
     for (const url of ['http://dale-live.test.workers.dev', 'https://evil.example', 'https://dale-live.test.workers.dev/?token=secret']) expect(liveApiUrl(url)).toBeUndefined();
+  });
+  it.each(['confirm_pending', 'reject_pending'] as const)('keeps GPS loss visible when %s follows a missing feed', (type) => {
+    let session = createBusSession(dep(), NOW - 30_000);
+    const point = { tripInstanceId: dep().tripInstanceId, vehicleId: 'A', observedAt: NOW - 2000, lat: 40.89, lon: -74.04 };
+    session = reduceBusSession(session, { type: 'observation', source: 'official', receivedAt: NOW, obs: point });
+    session = reduceBusSession(session, { type: 'observation', source: 'official', receivedAt: NOW, obs: { ...point, vehicleId: 'B', observedAt: NOW - 1000 } });
+    expect(session.lock.status).toBe('needs_confirmation');
+    session = reduceBusSession(session, { type: 'feed_status', tripInstanceId: dep().tripInstanceId, state: 'missing', now: NOW });
+    session = reduceBusSession(session, { type, now: NOW });
+    expect(session.lock.status).toBe('stale'); expect(gpsLost(session, NOW)).toBe(true);
+    expect(session.lock.vehicleId).toBe(type === 'confirm_pending' ? 'B' : 'A');
   });
   it('falls back immediately on a checked feed gap without changing identity, cancelling or inventing observations', () => {
     let session = createBusSession(dep(), NOW - 30_000);

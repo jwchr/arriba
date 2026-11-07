@@ -45,7 +45,7 @@ try {
     const endpoint = new URL('/v1/live', url); endpoint.searchParams.set('trip', trip); endpoint.searchParams.set('date', date);
     const response = await fetch(endpoint, { signal: AbortSignal.timeout(15_000), redirect: 'error' });
     const packet = response.ok ? parseLiveSnapshot(await response.json(), ds, trip, date, Date.now()) : undefined;
-    if (packet?.vehicles.state !== 'ok' || !packet.observations.some((p) => p.vehicleId === profile.example.vehicleId && p.tripInstanceId === profile.example.tripInstanceId && p.observedAt === profile.example.observedAt && Date.now() - p.observedAt <= 120_000)) throw new Error('exact-bus-check-failed');
+    if (packet?.vehicles.state !== 'ok' || !packet.observations.some((p) => p.vehicleId === profile.example.vehicleId && p.tripInstanceId === profile.example.tripInstanceId && p.observedAt >= profile.example.observedAt && Date.now() - p.observedAt <= 120_000)) throw new Error('exact-bus-check-failed');
     console.log('A fresh official bus report matched its canonical trip/date through the tracker endpoint. Ready for app activation and a real ride test.');
   }
 } catch {

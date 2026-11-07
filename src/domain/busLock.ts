@@ -138,6 +138,7 @@ export function reduceBusSession(session: BusSession, event: BusSessionEvent): B
       // Age the observation immediately. Fetching a ten-minute-old position now does not make it live.
       let lock = reduceLock(session.lock, { type: 'observation', obs: o });
       lock = reduceLock(lock, { type: 'tick', now });
+      if (session.officialFeed && session.officialFeed.state !== 'ok' && lock.last && lock.status === 'tracked') lock = { ...lock, status: 'stale' };
       const accepted = lock.last === o;
       const pending = lock.pending === o;
       return {
@@ -175,6 +176,7 @@ export function reduceBusSession(session: BusSession, event: BusSessionEvent): B
       if (session.lock.status !== 'needs_confirmation' || !pending || pending.tripInstanceId !== session.departure.tripInstanceId) return session;
       let lock = reduceLock(session.lock, { type: 'confirm_pending' });
       lock = reduceLock(lock, { type: 'tick', now });
+      if (session.officialFeed && session.officialFeed.state !== 'ok' && lock.last && lock.status === 'tracked') lock = { ...lock, status: 'stale' };
       const record = session.pendingPosition;
       return {
         ...session, lock, pendingPosition: undefined,
@@ -184,6 +186,7 @@ export function reduceBusSession(session: BusSession, event: BusSessionEvent): B
     case 'reject_pending': {
       let lock = reduceLock(session.lock, { type: 'reject_pending' });
       lock = reduceLock(lock, { type: 'tick', now });
+      if (session.officialFeed && session.officialFeed.state !== 'ok' && lock.last && lock.status === 'tracked') lock = { ...lock, status: 'stale' };
       return { ...session, lock, pendingPosition: undefined };
     }
     case 'start_waiting':

@@ -273,7 +273,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
   useEffect(() => { if (activeLock) saveLock(store, ds, activeLock, now); }, [activeLock]); // eslint-disable-line react-hooks/exhaustive-deps
   const lockOnScreen = screen.name === 'departure' && activeLock?.dep.tripInstanceId === screen.dep.tripInstanceId && activeLock.dep.stopIndex === screen.dep.stopIndex;
   const lockEvent = (event: BusSessionEvent) => setActiveLock((current) => current ? { ...current, session: reduceBusSession(current.session, event) } : current);
-  const liveBus = useLiveBus(ds, activeLock?.session, LIVE_API, lockEvent);
+  const liveBus = useLiveBus(ds, activeLock?.session, LIVE_API, lockNow, lockEvent);
   useEffect(() => {
     setActiveLock((current) => {
       if (!current) return current;
