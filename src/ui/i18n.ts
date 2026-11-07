@@ -1,3 +1,4 @@
+import { liveStrings } from './liveStrings';
 import { journeyStrings, confidenceStrings } from './journeyStrings';
 import type { UncertainReason } from '../domain/rideGuide';
 import type { TripUpdate } from '../domain/tripUpdate';
@@ -11,6 +12,7 @@ const stop_ = (name: string) => (name.endsWith('.') ? name : `${name}.`);
 const tidy = (text: string) => text.replace(/\.\.(?=\s|$)/g, '.');
 
 const en = {
+  live: liveStrings.en,
   journey: journeyStrings.en,
   confidence: confidenceStrings.en,
   appTagline: 'When you ride NJ Transit, you need all the help you can get.',
@@ -172,6 +174,7 @@ const en = {
     fromGps: (time: string, age: number) => `Counted from the bus’s GPS at ${time} (${age} s ago).`,
     demoGps: 'Counted from invented demo GPS.',
     uncertain: {
+      service_change: 'NJ Transit has reported skipped stops on this trip. Confirm the current stopping pattern with the driver; automatic get-off instructions are paused.',
       no_gps: 'No GPS from this bus yet, so Dale can’t count stops. Watch for your stop and listen for announcements.',
       stale_gps: 'This bus’s GPS is old, so Dale can’t tell which stop it is at. Watch for your stop and listen for announcements.',
       identity: 'The vehicle match changed, so Dale won’t count stops until you decide. Watch for your stop.',
@@ -256,7 +259,7 @@ const en = {
     resumePrompt: (time: string, route: string, stop: string) => `Resume watching your ${time} ${route} from ${stop}? Your reports keep their original times.`,
     resumeYes: 'Resume',
     resumeNo: 'Forget it',
-    keptOnPhone: 'This lock is kept on this phone until you unlock or end the ride, so closing Dale does not lose it; otherwise Dale clears it the next time it opens after the trip. Your reports are also kept in your report history on this phone for up to 180 days; you can clear it in Settings. Nothing is sent anywhere.',
+    keptOnPhone: 'This lock is kept on this phone until you unlock or end the ride, so closing Dale does not lose it; otherwise Dale clears it the next time it opens after the trip. Your reports are also kept in your report history on this phone for up to 180 days; you can clear it in Settings. Your reports and phone location are not sent.',
     ridePrivacy: 'Boarding does not turn on phone tracking. Sharing a bus’s location will require a separate opt-in when that service is available.',
     conflict: 'The vehicle match changed. The selected departure stays locked until you decide.',
     acceptVehicle: 'Accept this replacement vehicle',
@@ -593,6 +596,7 @@ const en = {
 export type Strings = typeof en;
 
 const es: Strings = {
+  live: liveStrings.es,
   journey: journeyStrings.es,
   confidence: confidenceStrings.es,
   appTagline: 'Cuando viajas en NJ Transit, necesitas toda la ayuda posible.',
@@ -751,6 +755,7 @@ const es: Strings = {
     fromGps: (time: string, age: number) => `Contado con el GPS del autobús a ${laLas(time)} (hace ${age} s).`,
     demoGps: 'Contado con GPS inventado de la demostración.',
     uncertain: {
+      service_change: 'NJ Transit reportó paradas omitidas en este viaje. Confirma las paradas actuales con el conductor; las indicaciones automáticas para bajar están pausadas.',
       no_gps: 'Todavía no hay GPS de este autobús, así que Dale no puede contar paradas. Fíjate en tu parada y escucha los anuncios.',
       stale_gps: 'El GPS de este autobús no está actualizado, así que Dale no sabe en qué parada está. Fíjate en tu parada y escucha los anuncios.',
       identity: 'Cambió el vehículo asignado, así que Dale no cuenta paradas hasta que decidas. Fíjate en tu parada.',

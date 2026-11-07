@@ -23,7 +23,8 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
-      - run: npm run build
+      - run: npm run worker:check
+      - run: npm run build:test
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
   pages:
@@ -48,6 +49,7 @@ jobs:
       - run: npm run build
         env:
           BASE: /dale/
+          VITE_LIVE_API_URL: ${{ vars.DALE_LIVE_API_URL }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

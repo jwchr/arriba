@@ -37,5 +37,7 @@ D49 permits a separate supplied-PDF transcription and scheduled comparison slice
 
 D51 confirms approved bus API access and authorizes secure credential setup and staged live integration. #87 checks authentication only from a manual main-branch job; no credentials/tokens/raw responses enter the browser, public artifacts or logs. Live predictions will lead when verified and fresh; schedules remain for fallback and future planning. Rail access is still pending. The existing independent review, privacy, private backend and free-service constraints remain.
 
+D52 prioritizes the provisional live bus tracker (#89) with the existing free Worker architecture, explicit scheduled fallback, source age and unchanged exact-bus identity. Printed commutes remain separately available while riders confirm current GTFS stops. This does not complete sustained M0 evidence, rail access or real-ride acceptance. See `docs/LIVE_BUS_PILOT.md`.
+
 ## Done means
 Tests prove it (`npm run verify`), the Pages build shows it, and for live features the owner's real rides confirm it (M3 acceptance in the review doc).

@@ -84,7 +84,7 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [showFull]); // eslint-disable-line react-hooks/exhaustive-deps
-  const guide = hasDestination ? rideGuide(ds, dep.pattern.stopIds, dep.stopIndex, alightIndex, session.lock, now, session.history) : undefined;
+  const guide = hasDestination && session.stopChanges?.indices.length ? { basis: 'uncertain' as const, reason: 'service_change' as const } : hasDestination ? rideGuide(ds, dep.pattern.stopIds, dep.stopIndex, alightIndex, session.lock, now, session.history) : undefined;
   const times = tripStopTimes(ds, dep);
   const dest = hasDestination ? stopName(dep.pattern.stopIds[alightIndex]!) : '';
   const stage = guide?.basis === 'gps' ? guide.stage : undefined;
@@ -139,7 +139,7 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
         <h3 id={`ride-title-${session.id}`} tabIndex={-1} ref={heading}>{r.title(dest)}</h3>
         <button className="ghost" onClick={() => setFull(!showFull)}>{showFull ? r.exitFull : r.fullScreen}</button>
       </div>
-      <StripMap ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} />
+      {!session.stopChanges?.indices.length && <StripMap ds={ds} session={session} alightIndex={alightIndex} now={now} t={t} lang={lang} />}
       <p className="ride-message" aria-live={stage && URGENT.includes(stage) ? 'assertive' : 'polite'}>{message}</p>
       {guide.basis === 'gps' && <p className="small">{session.history.at(-1)?.source === 'demo' ? r.demoGps : r.fromGps(clock(guide.observedAt), Math.max(0, Math.floor((now - guide.observedAt) / 1000)))}</p>}
       {guide.basis !== 'gps' && times[alightIndex] && <p className="small">{r.scheduledAt(`${times[alightIndex]!.estimated ? '~' : ''}${clock(times[alightIndex]!.at)}`)}</p>}

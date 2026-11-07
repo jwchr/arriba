@@ -4,7 +4,7 @@ import { DEFAULT_TIMING } from './lock';
 /** Loss means an actual previously received fix aged out; never infer a whole-agency outage. */
 export function gpsLost(session: BusSession, now: number): boolean {
   const last = session.lock.last;
-  return !!last && now - last.observedAt > DEFAULT_TIMING.staleAfterMs
+  return !!last && (now - last.observedAt > DEFAULT_TIMING.staleAfterMs || (!!session.officialFeed && session.officialFeed.state !== 'ok'))
     && !['cancelled', 'ended', 'needs_confirmation'].includes(session.lock.status);
 }
 export function offerAlternatives(session: BusSession, now: number): boolean {

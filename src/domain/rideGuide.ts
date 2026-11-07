@@ -12,7 +12,7 @@ import type { Dataset, Stop } from './types';
  */
 export type RideStage = 'riding' | 'three' | 'two' | 'one' | 'request' | 'last_next' | 'arrived' | 'passed';
 
-export type UncertainReason = 'no_gps' | 'stale_gps' | 'identity' | 'cancelled' | 'off_route' | 'ambiguous' | 'inconsistent' | 'behind';
+export type UncertainReason = 'service_change' | 'no_gps' | 'stale_gps' | 'identity' | 'cancelled' | 'off_route' | 'ambiguous' | 'inconsistent' | 'behind';
 
 export type RideGuide =
   /** Fresh, unambiguous matched-bus GPS on a trip whose every stop is listed: an honest stop count. */

@@ -54,6 +54,8 @@ export interface DatasetMeta {
   source: string;
   feedVersion: string;
   builtAt: string;
+  /** Canonical static feed compatible with the approved live bus service. */
+  realtime?: { provider: 'njt-bus-g2' };
   timezone: string; // agency timezone, e.g. America/New_York
   /** Set when the data was typed in from a printed timetable rather than built from NJ Transit's data feed. The UI must say so. */
   transcribed?: { issued: string; documentId: string };
@@ -63,6 +65,8 @@ export interface Route {
   id: string;
   shortName: string; // "165T"
   longName: string;
+  /** Original GTFS route ID when variants share a route in the source feed. */
+  feedRouteId?: string;
   color?: string;
 }
 
@@ -88,6 +92,10 @@ export interface Pattern {
   directionId: 0 | 1;
   headsign: string;
   stopIds: string[];
+  /** Original GTFS sequences and non-ordinary pickup/drop-off restrictions. */
+  stopSequences?: number[];
+  noPickup?: number[];
+  noDropOff?: number[];
   /** The printed timetable's trip marker for this pattern (T, P, R, RF, F, FP); absent for unmarked local trips. */
   variant?: string;
 }

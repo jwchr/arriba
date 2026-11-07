@@ -3,7 +3,7 @@
 // the next stop lit, the rider's stop marked and a progress bar. Evidence: the matched bus's GPS,
 // the rider's own phone GPS (opt-in, on this phone only while ride mode is open, never saved or
 // sent), and the rider's taps on a stop. Without evidence it shows the timetable's position, labeled.
-import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BusSession } from '../domain/busLock';
 import { DEFAULT_TIMING } from '../domain/lock';
 import { tripStopTimes } from '../domain/schedule';
@@ -12,17 +12,8 @@ import { fixPosition, hasLocations, stopReached, tripProgress, type Fix, type Mi
 import type { Dataset } from '../domain/types';
 import type { Lang, Strings } from './i18n';
 import { SignalWarning } from './SignalWarning';
+import { StreetMap } from './StreetMap';
 import type { MapStop } from './RouteMap';
-
-// The street map is large: it loads only when a ride with located stops opens it.
-const RouteMap = lazy(() => import('./RouteMap'));
-
-/** A map that cannot load (offline before it was ever opened, no WebGL) must never take the ride view with it. */
-class MapBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() { return { failed: true }; }
-  render() { return this.state.failed ? this.props.fallback : this.props.children; }
-}
 
 /** Per ride session, so leaving or entering full screen keeps the taps and the GPS choice. */
 const kept = new Map<string, { milestones: Milestone[]; follow: boolean; hideMap?: boolean }>();
@@ -78,7 +69,7 @@ export function StripMap({ ds, session, alightIndex, now, t, lang }: { ds: Datas
     ? { lat: last.lat, lon: last.lon, at: last.observedAt, accuracyM: 0 } : undefined;
   const busIsDemo = session.history.at(-1)?.source === 'demo';
 
-  const progress = tripProgress({ stops, times, boardIndex: dep.stopIndex, alightIndex, now, milestones: state.milestones, ...(phone ? { phone } : {}), ...(bus ? { bus } : {}) });
+  const progress = tripProgress({ stops, times, boardIndex: dep.stopIndex, alightIndex, now, milestones: state.milestones.filter((m) => m.source !== 'bus_gps' || !session.officialFeed || session.officialFeed.state === 'ok'), ...(phone ? { phone } : {}), ...(bus ? { bus } : {}) });
 
   // A GPS fix at a stop counts as reaching it, once.
   useEffect(() => {
@@ -178,11 +169,7 @@ export function StripMap({ ds, session, alightIndex, now, t, lang }: { ds: Datas
             || document.documentElement.dataset.theme === 'dark'
             || (document.documentElement.dataset.theme !== 'light' && matchMedia?.('(prefers-color-scheme: dark)').matches);
           return <>
-            <MapBoundary fallback={<p className="warn small" role="note">{p.mapFailed}</p>}>
-              <Suspense fallback={<p className="small">{p.mapLoading}</p>}>
-                <RouteMap stops={mapStops} bus={dot} dark={!!dark} label={p.mapLabel(nextLabel.town, stopLabel(name(alightIndex)).town)} failedText={p.mapFailed} />
-              </Suspense>
-            </MapBoundary>
+            <StreetMap stops={mapStops} bus={dot} dark={!!dark} label={p.mapLabel(nextLabel.town, stopLabel(name(alightIndex)).town)} failedText={p.mapFailed} loadingText={p.mapLoading} />
             <p className="muted small">{progress.basis === 'timetable' || progress.projected ? p.mapDotEstimate : p.mapDotSeen}</p>
             <p className="muted small">{p.mapNote}</p>
           </>;

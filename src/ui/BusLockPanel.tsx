@@ -1,3 +1,4 @@
+import { WaitingMap } from './WaitingMap';
 import { gpsLost, offerAlternatives } from '../domain/alternatives';
 import { Alternatives } from './Alternatives';
 import { SignalWarning } from './SignalWarning';
@@ -104,7 +105,7 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
         {lock.status === 'tracked' && !lastRecord ? b.sourceUnknown
           : lock.status === 'tracked' && lastRecord?.source === 'demo' ? b.demoLive : t.lockStatus[lock.status]}
       </p>
-      {!ds.meta.demo && <p className="muted small">{b.liveUnavailable}</p>}
+      {!ds.meta.demo && !ds.meta.realtime && <p className="muted small">{b.liveUnavailable}</p>}
 
       <SignalWarning session={session} now={now} t={t} estimated={!terminal && !passed && ['scheduled_only', 'stale', 'vanished'].includes(lock.status) && showScheduleMarker} />
       {offerAlternatives(session, now) && <Alternatives t={t} onBuses={onAlternatives} onGuide={onPenn} />}
@@ -199,7 +200,9 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
           <p className="muted small">{b.received}: {clock(point.receivedAt)}</p>
         </li>)}</ol>
       </details>
-      <p className="muted small">{b.noMap}</p>
+      {ds.meta.transcribed && <p className="muted small">{b.noMap}</p>}
+      {ds.meta.realtime && !terminal && !passed && session.phase !== 'onboard' && <WaitingMap ds={ds} session={session} alightIndex={alightIndex} now={now} t={t}
+        estimate={!['tracked', 'cancelled', 'needs_confirmation'].includes(lock.status) && showScheduleMarker} />}
       {ds.meta.demo && !terminal && <details className="lock-demo">
         <summary>{b.demoControls}</summary>
         <p className="small">{b.demoClock(clock(now))}</p>

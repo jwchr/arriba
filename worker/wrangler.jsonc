@@ -1,0 +1,12 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "dale-live",
+  "main": "index.ts",
+  "compatibility_date": "2026-11-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  "durable_objects": { "bindings": [{ "name": "FEED", "class_name": "BusFeed" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BusFeed"] }]
+}
