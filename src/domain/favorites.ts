@@ -67,12 +67,22 @@ export function loadFavorites(storage: Pick<Storage, 'getItem'> | undefined): Fa
     const raw = storage?.getItem(KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
-    return (parsed as Favorite[]).filter((f) => f && typeof f.id === 'string').map((f) => {
+    const seen = new Set<string>();
+    return parsed.flatMap((value: unknown): Favorite[] => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+      const f = value as Record<string, unknown>;
+      const id = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
+      if (!id(f.id) || seen.has(f.id) || typeof f.label !== 'string' || !id(f.fromStopId) || !id(f.toStopId)
+        || !Array.isArray(f.routeIds) || !f.routeIds.every(id)) return [];
+      seen.add(f.id);
+      // Validate shape, not membership in today's dataset: demo and real commutes share this key.
+      const favorite: Favorite = { id: f.id, label: f.label, fromStopId: f.fromStopId, toStopId: f.toStopId, routeIds: f.routeIds };
       // A damaged leave plan is dropped on its own; the commute itself is kept.
-      const { leave, ...rest } = f;
-      const out = cleanLeavePlan(leave?.out);
-      const back = cleanLeavePlan(leave?.back);
-      return out || back ? { ...rest, leave: { ...(out ? { out } : {}), ...(back ? { back } : {}) } } : rest;
+      const leave = f.leave && typeof f.leave === 'object' && !Array.isArray(f.leave) ? f.leave as Record<string, unknown> : {};
+      const out = cleanLeavePlan(leave.out);
+      const back = cleanLeavePlan(leave.back);
+      if (out || back) favorite.leave = { ...(out ? { out } : {}), ...(back ? { back } : {}) };
+      return [favorite];
     });
   } catch {
     return [];

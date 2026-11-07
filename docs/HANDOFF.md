@@ -2,7 +2,14 @@
 
 Updated 2026-11-04 (renamed Dale; repository jwchr/dale, site https://jwchr.github.io/dale/). Bus Lock and last-return work is in issue #30; merge and Pages deployment must be verified separately. Keep this short; replace stale lines rather than appending.
 
-## Current implementation slice (issue #79, awaiting separate merge/deployment)
+## Current implementation slice (issue #84, awaiting separate review/merge)
+- Damaged saved commutes are discarded individually; good commutes retain rider order, unknown stop/route IDs and valid leave plans. Duplicate IDs keep the first valid entry.
+- Published schedule JSON is validated before any screen uses it. Invalid metadata, collections, references, times, calendars or optional fare/gate data reach the existing translated load-error/Retry flow, never an implicit demo. Printed/demo data and the GTFS builder's exception-only calendar sentinel remain supported.
+- Unit coverage includes the actual printed/demo/built GTFS fixtures and malformed boundaries. English/Spanish browser regressions prove good saved commutes and Settings remain usable, and Retry restores a valid schedule with its saved-copy age. No new package or data access.
+- Full local verification and exact-head CI/review evidence belong to the implementation PR. The static-guide-on-load-failure improvement in #83 and supplied timetable comparison in #80 remain separate slices.
+
+## Previously merged confidence slice (PR #81)
+- Independently squash merged as `9e322c3` on 2026-11-06 after the owner approved use of the existing independent review. Deployment must be checked separately.
 - Local validation: TypeScript, 213 unit tests, production build and 77 Playwright flows pass; phone-width guide preview checked (English/Spanish accessibility covered). CI and independent review belong to the PR head.
 - Penn journey guide: English/Spanish bus and train rehearsal, Anderson/Essex choices, both directions, ticket and missed-connection instructions, manual travel checklist, private saved progress and optional walking minutes. No rail departures or fastest-route claim yet.
 - Lost-GPS warnings and an explicitly estimated schedule-progress bar; alternatives at signal loss or a due/unconfirmed bus, preserving the lock. Links to scoped bus/rail guidance and Uber/Lyft; no booking or location transfer.
