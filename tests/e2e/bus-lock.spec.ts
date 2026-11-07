@@ -299,7 +299,7 @@ test('full screen keeps the DEMO banner, makes the app behind it inert, and step
   await expect(dialog).toBeVisible(); // back once decided
 });
 
-test('full screen on the printed timetable keeps its "typed in" banner', async ({ page }) => {
+test('full screen on the printed timetable omits the retired top notice', async ({ page }) => {
   await page.goto('/?now=2026-11-04T07:50');
   await page.getByRole('button', { name: 'Find a stop' }).first().click();
   await page.getByRole('searchbox').fill('irvington');
@@ -311,7 +311,7 @@ test('full screen on the printed timetable keeps its "typed in" banner', async (
   await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
   await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
   await page.getByRole('button', { name: 'I boarded', exact: true }).click();
-  await expect(page.getByRole('dialog').locator('.data-banner')).toContainText("printed timetable issued 7/1/2026");
+  await expect(page.getByRole('dialog').locator('.data-banner')).toHaveCount(0);
 });
 
 test('trip update: the rider shares or copies a plain message; Dale sends nothing', async ({ page, context }) => {

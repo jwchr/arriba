@@ -346,9 +346,7 @@ test.describe('printed timetable data (route 165)', () => {
   test('banner, wrong-side guard without coordinates, return trip with published gate', async ({ page }) => {
     await page.goto('/?now=2026-11-04T07:50');
     await expect(page.locator('.demo-banner')).toHaveCount(0);
-    await expect(page.locator('.data-banner')).toContainText("printed timetable issued 7/1/2026");
-    await expect(page.locator('.data-banner')).toContainText('not from NJ Transit');
-    await expect(page.locator('.data-banner')).toContainText('no holiday schedules');
+    await expect(page.locator('.data-banner')).toHaveCount(0);
     await expect(page.getByText("on NJ Transit's holiday list")).toHaveCount(0);
 
     // A stop on the Westwood-bound side: buses here never reach Port Authority, and the twin is named without a distance.

@@ -2,11 +2,11 @@
 
 Updated 2026-11-04 (renamed Dale; repository jwchr/dale, site https://jwchr.github.io/dale/). Bus Lock and last-return work is in issue #30; merge and Pages deployment must be verified separately. Keep this short; replace stale lines rather than appending.
 
-## Current implementation slice (issue #84, awaiting separate review/merge)
-- Damaged saved commutes are discarded individually; good commutes retain rider order, unknown stop/route IDs and valid leave plans. Duplicate IDs keep the first valid entry.
-- Published schedule JSON is validated before any screen uses it. Invalid metadata, collections, references, times, calendars or optional fare/gate data reach the existing translated load-error/Retry flow, never an implicit demo. Printed/demo data and the GTFS builder's exception-only calendar sentinel remain supported.
-- Unit coverage includes the actual printed/demo/built GTFS fixtures and malformed boundaries. English/Spanish browser regressions prove good saved commutes and Settings remain usable, and Retry restores a valid schedule with its saved-copy age. No new package or data access.
-- Full local verification and exact-head CI/review evidence belong to the implementation PR. The static-guide-on-load-failure improvement in #83 and supplied timetable comparison in #80 remain separate slices.
+## Current implementation slice (issue #83)
+- Bundled bus/Penn guides stay reachable during schedule loading/failure, with English/Spanish choice, Back/focus handling and Retry. A successful retry keeps the active guide and checklist open until the rider returns to departures.
+- Owner D50 removes the persistent yellow printed-data banner from the app/ride tops; its full source/date explanation lives in Settings. Existing evidence, scheduled-only and holiday notices remain.
+- PR #85 was independently merged as `a1ec4bb`; malformed saved commutes/schedules recover safely. It passed 279 unit/85 browser tests and independent Gemini review. Deployment remains separately verified.
+- Supplied timetable comparison #80 remains the next separate schedule slice.
 
 ## Previously merged confidence slice (PR #81)
 - Independently squash merged as `9e322c3` on 2026-11-06 after the owner approved use of the existing independent review. Deployment must be checked separately.

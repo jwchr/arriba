@@ -129,14 +129,12 @@ export function RideMode({ ds, session, alightIndex, now, t, lang, onEvent, onAd
     onEvent({ type: 'observation', obs: { tripInstanceId: dep.tripInstanceId, vehicleId: session.lock.vehicleId ?? 'DEMO-BUS', observedAt: later, lat: stop.lat, lon: stop.lon }, source: 'demo', receivedAt: later });
   }
 
-  const issued = ds.meta.transcribed?.issued;
   const view = (
     <div className={showFull ? 'ride-mode ride-full' : 'ride-mode'} data-large={prefs.large ? 'true' : undefined} data-stage={stage ?? guide.basis}
       {...(showFull ? { role: 'dialog', 'aria-modal': true, 'aria-labelledby': `ride-title-${session.id}` } : {})}>
-      {/* The page's DEMO and printed-timetable banners are covered in full screen, so they repeat here. */}
+      {/* The page's DEMO notice is covered in full screen, so it repeats here. */}
       {showFull && ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner}</div>}
-      {showFull && issued && <div className="data-banner" role="note">{t.transcribedBanner(lang === 'es'
-        ? `${+issued.slice(6, 8)}/${+issued.slice(4, 6)}/${issued.slice(0, 4)}` : `${+issued.slice(4, 6)}/${+issued.slice(6, 8)}/${issued.slice(0, 4)}`)}</div>}
+
       <div className="row-between ride-top">
         <h3 id={`ride-title-${session.id}`} tabIndex={-1} ref={heading}>{r.title(dest)}</h3>
         <button className="ghost" onClick={() => setFull(!showFull)}>{showFull ? r.exitFull : r.fullScreen}</button>
