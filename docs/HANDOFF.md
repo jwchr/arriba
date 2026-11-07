@@ -1,12 +1,13 @@
 # Handoff: current state
 
-Updated 2026-11-04 (renamed Dale; repository jwchr/dale, site https://jwchr.github.io/dale/). Bus Lock and last-return work is in issue #30; merge and Pages deployment must be verified separately. Keep this short; replace stale lines rather than appending.
+Updated 2026-11-06. Repository `jwchr/dale`, site https://jwchr.github.io/dale/. Independent review and merge remain required; API authentication and Pages deployment are separate from app live-data readiness.
 
-## Current implementation slice (issue #83)
-- Bundled bus/Penn guides stay reachable during schedule loading/failure, with English/Spanish choice, Back/focus handling and Retry. A successful retry keeps the active guide and checklist open until the rider returns to departures.
-- Owner D50 removes the persistent yellow printed-data banner from the app/ride tops; its full source/date explanation lives in Settings. Existing evidence, scheduled-only and holiday notices remain.
-- PR #85 was independently merged as `a1ec4bb`; malformed saved commutes/schedules recover safely. It passed 279 unit/85 browser tests and independent Gemini review. Deployment remains separately verified.
-- Supplied timetable comparison #80 remains the next separate schedule slice.
+## Current implementation slice (issue #87)
+- Owner D51 confirms bus API approval and saves `NJT_API_USERNAME` / `NJT_API_PASSWORD` in GitHub repository secrets. No values are readable from GitHub or committed. Rail approval remains pending.
+- Authentication-only check: manual `bus-api-check.yml` workflow, main only, one multipart POST per approved BUSDV2/GTFSG2 API. Logs only fixed outcomes; no polling, raw response storage, token output, artifacts, browser secrets or new service. See `docs/BUS_API_SETUP.md`.
+- Synthetic authentication/failure tests pass; full verification and independent review are required before push/merge. Actual authentication has not yet been tested.
+- #80 schedule comparison is set aside while this owner-requested prerequisite is completed. Its branch has no code edits. Official bus GTFS is accessible and has been downloaded to private scratch; validation/publication are unfinished. Current Portal rail override PDFs have also been inspected, with transcription still unfinished. Do not publish regular Penn connections during the override.
+- PR #86 independently merged as `6609aed`; 279 unit/89 browser tests and clean independent Gemini review passed. Pages deployment was separately verified. Guides remain available during load/failure; D50 removes the persistent top printed-schedule notice and keeps full source details in Settings.
 
 ## Previously merged confidence slice (PR #81)
 - Independently squash merged as `9e322c3` on 2026-11-06 after the owner approved use of the existing independent review. Deployment must be checked separately.
@@ -39,9 +40,9 @@ Updated 2026-11-04 (renamed Dale; repository jwchr/dale, site https://jwchr.gith
 - Limits of that data: 20 timepoints per direction only (no intermediate stops, so a rider's own stop may be missing); no coordinates, so the wrong-side guard works only through named twin stops (same printed location both ways, 11 pairs; other map references differ by direction and get no twin); no holiday schedules: the PDF lists 25 holidays but not their times, so on those days (`src/domain/holidays.ts`) the app shows the ordinary times with a "may run a different schedule" warning at the top, in the timetable and on the trip; the end date of the schedule is unknown, so calendars run to 2099-12-31 and the banner is the only warning; headsigns are Dale's own "route + last timepoint" labels, not sign text; FP trips and F meaning are read from the legend, which defines F and P but not FP; DST: each printed trip starts at its printed clock time and keeps its printed running times (`tripTimeAt`), so a bus running through a clock change is never shown later than it is. Only the Saturday 1:10 AM Westwood trip runs into the changed hour: on the fall-back night its last two stops (printed 2:03, 2:08 AM) show 1:03 and 1:08 AM (assumption: the bus does not wait out the repeated hour; nothing printed says it does); on the spring-forward night they show 3:03 and 3:08 AM; the trip screen says when a trip runs through the 2 AM change (`clockChangeBetween`, for the rider's own ride), and the all-day timetable says so on that day only when a listed bus runs through the change, English and Spanish. Transcription method: per-cell OCR with AM (light) / PM (bold) classified from stroke weight, resolved by a monotone-time search per row, structural checks (no step over 45 min, every cell valid), four independent passes compared, about 25 cells corrected by eye, and an 18-row random visual check with no errors found. It is not NJ Transit's feed: replace it with `build-gtfs.mjs` output at M2 and compare the two.
 
 ## Not yet done / blocked
-- Real schedule (M2; supersedes the printed-timetable data): needs the NJ Transit bus GTFS zip. This environment's network cannot reach njtransit.com; owner either allows the domains or drops the zip into a connected folder.
-- Live data (M0 spike, M3): needs NJ Transit developer credentials (BUSDATA and GTFS-BUS APIs) stored as secrets by the owner.
-- Owner instruction 2026-11-01: do not start M2 or any data collection (including the M0 archive) until the owner says NJ Transit developer approval has arrived.
+- Real schedule (M2; supersedes the printed-timetable data): official bus GTFS is now accessible; corridor validation, variant/stop restrictions, saved-stop migration and publication remain. A static feed is not live predictions.
+- Live data (M0 spike, M3): encrypted bus credentials now exist; #87 must establish authentication. The private Worker, validated feed matching, freshness/fallback handling and rider-facing integration are not built yet.
+- The 2026-11-01 approval hold is satisfied for approved bus APIs by D51. Rail access is pending. No live archive has started; private storage and the other existing data/service constraints still apply.
 - Not yet opened on Jeff's Galaxy S26 Ultra or Diego's phone.
 - Gate cards (GATE-02): need photos and notes from Port Authority; no official source for gate floors or escalators was found (searched 2026-11-03).
 - Map (MAP-01/02): street map built (D47, self-hosted OpenStreetMap); it shows a trip only where stops have coordinates, so the 165 needs the M2 feed. Route lines are drawn stop to stop until M2 brings GTFS shapes.

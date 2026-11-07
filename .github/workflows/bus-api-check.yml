@@ -1,0 +1,27 @@
+name: Bus API connection check
+# Manual, reviewed main only. Never expose credentials to a PR, Pages build or published artifact.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: bus-api-connection-check
+  cancel-in-progress: false
+jobs:
+  authenticate:
+    if: github.ref == 'refs/heads/main' && github.repository == 'jwchr/dale'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Check approved bus API authentication (no tokens or response bodies logged)
+        run: node scripts/check-bus-api.mjs
+        env:
+          NJT_API_USERNAME: ${{ secrets.NJT_API_USERNAME }}
+          NJT_API_PASSWORD: ${{ secrets.NJT_API_PASSWORD }}

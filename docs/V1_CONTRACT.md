@@ -33,5 +33,9 @@ D48 adds the New York Penn journey guide and explicit lost-GPS/estimated-progres
 
 D49 permits a separate supplied-PDF transcription and scheduled comparison slice (#80); 144 is included only where it serves the same selected corridor stop. Compare the full journey to Penn, including the final leg from Port Authority, the full return chain and user-entered walking time. Static-source authorization does not release M2/M3 live access, recordings, alert or shared-report holds. Do not publish known-superseded rail connections as current service.
 
+## Owner addition, 2026-11-06
+
+D51 confirms approved bus API access and authorizes secure credential setup and staged live integration. #87 checks authentication only from a manual main-branch job; no credentials/tokens/raw responses enter the browser, public artifacts or logs. Live predictions will lead when verified and fresh; schedules remain for fallback and future planning. Rail access is still pending. The existing independent review, privacy, private backend and free-service constraints remain.
+
 ## Done means
 Tests prove it (`npm run verify`), the Pages build shows it, and for live features the owner's real rides confirm it (M3 acceptance in the review doc).
