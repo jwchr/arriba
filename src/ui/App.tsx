@@ -106,24 +106,79 @@ function useDataset(): [DatasetState, () => void] {
   return [state, () => setAttempt((n) => n + 1)];
 }
 
+/** Shared appearance/language preferences also apply before schedule data is available. */
+function useSettings() {
+  const [settings, setSettings] = useState<Settings>(readSettings);
+  useEffect(() => {
+    try { store?.setItem('arriba.settings.v1', JSON.stringify(settings)); } catch { /* ignore */ }
+    document.documentElement.lang = settings.lang;
+    if (settings.theme === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = settings.theme;
+    document.documentElement.dataset.skin = settings.skin;
+  }, [settings]);
+  return [settings, setSettings] as const;
+}
+
+type AvailableGuide = 'guide' | 'penn';
 export function App() {
   const [data, retry] = useDataset();
-  if (data.status !== 'ready') return <LoadScreen failed={data.status === 'error'} onRetry={retry} />;
+  const [guide, setGuide] = useState<AvailableGuide | undefined>();
+  const returning = useRef(false);
+  useEffect(() => {
+    if (returning.current && !guide && data.status === 'ready') {
+      const target = document.querySelector<HTMLElement>('main h1, main button');
+      if (target) { if (target.tagName === 'H1') target.tabIndex = -1; target.focus(); }
+      returning.current = false;
+    }
+  }, [guide, data.status]);
+  if (data.status !== 'ready' || guide) return <LoadScreen status={data.status} onRetry={retry} guide={guide}
+    onGuide={setGuide} onBack={() => { returning.current = true; setGuide(undefined); }} />;
   return <Main ds={data.ds} fromCache={data.fromCache} savedAt={data.savedAt} />;
 }
 
-function LoadScreen({ failed, onRetry }: { failed: boolean; onRetry: () => void }) {
-  const t = strings[readSettings().lang];
+function LoadScreen({ status, onRetry, guide, onGuide, onBack }: {
+  status: DatasetState['status']; onRetry: () => void; guide?: AvailableGuide;
+  onGuide: (guide: AvailableGuide) => void; onBack: () => void;
+}) {
+  const [settings, setSettings] = useSettings();
+  const t = strings[settings.lang];
+  const content = useRef<HTMLElement>(null);
+  const lastGuide = useRef<AvailableGuide | undefined>(undefined);
+  const busButton = useRef<HTMLButtonElement>(null), pennButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (guide) {
+      const heading = content.current?.querySelector('h1');
+      if (heading) { heading.tabIndex = -1; heading.focus(); }
+    } else if (lastGuide.current) {
+      (lastGuide.current === 'penn' ? pennButton : busButton).current?.focus();
+    }
+    lastGuide.current = guide;
+  }, [guide]);
   return (
     <div className="app">
-      <header className="top"><span className="wordmark" role="img" aria-label="Dale">DALE<span className="bang" aria-hidden="true">!</span></span></header>
-      <main>
-        {failed ? (
-          <div className="warn" role="alert">
-            <p>{t.loadFailed}</p>
-            <button className="primary" onClick={onRetry}>{t.retry}</button>
+      <SkinBackdrop skin={settings.skin} />
+      <header className="top">
+        {guide ? <button className="icon-btn" aria-label={t.back} onClick={onBack}>‹</button>
+          : <span className="wordmark" role="img" aria-label="Dale">DALE<span className="bang" aria-hidden="true">!</span></span>}
+        <div className="choice-list">
+          <button className="chip" lang="en" aria-pressed={settings.lang === 'en'} onClick={() => setSettings({ ...settings, lang: 'en' })}>English</button>
+          <button className="chip" lang="es" aria-pressed={settings.lang === 'es'} onClick={() => setSettings({ ...settings, lang: 'es' })}>Español</button>
+        </div>
+      </header>
+      <main ref={content}>
+        <div className="warn">
+          <p role={status === 'error' ? 'alert' : 'status'}>{status === 'error' ? t.loadFailed : status === 'ready' ? t.scheduleReady : t.loading}</p>
+          {status === 'error' && <button className="primary" onClick={onRetry}>{t.retry}</button>}
+          {status === 'ready' && <button className="primary" onClick={onBack}>{t.returnToSchedule}</button>}
+        </div>
+        {!guide && <section className="card"><h1>{t.offlineHelp}</h1><p>{t.offlineHelpNote}</p>
+          <div className="choice-list">
+            <button ref={busButton} onClick={() => onGuide('guide')}>{t.guide.title}</button>
+            <button ref={pennButton} onClick={() => onGuide('penn')}>{t.journey.title}</button>
           </div>
-        ) : <p className="muted" role="status">{t.loading}</p>}
+        </section>}
+        {guide === 'guide' && <RiderGuide t={t} />}
+        {guide === 'penn' && <PennGuide t={t} />}
       </main>
     </div>
   );
@@ -139,7 +194,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
   // Every 10 s at least, so a leave-by countdown is never a minute optimistic for long (issue #54).
   const now = useNow(tz, activeLock ? 1000 : 10_000);
   const lockNow = now + (ds.meta.demo ? demoAdvanceMs : 0);
-  const [settings, setSettings] = useState<Settings>(readSettings);
+  const [settings, setSettings] = useSettings();
   const [favorites, setFavorites] = useState<Favorite[]>(() => loadFavorites(store));
   // A short history: Back returns to the screen the rider came from; going home starts over.
   const [stack, setStack] = useState<Screen[]>([{ name: 'home' }]);
@@ -200,13 +255,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
     setPastReports((h) => { const next = recordSession(store, ds, activeLock.session, lockNow); return next.length === h.length ? h : next; });
   }, [activeLock?.session.reports]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => saveFavorites(store, favorites), [favorites]);
-  useEffect(() => {
-    try { store?.setItem('arriba.settings.v1', JSON.stringify(settings)); } catch { /* ignore */ }
-    document.documentElement.lang = settings.lang;
-    if (settings.theme === 'system') delete document.documentElement.dataset.theme;
-    else document.documentElement.dataset.theme = settings.theme;
-    document.documentElement.dataset.skin = settings.skin;
-  }, [settings]);
+
 
   // Never show a stop's internal code: a stop this dataset doesn't have reads as "a stop not in this schedule".
   const stopName = (id: string) => ds.stops.find((s) => s.id === id)?.name ?? t.unknownStop;
@@ -223,7 +272,6 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
         <button className="icon-btn" onClick={() => setScreen({ name: 'settings' })} aria-label={t.settings}>⚙</button>
       </header>
       {ds.meta.demo && <div className="demo-banner" role="note">{t.demoBanner}{demoInAddress() && <> <a className="link demo-leave" href={leaveDemoHref()}>{t.leaveDemo}</a></>}</div>}
-      {ds.meta.transcribed && <div className="data-banner" role="note">{t.transcribedBanner(fmtYmd(ds.meta.transcribed.issued, settings.lang))}</div>}
       <FeedStatus ctx={ctx} />
       {ds.meta.transcribed && isNjtHoliday(localYmd(now, tz)) && <p className="status-line" data-level="warn" role="note">{t.holidayToday}</p>}
       <main>
@@ -908,6 +956,7 @@ function SettingsScreen({ ctx, settings, setSettings, onGuide, historyCount, onC
       <p className="small"><a className="link" href={`${import.meta.env.BASE_URL}licenses.txt`}>{t.licenses}</a></p>
       <h2>{t.dataSource}</h2>
       <p className="small">{ds.meta.source} · {ds.meta.feedVersion}</p>
+      {ds.meta.transcribed && <p className="small">{t.transcribedBanner(fmtYmd(ds.meta.transcribed.issued, settings.lang))}</p>}
       <p className="small muted">{dataNotice(ds, t)}</p>
       <p className="small muted">{t.appTagline}</p>
     </section>
