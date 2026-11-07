@@ -20,6 +20,11 @@ export function createNormalizer(ds: Dataset) {
     if (!trip || !pattern || !route) return;
     // Empty protobuf strings convey no date; a nonempty invalid date is never repaired.
     const explicit = !!d.startDate;
+    if (d.startTime) {
+      const parts = /^(\d+):([0-5]\d):([0-5]\d)$/.exec(d.startTime);
+      const start = parts && Number(parts[1]) * 3600 + Number(parts[2]) * 60 + Number(parts[3]);
+      if (!Number.isSafeInteger(start) || start !== trip.times[0]) return;
+    }
     const date = explicit ? d.startDate : uniqueDates.get(trip.serviceId);
     if (!date || !validServiceDate(date) || !isServiceActive(ds.calendars[trip.serviceId], date)) return;
     if (!explicit && (ds.meta.realtime?.provider !== 'njt-bus-g2' || ds.meta.demo || ds.meta.transcribed || !dateContainsReport(ds, trip, date, observedAt))) return;

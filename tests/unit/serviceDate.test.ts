@@ -11,7 +11,7 @@ function oneDate(date = '20261104') {
   return ds;
 }
 const undated = { tripId: descriptor.tripId, routeId: descriptor.routeId, directionId: descriptor.directionId };
-const report = (trip = undated) => binaryFeed([{ id: 'v', vehicle: vehicle({ trip }) }]);
+const report = (trip: Record<string, unknown> = undated) => binaryFeed([{ id: 'v', vehicle: vehicle({ trip }) }]);
 
 describe('provably unique service date compatibility', () => {
   it('accepts a missing date only when the entire calendar has exactly one active date', () => {
@@ -35,6 +35,26 @@ describe('provably unique service date compatibility', () => {
   });
   it.each([' ', '20261344', '20261105'])('never repairs an explicit invalid/inactive date %j using the unique date', (startDate) => {
     expect(createNormalizer(oneDate())(report({ ...undated, startDate } as typeof undated), 'vehicles', NOW).observations).toEqual([]);
+  });
+  it.each(['08:00:00', 'malformed', '07:60:00', '07:00:01', '24:00:00'])('rejects a contradictory supplied start time %j for GPS, predictions and cancellations', (startTime) => {
+    const normalize = createNormalizer(oneDate());
+    for (const trip of [{ ...undated, startTime }, { ...descriptor, startTime }]) {
+      expect(normalize(report(trip), 'vehicles', NOW).observations).toEqual([]);
+      for (const scheduleRelationship of [0, 3]) {
+        expect(normalize(binaryFeed([{ id: 'u', tripUpdate: update({ trip: { ...trip, scheduleRelationship } }) }]), 'updates', NOW).updates).toEqual([]);
+      }
+    }
+  });
+  it('accepts equivalent canonical H:MM:SS/HH:MM:SS and retains hours beyond24', () => {
+    for (const startTime of ['7:00:00', '07:00:00']) {
+      expect(createNormalizer(oneDate())(report({ ...undated, startTime }), 'vehicles', NOW).observations).toHaveLength(1);
+    }
+    const ds = oneDate('20261103'), trip = ds.trips.find((t) => t.id === 'T1')!;
+    trip.times = [24 * 3600 + 600, 24 * 3600 + 1200, 24 * 3600 + 2400];
+    const at = serviceTimeToInstant('20261103', 24 * 3600 + 1500, ds.meta.timezone);
+    const bytes = (startTime: string) => binaryFeed([{ id: 'v', vehicle: vehicle({ trip: { ...undated, startTime }, timestamp: at / 1000 - 15 }) }], { timestamp: at / 1000 - 10 });
+    expect(createNormalizer(ds)(bytes('24:10:00'), 'vehicles', at).observations[0]?.tripInstanceId).toBe('T1@20261103');
+    expect(createNormalizer(ds)(bytes('00:10:00'), 'vehicles', at).observations).toEqual([]);
   });
   it('does not convert a fresh report from another day into the sole published trip', () => {
     const ds = oneDate('20261103');
