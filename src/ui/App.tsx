@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type Ref } from 'react';
 import { demoDataset, demoUsualGates } from '../data/demo';
+import { parseDataset } from '../domain/dataset';
 import { checkDirection, destinationsFrom, returnLeg, searchStops } from '../domain/direction';
 import { addFavorite, loadFavorites, moveFavorite, removeFavorite, renameFavorite, saveFavorites, setLeavePlan, type Favorite } from '../domain/favorites';
 import { ARRIVE_BY_WINDOW_MS, arriveByDeadline, arriveByPick, canWalkTo, earliestArrival, leaveAdvice, MAX_CUSHION_MIN, MAX_WALK_MIN, type LeaveOption, type LeavePlan } from '../domain/leaveBy';
@@ -90,8 +91,7 @@ function useDataset(): [DatasetState, () => void] {
       .then(async (r): Promise<DatasetState> => {
         if (r.status === 404) return { status: 'ready', ds: demoDataset };
         if (!r.ok) throw new Error(String(r.status));
-        const d = (await r.json()) as Dataset;
-        if (!d || !Array.isArray(d.trips) || !d.trips.length) throw new Error('empty dataset');
+        const d = parseDataset(await r.json());
         const fromCache = r.headers.get('x-arriba-from-cache') === '1';
         // Copies saved by older service workers have no x-arriba-saved-at; the server's Date header is the next best.
         const raw = r.headers.get('x-arriba-saved-at');

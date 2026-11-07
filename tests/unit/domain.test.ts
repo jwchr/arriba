@@ -144,6 +144,22 @@ describe('favorites', () => {
     expect(list.map((x) => x.label)).toEqual(['a', 'Work']);
     expect(addFavorite(list, f('a'))).toBe(list);
   });
+  it('drops damaged entries individually, retaining valid commutes, order and leave plans', () => {
+    const first = { ...f('a'), fromStopId: 'a-stop-not-in-this-schedule', leave: { out: { walkMin: 4, cushionMin: 2 }, back: { walkMin: 'bad' } } };
+    const last = { ...f('c'), label: '', routeIds: ['a-route-not-in-this-schedule'], leave: 12 };
+    const bad = [null, 'text', [], { id: 'x' }, { ...f('b'), label: {} }, { ...f('b'), fromStopId: 2 },
+      { ...f('b'), toStopId: '' }, { ...f('b'), routeIds: '165' }, { ...f('b'), routeIds: [null] }, { ...f('b'), routeIds: [''] }];
+    const raw = JSON.stringify([bad[0], first, ...bad.slice(1), { ...f('a'), label: 'duplicate' }, last]);
+    expect(loadFavorites({ getItem: () => raw })).toEqual([
+      { ...f('a'), fromStopId: first.fromStopId, leave: { out: { walkMin: 4, cushionMin: 2 } } },
+      { ...f('c'), label: '', routeIds: last.routeIds },
+    ]);
+  });
+  it('retains a good entry even when an earlier damaged record has the same id', () => {
+    expect(loadFavorites({ getItem: () => JSON.stringify([{ ...f('a'), label: {} }, f('a')]) })).toEqual([f('a')]);
+    expect(loadFavorites({ getItem: () => { throw new Error('unavailable'); } })).toEqual([]);
+    expect(loadFavorites({ getItem: () => '{}' })).toEqual([]);
+  });
   it('survives missing or broken storage', () => {
     expect(loadFavorites(undefined)).toEqual([]);
     expect(loadFavorites({ getItem: () => '{not json' })).toEqual([]);
