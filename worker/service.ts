@@ -3,6 +3,8 @@ import { isServiceActive } from '../src/domain/schedule';
 import { validServiceDate, validVehicleId, LIVE_SOURCE, type LiveBusSnapshot } from '../src/domain/liveBus';
 import { authenticate, njtRequest, NjtError, safeNjtFailure, type Credentials } from './njt-client';
 import { createNormalizer, type NormalizedFeed } from './normalize';
+import { readDepartureRequests } from '../src/domain/liveDepartures';
+import { summarizeDepartures } from './departures';
 interface Storage { get<T>(key: string): Promise<T | undefined>; put(key: string, value: unknown): Promise<void> }
 interface State { storage: Storage; blockConcurrencyWhile<T>(fn: () => Promise<T>): Promise<T> }
 interface Env extends Credentials { FEED: { idFromName(name: string): unknown; get(id: unknown): { fetch(request: Request): Promise<Response> } } }
@@ -80,6 +82,12 @@ export function createFeedClass(ds: Dataset, fetchImpl: typeof fetch = fetch, cl
       const id = `${trip}@${date}`, vehicles = this.saved.vehicles ?? unavailable(), updates = this.saved.updates ?? unavailable(), now = clock();
       // A successful fetch never refreshes the agency timestamps. Old retained data remains old.
       const age = (feed: NormalizedFeed) => ({ ...feed.feed, ...(feed.feed.timestamp && now - feed.feed.timestamp > 120_000 ? { state: 'stale' as const } : {}) });
+      if (url.pathname === '/v1/departures') {
+        const queries = readDepartureRequests(ds, url.searchParams.get('q'));
+        return Response.json({ v: 1, source: LIVE_SOURCE, feedVersion: ds.meta.feedVersion, receivedAt: now,
+          vehicles: age(vehicles), updates: age(updates), items: summarizeDepartures(ds, queries, vehicles, updates, now),
+        }, { headers: { 'cache-control': 'no-store' } });
+      }
       if (url.pathname === '/v1/status') return Response.json({ v: 1, source: LIVE_SOURCE, feedVersion: ds.meta.feedVersion,
         connectionFailures: this.saved.failures ?? {},
         vehicles: age(vehicles), updates: age(updates), vehicleDiagnostics: vehicles.diagnostics, updateDiagnostics: updates.diagnostics, reportingBuses: new Set(vehicles.observations.filter((o) => now - o.observedAt <= 120_000).map((o) => o.vehicleId)).size,
@@ -122,9 +130,12 @@ export function createRouter(ds: Dataset) {
       if (request.method !== 'GET') return reply('Method not allowed', 405);
       if (url.pathname === '/health') { headers.set('content-type', 'application/json'); return reply(JSON.stringify({ v: 1, feedVersion: ds.meta.feedVersion, source: LIVE_SOURCE })); }
       if (url.pathname === '/v1/schedule') { headers.set('content-type', 'application/json'); return reply(schedule); }
-      if (!['/v1/live', '/v1/status'].includes(url.pathname)) return reply('Not found', 404);
+      if (!['/v1/live', '/v1/status', '/v1/departures'].includes(url.pathname)) return reply('Not found', 404);
+      if (url.pathname === '/v1/departures') {
+        try { if (request.url.length > 16_384) return reply('Invalid departures', 400); readDepartureRequests(ds, url.searchParams.get('q')); } catch { return reply('Invalid departures', 400); }
+      }
       const trip = url.searchParams.get('trip'), date = url.searchParams.get('date'), vehicle = url.searchParams.get('vehicle');
-      if (url.pathname !== '/v1/status' && (!trip || !trips.has(trip) || !date || !validServiceDate(date) || !isServiceActive(ds.calendars[trips.get(trip)!.serviceId], date) || (vehicle !== null && !validVehicleId(vehicle)))) return reply('Invalid trip', 400);
+      if (url.pathname === '/v1/live' && (!trip || !trips.has(trip) || !date || !validServiceDate(date) || !isServiceActive(ds.calendars[trips.get(trip)!.serviceId], date) || (vehicle !== null && !validVehicleId(vehicle)))) return reply('Invalid trip', 400);
       try {
         const id = env.FEED.idFromName('corridor-v1');
         const response = await env.FEED.get(id).fetch(request);

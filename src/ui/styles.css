@@ -369,3 +369,8 @@ main { flex: 1; padding-bottom: 24px; }
 /* Secondary scheduled express: smaller than a departure row, with no extra tap target. */
 .next-express { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 6px; margin: 8px 0; padding: 5px 8px; font-size: .82rem; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
 .express-mini { font-weight: 800; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px; }
+
+.badge-live { font-size: .72rem; font-weight: 750; color: var(--text); border: 1px solid currentColor; border-radius: .3rem; padding: .1rem .35rem; }
+.dep-original, .dep-evidence { font-size: .82rem; }
+.dep-evidence { margin: .3rem .5rem .7rem; overflow-wrap: anywhere; }
+.dep-original { display: block; }

@@ -12,6 +12,7 @@ async function setup(page: Page, response: () => LiveBusSnapshot | null, lang = 
     localStorage.setItem('arriba.favorites.v1.g2', JSON.stringify([{ id: 'live-test', label: 'My live bus', fromStopId: '2', toStopId: '3', routeIds: ['10'] }]));
     localStorage.setItem('arriba.settings.v1', JSON.stringify({ lang, skin: 'clean', theme: 'light', count: 3 }));
   }, { favorite: oldFavorite, lang });
+  await page.route(API + '/v1/departures?**', (route) => route.abort('failed'));
   await page.route(API + '/v1/schedule', (route) => route.fulfill({ json: liveDataset, headers: { 'access-control-allow-origin': '*' } }));
   await page.route(API + '/v1/live?**', async (route) => {
     const body = response();
