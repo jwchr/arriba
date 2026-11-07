@@ -54,7 +54,7 @@ export function departuresOn(ds: Dataset, q: DepartureQuery): Departure[] {
       const pattern = patterns.get(trip.patternId);
       if (!pattern || !matchesPattern(pattern, q)) continue;
       const stopIndex = pattern.stopIds.indexOf(q.stopId);
-      if (stopIndex < 0 || stopIndex === pattern.stopIds.length - 1) continue;
+      if (stopIndex < 0 || stopIndex === pattern.stopIds.length - 1 || pattern.noPickup?.includes(stopIndex)) continue;
       const secs = trip.times[stopIndex];
       const endSecs = trip.times[trip.times.length - 1];
       if (secs === undefined || endSecs === undefined) continue;
@@ -84,7 +84,7 @@ function matchesPattern(p: Pattern, q: DepartureQuery): boolean {
   if (q.toStopId) {
     const from = p.stopIds.indexOf(q.stopId);
     const to = p.stopIds.indexOf(q.toStopId);
-    if (from < 0 || to <= from) return false;
+    if (from < 0 || to <= from || p.noDropOff?.includes(to)) return false;
   }
   return true;
 }

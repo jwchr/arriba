@@ -39,6 +39,7 @@ export function parseDataset(value: unknown): Dataset {
     && text(meta.builtAt) && Number.isFinite(Date.parse(meta.builtAt)) && id(meta.timezone));
   // Let the same browser Intl implementation used by the timetable check timezone support.
   new Intl.DateTimeFormat('en-US', { timeZone: meta.timezone }).format(0);
+  if (meta.realtime !== undefined) requireValid(record(meta.realtime) && meta.realtime.provider === 'njt-bus-g2' && !meta.demo && meta.transcribed === undefined);
   if (meta.transcribed !== undefined) {
     requireValid(record(meta.transcribed) && date(meta.transcribed.issued) && id(meta.transcribed.documentId));
   }
@@ -46,7 +47,7 @@ export function parseDataset(value: unknown): Dataset {
   const routeIds = ids(routes), stopIds = ids(stops);
   ids(patterns); ids(trips);
   for (const route of routes) {
-    requireValid(id(route.shortName) && text(route.longName) && optionalText(route.color));
+    requireValid(id(route.shortName) && text(route.longName) && optionalText(route.color) && optionalText(route.feedRouteId));
   }
   for (const stop of stops) {
     requireValid(id(stop.name) && optionalText(stop.code) && optionalText(stop.noteId) && optionalText(stop.terminal));
@@ -60,6 +61,11 @@ export function parseDataset(value: unknown): Dataset {
     requireValid(id(pattern.routeId) && routeIds.has(pattern.routeId) && (pattern.directionId === 0 || pattern.directionId === 1)
       && text(pattern.headsign) && optionalText(pattern.variant) && strings(pattern.stopIds) && pattern.stopIds.length >= 2
       && pattern.stopIds.every((stopId) => stopIds.has(stopId)));
+    for (const field of ['noPickup', 'noDropOff']) {
+      requireValid(pattern[field] === undefined || (Array.isArray(pattern[field]) && pattern[field].every((i) => whole(i) && i < (pattern.stopIds as string[]).length)));
+    }
+    requireValid(pattern.stopSequences === undefined || (Array.isArray(pattern.stopSequences) && pattern.stopSequences.length === pattern.stopIds.length
+      && pattern.stopSequences.every((n, i, a) => whole(n) && (i === 0 || n > a[i - 1]))));
     patternLengths.set(pattern.id as string, pattern.stopIds.length);
   }
   requireValid(record(value.calendars));

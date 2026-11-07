@@ -52,6 +52,8 @@ function validFor<L>(ds: Dataset, s: SavedLock<L>, now: number): boolean {
   if (!dep || !session || typeof session.id !== 'string' || typeof dep.tripId !== 'string' || !Number.isFinite(dep.departs) || !Number.isFinite(dep.arrivesEnd)) return false;
   // The saved shape must be the one this version understands (bump `v` whenever BusSession changes).
   if (!Array.isArray(session.reports) || !Array.isArray(session.history) || !session.lock || !Number.isFinite(session.lastActionAt)) return false;
+  if (session.stopChanges && (!Array.isArray(session.stopChanges.indices) || !session.stopChanges.indices.every((i) => Number.isInteger(i) && i >= 0 && i < dep.pattern.stopIds.length) || !Number.isFinite(session.stopChanges.observedAt))) return false;
+  if (session.officialFeed && (!['ok', 'missing', 'ambiguous'].includes(session.officialFeed.state) || !Number.isFinite(session.officialFeed.checkedAt))) return false;
   const optionalTime = (n: unknown) => n === undefined || (typeof n === 'number' && Number.isFinite(n) && n >= 0);
   if (!optionalTime(session.waitingSince) || !optionalTime(session.lastReceivedAt)
     || (session.phase === 'waiting' && session.waitingSince === undefined)

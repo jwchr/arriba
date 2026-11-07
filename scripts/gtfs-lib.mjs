@@ -106,7 +106,7 @@ export function interpolate(times) {
  * files: { [name]: string } with routes.txt, stops.txt, trips.txt, stop_times.txt and calendar.txt and/or calendar_dates.txt.
  * routeShortNames: which routes to include (the corridor).
  */
-export function buildDataset(files, { routeShortNames, feedVersion = 'unknown', builtAt = new Date().toISOString(), source = 'NJ Transit GTFS' }) {
+export function buildDataset(files, { routeShortNames, feedVersion = 'unknown', builtAt = new Date().toISOString(), source = 'NJ Transit GTFS', splitVariants = false }) {
   const need = (n) => {
     if (files[n] === undefined) throw new Error(`missing ${n}`);
     return parseCsv(files[n]);
@@ -129,6 +129,8 @@ export function buildDataset(files, { routeShortNames, feedVersion = 'unknown', 
   }
 
   const patterns = new Map();
+  const outputRoutes = new Map();
+  const sourceRoutes = new Map(routes.map((r) => [r.route_id, r]));
   const outTrips = [];
   const usedStops = new Set();
   const usedServices = new Set();
@@ -138,10 +140,20 @@ export function buildDataset(files, { routeShortNames, feedVersion = 'unknown', 
     const stopIds = sts.map((s) => s.stop_id);
     const dir = t.direction_id === '1' ? 1 : 0;
     const headsign = t.trip_headsign || sts[sts.length - 1].stop_headsign || '';
-    const key = `${t.route_id}|${dir}|${headsign}|${stopIds.join('>')}`;
+    const baseRoute = sourceRoutes.get(t.route_id);
+    const variant = splitVariants ? new RegExp(`^${baseRoute.route_short_name}([A-Z]+)\\b`).exec(headsign)?.[1] : undefined;
+    const routeId = variant ? `${t.route_id}:${variant}` : t.route_id;
+    if (!outputRoutes.has(routeId)) outputRoutes.set(routeId, {
+      id: routeId, shortName: baseRoute.route_short_name + (variant || ''), longName: baseRoute.route_long_name || '',
+      ...(variant ? { feedRouteId: t.route_id } : {}), ...(baseRoute.route_color ? { color: baseRoute.route_color } : {}),
+    });
+    const noPickup = sts.flatMap((s, i) => s.pickup_type && s.pickup_type !== '0' ? [i] : []);
+    const noDropOff = sts.flatMap((s, i) => s.drop_off_type && s.drop_off_type !== '0' ? [i] : []);
+    const stopSequences = sts.map((s) => Number(s.stop_sequence));
+    const key = `${routeId}|${dir}|${headsign}|${stopIds.join('>')}|${noPickup}|${noDropOff}|${stopSequences}`;
     let p = patterns.get(key);
     if (!p) {
-      p = { id: `P${patterns.size + 1}`, routeId: t.route_id, directionId: dir, headsign, stopIds };
+      p = { id: `P${patterns.size + 1}`, routeId, directionId: dir, headsign, stopIds, stopSequences, ...(variant ? { variant } : {}), ...(noPickup.length ? { noPickup } : {}), ...(noDropOff.length ? { noDropOff } : {}) };
       patterns.set(key, p);
     }
     const given = sts.map((s) => parseGtfsTime(s.departure_time || s.arrival_time));
@@ -172,6 +184,7 @@ export function buildDataset(files, { routeShortNames, feedVersion = 'unknown', 
   const stops = need('stops.txt')
     .filter((s) => usedStops.has(s.stop_id))
     .map((s) => {
+      if (!s.stop_lat || !s.stop_lon || !Number.isFinite(Number(s.stop_lat)) || !Number.isFinite(Number(s.stop_lon)) || Math.abs(Number(s.stop_lat)) > 90 || Math.abs(Number(s.stop_lon)) > 180) throw new Error('invalid GTFS stop coordinates');
       const o = { id: s.stop_id, name: s.stop_name, lat: Number(s.stop_lat), lon: Number(s.stop_lon) };
       if (s.stop_code) o.code = s.stop_code;
       if (/PORT AUTHORITY/i.test(s.stop_name)) o.terminal = 'PABT';
@@ -180,11 +193,7 @@ export function buildDataset(files, { routeShortNames, feedVersion = 'unknown', 
 
   return {
     meta: { demo: false, source, feedVersion, builtAt, timezone },
-    routes: routes.map((r) => {
-      const o = { id: r.route_id, shortName: r.route_short_name, longName: r.route_long_name || '' };
-      if (r.route_color) o.color = r.route_color;
-      return o;
-    }),
+    routes: [...outputRoutes.values()],
     stops,
     patterns: [...patterns.values()],
     trips: outTrips,

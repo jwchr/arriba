@@ -13,10 +13,14 @@
     "test:e2e": "playwright test",
     "gtfs": "node scripts/build-gtfs.mjs",
     "timetable": "node scripts/build-timetable.mjs",
-    "verify": "npm run check && npm test && npm run build && npm run test:e2e"
+    "verify": "npm run check && npm test && npm run worker:check && npm run build:test && npm run test:e2e",
+    "worker:check": "WRANGLER_SEND_METRICS=false node scripts/worker-fixture.mjs && WRANGLER_SEND_METRICS=false wrangler deploy --config worker/wrangler.jsonc --dry-run --outdir ../.wrangler/check",
+    "worker:prepare": "node scripts/prepare-live-worker.mjs",
+    "build:test": "node scripts/build-test-app.mjs"
   },
   "dependencies": {
     "@protomaps/basemaps": "5.7.2",
+    "gtfs-realtime-bindings": "2.2.0",
     "maplibre-gl": "6.15.0",
     "pmtiles": "4.5.0",
     "react": "19.3.1",
@@ -32,6 +36,7 @@
     "fflate": "0.8.3",
     "typescript": "7.0.2",
     "vite": "8.3.5",
-    "vitest": "5.0.5"
+    "vitest": "5.0.5",
+    "wrangler": "4.158.0"
   }
 }

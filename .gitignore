@@ -8,3 +8,8 @@ recordings/
 *.zip
 # Local dev-server launch config for the Claude desktop app.
 .claude/launch.json
+# Private local Worker configuration and generated official static schedule (built during deployment).
+.dev.vars*
+.wrangler/
+worker/generated/*
+!worker/generated/.gitkeep

@@ -17,11 +17,11 @@ export const MAP_FILE = 'map/nj-nyc-20261104.pmtiles';
 const COVERS: [number, number, number, number] = [-74.25, 40.7, -73.9, 41.1];
 
 export interface MapStop { lat: number; lon: number; name: string; state: 'passed' | 'next' | 'alight' | 'ahead' }
-interface Props { stops: MapStop[]; bus?: { lat: number; lon: number }; dark: boolean; label: string; failedText: string }
+export interface RouteMapProps { stops: MapStop[]; bus?: { lat: number; lon: number }; dark: boolean; label: string; failedText: string }
 
 let protocolAdded = false;
 
-export default function RouteMap({ stops, bus, dark, label, failedText }: Props) {
+export default function RouteMap({ stops, bus, dark, label, failedText }: RouteMapProps) {
   const [failed, setFailed] = useState(false);
   const el = useRef<HTMLElement>(null);
   const map = useRef<MapLibreMap | undefined>(undefined);

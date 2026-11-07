@@ -1,0 +1,9 @@
+{
+  "name": "dale-live-local-test",
+  "main": "test-entry.ts",
+  "compatibility_date": "2026-11-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": { "NJT_API_USERNAME": "local-test", "NJT_API_PASSWORD": "local-test" },
+  "durable_objects": { "bindings": [{ "name": "FEED", "class_name": "BusFeed" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BusFeed"] }]
+}

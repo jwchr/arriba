@@ -2,12 +2,13 @@
 
 Updated 2026-11-06. Repository `jwchr/dale`, site https://jwchr.github.io/dale/. Independent review and merge remain required; API authentication and Pages deployment are separate from app live-data readiness.
 
-## Current implementation slice (issue #87)
-- Owner D51 confirms bus API approval and saves `NJT_API_USERNAME` / `NJT_API_PASSWORD` in GitHub repository secrets. No values are readable from GitHub or committed. Rail approval remains pending.
-- Authentication-only check: manual `bus-api-check.yml` workflow, main only, one multipart POST per approved BUSDV2/GTFSG2 API. Logs only fixed outcomes; no polling, raw response storage, token output, artifacts, browser secrets or new service. See `docs/BUS_API_SETUP.md`.
-- Synthetic authentication/failure tests pass; full verification and independent review are required before push/merge. Actual authentication has not yet been tested.
-- #80 schedule comparison is set aside while this owner-requested prerequisite is completed. Its branch has no code edits. Official bus GTFS is accessible and has been downloaded to private scratch; validation/publication are unfinished. Current Portal rail override PDFs have also been inspected, with transcription still unfinished. Do not publish regular Penn connections during the override.
-- PR #86 independently merged as `6609aed`; 279 unit/89 browser tests and clean independent Gemini review passed. Pages deployment was separately verified. Guides remain available during load/failure; D50 removes the persistent top printed-schedule notice and keeps full source details in Settings.
+## Current implementation slice (issue #89)
+- Owner D52 prioritizes live bus tracking. Cloudflare sign-in and its existing Workers Free plan are verified; do not upgrade or touch other Workers/sites. Deployment requires a dedicated owner-approved short-lived Cloudflare credential and the manual reviewed-main workflow. Actual activation/readiness is recorded in #89, not inferred from a merge.
+- Built pilot: canonical G2 schedule, strict trip/date/route matching, paced private SQLite relay with token reuse, vehicle and trip-update decoding, foreground polling into the existing exact-bus lock/history, live departure estimates kept separate from scheduled times, actual/estimated waiting map, explicit missing-feed warning and schedule fallback. Known skips pause automatic get-off guidance. No rail, gates, shared reports or raw archive.
+- Live mode uses separate `.g2` favorites/lock keys and explicit current-stop selection; printed 165 commutes remain untouched and available as backup. A validated static G2 copy is cached for offline use; live packets are not cached as schedules. The existing self-hosted map/failure wrapper is reused for waiting/riding.
+- #87 / PR #88 was independently merged as `4920e2c`; actual run 42329610547 authenticated both BUSDV2 and GTFSG2. This established credentials, not live app readiness. Source/secret/deployment details and remaining M0/real-ride acceptance: `docs/LIVE_BUS_PILOT.md`.
+- #80 Penn bus/train comparison remains separate while the owner-requested live connection takes priority; no comparison code has been committed. Official bus static GTFS and current Portal rail override PDFs were inspected in private scratch. Do not publish superseded regular Penn connections during the override.
+- PR #86 independently merged as `6609aed`; 279 unit/89 browser tests and clean Gemini review passed; Pages separately verified. Guides remain reachable during load/failure. D50 keeps full printed-source details in Settings while removing the persistent top notice.
 
 ## Previously merged confidence slice (PR #81)
 - Independently squash merged as `9e322c3` on 2026-11-06 after the owner approved use of the existing independent review. Deployment must be checked separately.
@@ -41,7 +42,7 @@ Updated 2026-11-06. Repository `jwchr/dale`, site https://jwchr.github.io/dale/.
 
 ## Not yet done / blocked
 - Real schedule (M2; supersedes the printed-timetable data): official bus GTFS is now accessible; corridor validation, variant/stop restrictions, saved-stop migration and publication remain. A static feed is not live predictions.
-- Live data (M0 spike, M3): encrypted bus credentials now exist; #87 must establish authentication. The private Worker, validated feed matching, freshness/fallback handling and rider-facing integration are not built yet.
+- Live data (M0 spike, M3): bus credentials authenticate successfully (#87). The #89 pilot implementation must pass independent review and actual backend/app verification; the 72-hour investigation and real phone rides remain undone.
 - The 2026-11-01 approval hold is satisfied for approved bus APIs by D51. Rail access is pending. No live archive has started; private storage and the other existing data/service constraints still apply.
 - Not yet opened on Jeff's Galaxy S26 Ultra or Diego's phone.
 - Gate cards (GATE-02): need photos and notes from Port Authority; no official source for gate floors or escalators was found (searched 2026-11-03).

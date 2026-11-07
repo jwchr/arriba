@@ -23,6 +23,10 @@ import { RiderGuide } from './RiderGuide';
 import { TicketGuide } from './TicketGuide';
 import { SKINS, SkinBackdrop, type Skin } from './SkinBackdrop';
 import { BusLockPanel } from './BusLockPanel';
+import { liveApiUrl } from '../domain/liveBus';
+import { loadLiveSchedule } from '../data/liveSchedule';
+import { useLiveBus } from './useLiveBus';
+import { LiveBusStatus } from './LiveBusStatus';
 import { LastReturnCard } from './LastReturnCard';
 import { PastReports } from './PastReports';
 
@@ -41,7 +45,30 @@ type Screen =
   | { name: 'boarding'; dep: Departure; leg: Leg }
   | { name: 'rescue'; fromStopId: string; homeStopId: string; usualRouteId?: string; label: 'home' | 'other' };
 
-const store = (() => { try { return window.localStorage; } catch { return undefined; } })();
+const rawStore = (() => { try { return window.localStorage; } catch { return undefined; } })();
+const LIVE_API = liveApiUrl(import.meta.env.VITE_LIVE_API_URL);
+const sourceParams = new URLSearchParams(location.search);
+const liveMode = !sourceParams.has('demo') && (sourceParams.has('live') || (!sourceParams.has('printed') && (() => {
+  try { return rawStore?.getItem('arriba.source.v1') === 'live'; } catch { return false; }
+})()));
+try {
+  if (sourceParams.has('live') && LIVE_API) rawStore?.setItem('arriba.source.v1', 'live');
+  if (sourceParams.has('printed')) rawStore?.setItem('arriba.source.v1', 'printed');
+} catch { /* A blocked preference never prevents opening a source explicitly. */ }
+// The rider confirms current GTFS stops when first using live mode. Never rewrite printed favorites/locks.
+const storageKey = (key: string) => liveMode && ['arriba.favorites.v1', 'arriba.lock.v1'].includes(key) ? key + '.g2' : key;
+const store = rawStore ? {
+  getItem: (key: string) => rawStore.getItem(storageKey(key)),
+  setItem: (key: string, value: string) => rawStore.setItem(storageKey(key), value),
+  removeItem: (key: string) => rawStore.removeItem(storageKey(key)),
+} : undefined;
+function sourceHref(live: boolean): string {
+  const url = new URL(location.href);
+  url.searchParams.delete('demo'); url.searchParams.delete(live ? 'printed' : 'live');
+  url.searchParams.set(live ? 'live' : 'printed', '1');
+  return url.pathname + url.search;
+}
+
 const readSettings = (): Settings => {
   try {
     const s = JSON.parse(store?.getItem('arriba.settings.v1') ?? '{}') as Partial<Settings>;
@@ -87,6 +114,11 @@ function useDataset(): [DatasetState, () => void] {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), LOAD_TIMEOUT_MS);
     setState({ status: 'loading' });
+    if (liveMode) {
+      loadLiveSchedule(LIVE_API, ctl.signal).then((s) => { if (live) setState({ status: 'ready', ...s }); })
+        .catch(() => { if (live) setState({ status: 'error' }); }).finally(() => clearTimeout(timer));
+      return () => { live = false; ctl.abort(); clearTimeout(timer); };
+    }
     fetch(`${import.meta.env.BASE_URL}data/corridor.json`, { signal: ctl.signal })
       .then(async (r): Promise<DatasetState> => {
         if (r.status === 404) return { status: 'ready', ds: demoDataset };
@@ -166,6 +198,7 @@ function LoadScreen({ status, onRetry, guide, onGuide, onBack }: {
         </div>
       </header>
       <main ref={content}>
+        {liveMode && <p><a className="link" href={sourceHref(false)}>{t.live.backup}</a></p>}
         <div className="warn">
           <p role={status === 'error' ? 'alert' : 'status'}>{status === 'error' ? t.loadFailed : status === 'ready' ? t.scheduleReady : t.loading}</p>
           {status === 'error' && <button className="primary" onClick={onRetry}>{t.retry}</button>}
@@ -240,6 +273,7 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
   useEffect(() => { if (activeLock) saveLock(store, ds, activeLock, now); }, [activeLock]); // eslint-disable-line react-hooks/exhaustive-deps
   const lockOnScreen = screen.name === 'departure' && activeLock?.dep.tripInstanceId === screen.dep.tripInstanceId && activeLock.dep.stopIndex === screen.dep.stopIndex;
   const lockEvent = (event: BusSessionEvent) => setActiveLock((current) => current ? { ...current, session: reduceBusSession(current.session, event) } : current);
+  const liveBus = useLiveBus(ds, activeLock?.session, LIVE_API, lockNow, lockEvent);
   useEffect(() => {
     setActiveLock((current) => {
       if (!current) return current;
@@ -287,6 +321,11 @@ function Main({ ds, fromCache, savedAt }: { ds: Dataset; fromCache?: boolean | u
             {t.busLock.resume} · {activeLock.dep.route.shortName} · {formatTime12(activeLock.dep.departs, tz, settings.lang)}
           </button>
         </aside>}
+        {screen.name === 'home' && !ds.meta.demo && (liveMode || LIVE_API) && <div className="card live-mode">
+          {liveMode ? <><h2>{t.live.mode}</h2><p>{t.live.intro}</p><p className="small">{t.live.privacy}</p><p className="small">{t.live.limits}</p></> : null}
+          <a className="link" href={sourceHref(!liveMode)}>{liveMode ? t.live.backup : t.live.open}</a>
+        </div>}
+        {liveBus && activeLock && lockOnScreen && <LiveBusStatus state={liveBus.state} hasStopChanges={!!activeLock.session.stopChanges?.indices.length} skippedKnown={activeLock.session.stopChanges?.indices.includes(activeLock.dep.stopIndex)} lockStatus={activeLock.session.lock.status} snapshot={liveBus.snapshot} dep={activeLock.dep} now={lockNow} t={t} lang={settings.lang} tz={tz} />}
         {screen.name === 'home' && <button className="primary wide penn-open" onClick={() => setScreen({ name: 'penn' })}>{t.journey.open}</button>}
         {screen.name === 'penn' && <PennGuide t={t} demo={ds.meta.demo} />}
         {screen.name === 'home' && (
@@ -853,7 +892,7 @@ function DepartureDetail({ ctx, dep, leg, pastReports, busSession, anotherLock, 
           )}
         </div>
         <p className="badge-sched block">{t.scheduledOnly}</p>
-        <p className="muted small">{t.scheduledOnlyHelp}</p>
+        <p className="muted small">{ds.meta.realtime ? t.live.scheduleHelp : t.scheduledOnlyHelp}</p>
         {(dep.estimated || (alightIndex > dep.stopIndex && times[alightIndex]?.estimated)) && <p className="muted small">{t.estimatedNote}</p>}
       </div>
 

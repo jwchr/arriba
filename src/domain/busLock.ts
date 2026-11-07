@@ -43,6 +43,10 @@ export interface BusSession {
   /** Actual accepted GPS observations only. Unreported intervals remain gaps. */
   history: PositionRecord[];
   lastReceivedAt?: number;
+  /** A checked feed gap is separate from the age of the last actual vehicle report. */
+  /** Known skipped stops remain a warning for this trip until it ends; never assume a detour was undone. */
+  stopChanges?: { indices: number[]; observedAt: number };
+  officialFeed?: { state: 'ok' | 'missing' | 'ambiguous'; checkedAt: number };
   /** Source and receipt time for the pending identity change, which is not accepted history. */
   pendingPosition?: PositionRecord;
 }
@@ -70,6 +74,8 @@ export type BusSessionEvent =
   | { type: 'start_waiting' | Exclude<RiderReportKind, 'capacity'> | 'end' | 'tick' | 'confirm_pending' | 'reject_pending'; now: number }
   | { type: 'capacity'; level: CapacityLevel; now: number }
   | { type: 'observation'; obs: VehicleObservation; source: PositionSource; receivedAt: number }
+  | { type: 'official_skips'; tripInstanceId: TripInstanceId; indices: number[]; observedAt: number; now: number }
+  | { type: 'feed_status'; tripInstanceId: TripInstanceId; state: 'ok' | 'missing' | 'ambiguous'; now: number }
   | { type: 'official_cancellation'; tripInstanceId: TripInstanceId; now: number };
 
 const finiteTime = (n: number): boolean => Number.isFinite(n) && n >= 0;
@@ -132,6 +138,7 @@ export function reduceBusSession(session: BusSession, event: BusSessionEvent): B
       // Age the observation immediately. Fetching a ten-minute-old position now does not make it live.
       let lock = reduceLock(session.lock, { type: 'observation', obs: o });
       lock = reduceLock(lock, { type: 'tick', now });
+      if (session.officialFeed && session.officialFeed.state !== 'ok' && lock.last && lock.status === 'tracked') lock = { ...lock, status: 'stale' };
       const accepted = lock.last === o;
       const pending = lock.pending === o;
       return {
@@ -140,8 +147,22 @@ export function reduceBusSession(session: BusSession, event: BusSessionEvent): B
         pendingPosition: pending ? record : session.pendingPosition,
       };
     }
-    case 'tick': {
+    case 'official_skips': {
+      if (event.tripInstanceId !== session.departure.tripInstanceId || !finiteTime(event.observedAt) || event.observedAt > now) return session;
+      const indices = event.indices.filter((i) => Number.isInteger(i) && i >= 0 && i < session.departure.pattern.stopIds.length);
+      if (!indices.length) return session;
+      return { ...session, stopChanges: { indices: [...new Set([...(session.stopChanges?.indices ?? []), ...indices])], observedAt: Math.max(session.stopChanges?.observedAt ?? 0, event.observedAt) } };
+    }
+    case 'feed_status': {
+      if (event.tripInstanceId !== session.departure.tripInstanceId) return session;
+      const next = { ...session, officialFeed: { state: event.state, checkedAt: now } };
       const lock = reduceLock(session.lock, { type: 'tick', now });
+      next.lock = next.officialFeed.state !== 'ok' && lock.last && lock.status === 'tracked' ? { ...lock, status: 'stale' } : lock;
+      return next;
+    }
+    case 'tick': {
+      let lock = reduceLock(session.lock, { type: 'tick', now });
+      if (session.officialFeed && session.officialFeed.state !== 'ok' && lock.last && lock.status === 'tracked') lock = { ...lock, status: 'stale' };
       return lock === session.lock ? session : { ...session, lock };
     }
     case 'official_cancellation': {
@@ -155,6 +176,7 @@ export function reduceBusSession(session: BusSession, event: BusSessionEvent): B
       if (session.lock.status !== 'needs_confirmation' || !pending || pending.tripInstanceId !== session.departure.tripInstanceId) return session;
       let lock = reduceLock(session.lock, { type: 'confirm_pending' });
       lock = reduceLock(lock, { type: 'tick', now });
+      if (session.officialFeed && session.officialFeed.state !== 'ok' && lock.last && lock.status === 'tracked') lock = { ...lock, status: 'stale' };
       const record = session.pendingPosition;
       return {
         ...session, lock, pendingPosition: undefined,
@@ -164,6 +186,7 @@ export function reduceBusSession(session: BusSession, event: BusSessionEvent): B
     case 'reject_pending': {
       let lock = reduceLock(session.lock, { type: 'reject_pending' });
       lock = reduceLock(lock, { type: 'tick', now });
+      if (session.officialFeed && session.officialFeed.state !== 'ok' && lock.last && lock.status === 'tracked') lock = { ...lock, status: 'stale' };
       return { ...session, lock, pendingPosition: undefined };
     }
     case 'start_waiting':

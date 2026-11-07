@@ -81,3 +81,28 @@ describe('GTFS build', () => {
     expect(at('20261126', '1')).toEqual(['12:10 AM', '8:00 AM']); // holiday: only HOL plus Wednesday's late trip
   });
 });
+
+
+describe('canonical live schedule eligibility', () => {
+  const asCsv = (rows: Record<string, string>[]) => {
+    const keys = [...new Set(rows.flatMap((row) => Object.keys(row)))];
+    return [keys.join(','), ...rows.map((row) => keys.map((key) => '"' + (row[key] ?? '').replaceAll('"', '""') + '"').join(','))].join('\n');
+  };
+  it('preserves canonical trip IDs while splitting 165T headsign variants from route 165', () => {
+    const source = { ...files, 'trips.txt': asCsv(parseCsv(files['trips.txt']).map((t: Record<string, string>) => t.trip_id === 'T1' ? { ...t, trip_headsign: '165T NEW YORK TURNPIKE EXPRESS' } : t)) };
+    const ds: Dataset = buildDataset(source, { routeShortNames: ['165', '165T'], splitVariants: true });
+    const trip = ds.trips.find((t) => t.id === 'T1')!, pattern = ds.patterns.find((p) => p.id === trip.patternId)!;
+    expect(ds.routes.find((r) => r.id === pattern.routeId)).toMatchObject({ shortName: '165T', feedRouteId: '10' });
+    expect(pattern.variant).toBe('T'); expect(trip.id).toBe('T1');
+  });
+  it('never offers boarding at a drop-off-only stop or alighting at a pickup-only stop', () => {
+    const source = { ...files, 'stop_times.txt': asCsv(parseCsv(files['stop_times.txt']).map((s: Record<string, string>) => ({ ...s,
+      pickup_type: s.trip_id === 'T1' && s.stop_id === '2' ? '1' : '0',
+      drop_off_type: s.trip_id === 'T1' && s.stop_id === '3' ? '1' : '0',
+    }))) };
+    const ds: Dataset = buildDataset(source, { routeShortNames: ['165', '165T'], splitVariants: true });
+    expect(departuresOn(ds, { stopId: '2', date: '20261104' }).some((d) => d.tripId === 'T1')).toBe(false);
+    expect(departuresOn(ds, { stopId: '1', toStopId: '3', date: '20261104' }).some((d) => d.tripId === 'T1')).toBe(false);
+    expect(ds.patterns.find((p) => p.id === ds.trips.find((t) => t.id === 'T1')?.patternId)?.stopSequences).toEqual([1, 2, 3]);
+  });
+});

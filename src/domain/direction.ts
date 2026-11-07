@@ -27,7 +27,7 @@ export function reaches(ds: Dataset, fromStopId: string, toStopId: string, route
     if (routeIds && routeIds.length && !routeIds.includes(p.routeId)) return false;
     const i = p.stopIds.indexOf(fromStopId);
     const j = p.stopIds.indexOf(toStopId);
-    return i >= 0 && j > i;
+    return i >= 0 && j > i && !p.noPickup?.includes(i) && !p.noDropOff?.includes(j);
   });
 }
 
@@ -154,7 +154,7 @@ export function destinationsFrom(ds: Dataset, stopId: string): Stop[] {
  * coordinates (a printed timetable) never appear. The position is not kept by this function.
  */
 export function nearbyStops(ds: Dataset, pos: { lat: number; lon: number }, radiusM = 500, limit = 6): { stop: Stop; distanceM: number }[] {
-  const served = new Set(ds.patterns.flatMap((p) => p.stopIds.slice(0, -1)));
+  const served = new Set(ds.patterns.flatMap((p) => p.stopIds.slice(0, -1).filter((_, i) => !p.noPickup?.includes(i))));
   return ds.stops
     .filter((s): s is Located => served.has(s.id) && located(s))
     .map((s) => ({ stop: s as Stop, distanceM: Math.round(distanceM(pos, s)) }))
