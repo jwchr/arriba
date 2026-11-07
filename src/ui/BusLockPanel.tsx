@@ -1,5 +1,9 @@
+import { gpsLost, offerAlternatives } from '../domain/alternatives';
+import { Alternatives } from './Alternatives';
+import { SignalWarning } from './SignalWarning';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { getScheduleProjection, type BusSession, type BusSessionEvent } from '../domain/busLock';
+import { timetablePosition } from '../domain/tripProgress';
 import { tripStopTimes } from '../domain/schedule';
 import { formatTime12 } from '../domain/time';
 import type { Dataset } from '../domain/types';
@@ -27,10 +31,12 @@ interface Props {
   gateText: (o: RescueOption) => string | undefined;
   badge: (routeId: string) => ReactNode;
   onOpenBackup: (o: RescueOption) => void;
+  onAlternatives: () => void;
+  onPenn: () => void;
 }
 
 /** The view accepts evidence; it never polls NJ Transit or requests the rider's location. */
-export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake, onKeepAwake, onEvent, onAdvanceDemo, onUnlock, gateText, badge, onOpenBackup }: Props) {
+export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake, onKeepAwake, onEvent, onAdvanceDemo, onUnlock, gateText, badge, onOpenBackup, onAlternatives, onPenn }: Props) {
   const b = t.busLock;
   const { departure: dep, lock } = session;
   const heading = useRef<HTMLHeadingElement>(null);
@@ -40,6 +46,9 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
   const stopName = (id: string) => ds.stops.find((s) => s.id === id)?.name ?? id;
   const stopTimes = tripStopTimes(ds, dep);
   const projection = getScheduleProjection(session, stopTimes, now);
+  // Only a previously reporting bus gets the owner's moving estimate after a lost signal.
+  // A never-observed, overdue bus must not appear to have passed someone still waiting.
+  const showScheduleMarker = projection.kind !== 'unavailable' && (projection.kind !== 'overdue_unknown' || gpsLost(session, now));
   const last = lock.last;
   const lastRecord = session.history.slice().reverse().find((p) => p.vehicleId === last?.vehicleId && p.observedAt === last?.observedAt);
   const date = dep.serviceDate;
@@ -97,6 +106,8 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
       </p>
       {!ds.meta.demo && <p className="muted small">{b.liveUnavailable}</p>}
 
+      <SignalWarning session={session} now={now} t={t} estimated={!terminal && !passed && ['scheduled_only', 'stale', 'vanished'].includes(lock.status) && showScheduleMarker} />
+      {offerAlternatives(session, now) && <Alternatives t={t} onBuses={onAlternatives} onGuide={onPenn} />}
       <div className="lock-waiting">
         <p className="lock-phase" role="status">{b.phase[session.phase]}</p>
         {session.waitingSince !== undefined && <p className="small">{b.waitSince(clock(session.waitingSince))}</p>}
@@ -161,6 +172,7 @@ export function BusLockPanel({ ds, session, alightIndex, now, t, lang, keepAwake
 
       {!terminal && !passed && !['tracked', 'cancelled', 'needs_confirmation'].includes(lock.status) && <div className="lock-estimate" data-testid="schedule-projection">
         <p className="lock-estimate-label">{b.estimated}</p>
+        {stopTimes.length > 1 && showScheduleMarker && <progress className="schedule-progress" aria-label={b.estimated} max={stopTimes.length - 1} value={timetablePosition(stopTimes.map((s) => s.at), now)} />}
         <p>{projection.kind === 'between' && projection.fromIndex !== undefined && projection.toIndex !== undefined
           ? b.between(stopName(stopTimes[projection.fromIndex]!.stopId), stopName(stopTimes[projection.toIndex]!.stopId))
           : projection.kind === 'before_start' ? b.beforeStart

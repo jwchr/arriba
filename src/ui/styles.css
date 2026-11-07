@@ -344,6 +344,24 @@ main { flex: 1; padding-bottom: 24px; }
 .route-map { height: 260px; border-radius: 12px; overflow: hidden; margin: 8px 0 4px; box-shadow: inset 0 0 0 1px #24262c; background: #0b0c10; }
 .route-map .maplibregl-ctrl-attrib { font-size: 11px; }
 
+/* Estimates remain obvious without relying on colour; shared by waiting and full-screen ride views. */
+.signal-warning { border: 3px solid #ffca60; background: #241b0c; color: #fff5df; padding: 1rem; margin: 1rem 0; border-radius: .6rem; }
+.signal-warning strong { display: block; font-size: 1.2rem; line-height: 1.4; font-weight: 900; }
+.signal-warning p { margin: .5rem 0 0; }
+.penn-open { margin-bottom: 1rem; }
+.penn-guide select { display: block; width: 100%; margin: .5rem 0; }
+.penn-guide fieldset { margin-top: 1rem; border: 0; padding: 0; }
+.journey-step { border-left: .35rem solid var(--accent, #f6ba56); }
+.journey-step h2:focus { outline: 2px solid currentColor; outline-offset: .3rem; }
+.journey-links { display: grid; gap: .8rem; }
+.journey-walk { display: grid; gap: .4rem; margin: 1rem 0; }
+.journey-walk input { width: 7rem; max-width: 100%; }
+.alternatives summary, .penn-guide summary { cursor: pointer; font-weight: 700; padding: .4rem 0; }
+.alternatives .choice-list { gap: 1.5rem; }
+@media (forced-colors: active) { .signal-warning { background: Canvas; color: CanvasText; border-color: CanvasText; } }
+
+.schedule-progress { width: 100%; height: 1.1rem; accent-color: #e6a93d; }
+
 /* Which Dale this is, always in view (owner request 2026-11-05). */
 .top-version { margin-left: auto; margin-right: 4px; min-width: 0; max-width: 11em; font-size: 0.72rem; line-height: 1.2; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
 .nowrap { white-space: nowrap; }

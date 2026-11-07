@@ -1,0 +1,106 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test, type Page } from '@playwright/test';
+import { strings } from '../../src/ui/i18n';
+test.use({ serviceWorkers: 'block' });
+async function demoTrip(page: Page) {
+  await page.goto('/?now=2026-11-04T07:50&demo');
+  await page.getByRole('button', { name: 'Find a stop', exact: true }).first().click();
+  await page.getByRole('searchbox').fill('90002');
+  await page.getByRole('button', { name: /Maple Ave & Main St \(to NYC\)/ }).click();
+  await page.getByRole('button', { name: /Port Authority Bus Terminal/ }).click();
+  await page.getByRole('button', { name: 'Save to my commutes' }).click();
+  await page.locator('.dep').first().click();
+  await page.getByRole('button', { name: 'Lock onto this bus' }).click();
+}
+for (const lang of ['en', 'es'] as const) test(`Penn rehearsal, return, storage and accessibility (${lang})`, async ({ page }) => {
+  await page.addInitScript((language) => localStorage.setItem('arriba.settings.v1', JSON.stringify({ lang: language })), lang);
+  await page.goto('/?now=2026-11-04T07:50');
+  const j = strings[lang].journey;
+  await page.getByRole('button', { name: j.open }).click();
+  await expect(page.getByText(j.practiceNote)).toBeVisible();
+  await page.getByRole('combobox', { name: j.station, exact: true }).selectOption('essex');
+  await page.getByRole('button', { name: j.returning, exact: true }).click();
+  await page.getByRole('button', { name: j.next, exact: true }).click();
+  await expect(page.getByRole('heading', { name: j.railReturn(j.stations.essex)[1]!.title })).toBeFocused();
+  await page.getByRole('button', { name: j.returning, exact: true }).click();
+  await page.getByRole('button', { name: j.train, exact: true }).click();
+  await expect(page.getByRole('heading', { name: j.railReturn(j.stations.essex)[1]!.title })).toBeVisible();
+  await page.getByText(j.walks, { exact: true }).click();
+  await page.getByLabel(j.walkLabel(j.stations.essex)).fill('7');
+  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  expect(violations).toEqual([]);
+  await expect(page.getByRole('link', { name: j.tickets })).toHaveAttribute('href', 'https://webtickets.njtransit.com/');
+  await page.reload();
+  await page.getByRole('button', { name: j.open }).click();
+  await expect(page.getByRole('combobox', { name: j.station, exact: true })).toHaveValue('essex');
+  await expect(page.getByRole('heading', { name: j.railReturn(j.stations.essex)[1]!.title })).toBeVisible();
+  await page.getByText(j.walks, { exact: true }).click();
+  await expect(page.getByLabel(j.walkLabel(j.stations.essex))).toHaveValue('7');
+  await page.getByRole('button', { name: j.bus, exact: true }).click();
+  await expect(page.getByText(j.step(1, 5), { exact: true })).toBeVisible();
+});
+test('GPS loss and an overdue wait offer alternatives while preserving the exact bus', async ({ page }) => {
+  await demoTrip(page);
+  await expect(page.locator('.signal-warning').getByText(strings.en.confidence.demoLost)).toHaveCount(0);
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByText('Try Bus Lock · invented demo only', { exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate GPS observations' }).click();
+  await page.getByRole('button', { name: 'Advance 3 minutes' }).click();
+  await expect(page.locator('.signal-warning').getByText(strings.en.confidence.demoLost)).toBeVisible();
+  await page.getByText(strings.en.confidence.alternatives, { exact: true }).click();
+  const choice = page.locator('.alternatives');
+  await expect(choice.getByRole('link', { name: 'Open Uber' })).toHaveAttribute('href', 'https://m.uber.com/');
+  await expect(choice.getByRole('link', { name: 'Open Lyft' })).toHaveAttribute('href', 'https://www.lyft.com/rider');
+  await choice.getByRole('button', { name: strings.en.confidence.train }).click();
+  await page.getByRole('button', { name: /Return to Bus Lock/ }).click();
+  await expect(page.locator('.bus-lock .lock-phase')).toHaveText('Waiting at this stop');
+  await page.getByText('Try Bus Lock · invented demo only', { exact: true }).click();
+  await page.getByRole('button', { name: 'Simulate GPS observations' }).click();
+  await expect(page.locator('.signal-warning').getByText(strings.en.confidence.demoLost)).toHaveCount(0);
+  // At/past the due time the offer remains available even without a GPS-loss diagnosis.
+  await page.getByRole('button', { name: 'Advance 12 minutes' }).click();
+  await page.getByRole('button', { name: 'Advance 3 minutes' }).click();
+  await expect(page.locator('.lock-waiting')).toContainText('arrival unconfirmed');
+  const before = Number(await page.getByRole('progressbar').getAttribute('value'));
+  await page.getByRole('button', { name: 'Advance 3 minutes' }).click();
+  expect(Number(await page.getByRole('progressbar').getAttribute('value'))).toBeGreaterThan(before);
+  await expect(page.getByText(strings.en.confidence.estimated, { exact: true })).toBeVisible();
+  await expect(page.getByText(strings.en.confidence.alternatives, { exact: true })).toBeVisible();
+});
+test('a failed basemap archive shows its fallback and leaves ride controls usable', async ({ page }) => {
+  await page.route('**/*.pmtiles', (route) => route.fulfill({ status: 503, body: 'unavailable' }));
+  await demoTrip(page);
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByRole('button', { name: 'Bus arrived', exact: true }).click();
+  await page.getByRole('button', { name: 'I boarded', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByText(strings.en.progress.mapFailed, { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'I got off', exact: true }).click();
+  await expect(page.locator('.lock-phase')).toHaveText('Session ended');
+});
+test('malformed saved lock is removed and does not blank the app', async ({ page }) => {
+  await page.goto('/?now=2026-11-04T07:50');
+  await page.getByRole('button', { name: 'Find a stop', exact: true }).first().click();
+  await page.getByRole('searchbox').fill('irvington');
+  await page.getByRole('button', { name: /Irvington St\. \(to New York\)/ }).click();
+  await page.getByRole('button', { name: /Port Authority Bus Terminal/ }).click();
+  await page.getByRole('button', { name: 'Save to my commutes' }).click();
+  await page.locator('.dep').first().click();
+  await page.getByRole('button', { name: 'Lock onto this bus' }).click();
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('arriba.lock.v1')!); s.dep.pattern.stopIds = null; localStorage.setItem('arriba.lock.v1', JSON.stringify(s)); });
+  await page.reload();
+  await expect(page.getByRole('button', { name: strings.en.journey.open })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('arriba.lock.v1'))).toBeNull();
+});
+
+test('an overdue wait without any GPS offers alternatives without a moving marker', async ({ page }) => {
+  await demoTrip(page);
+  await page.getByRole('button', { name: 'I’m waiting at this stop' }).click();
+  await page.getByText('Try Bus Lock · invented demo only', { exact: true }).click();
+  await page.getByRole('button', { name: 'Advance 12 minutes' }).click();
+  await page.getByRole('button', { name: 'Advance 12 minutes' }).click();
+  await expect(page.locator('.lock-waiting')).toContainText('arrival unconfirmed');
+  await expect(page.getByRole('progressbar')).toHaveCount(0);
+  await expect(page.locator('.signal-warning')).toHaveCount(0);
+  await expect(page.getByText(strings.en.confidence.alternatives, { exact: true })).toBeVisible();
+});

@@ -101,7 +101,7 @@ export function tripProgress(input: ProgressInput): TripProgress {
   const reachedIndex = Math.max(boardIndex, ...milestones.map((m) => m.index));
   const evidence: { position: number; at: number; source: EvidenceSource }[] = [];
   const last = [...milestones].sort((a, b) => a.at - b.at || a.index - b.index).at(-1);
-  if (last && now - last.at <= TAP_MAX_AGE_MS) evidence.push({ position: last.index, at: last.at, source: last.source });
+  if (last && now - last.at <= (last.source === 'tap' ? TAP_MAX_AGE_MS : FIX_MAX_AGE_MS)) evidence.push({ position: last.index, at: last.at, source: last.source });
   for (const [fix, source] of [[input.bus, 'bus_gps'], [input.phone, 'phone_gps']] as const) {
     if (!fix) continue;
     const p = fixPosition(stops, boardIndex, fix, now);
