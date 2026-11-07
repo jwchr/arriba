@@ -5,7 +5,10 @@ import { parseDataset } from '../src/domain/dataset';
 import { createFeedClass, createRouter } from './service';
 const ds = parseDataset(raw), now = Date.parse('2026-11-04T12:20:00Z');
 if (!ds.meta.feedVersion.startsWith('SYNTHETIC')) throw new Error('Synthetic local-runtime fixture required');
-const descriptor = { tripId: 'T1', routeId: '10', startDate: '20261104' };
+// Exercise the actual G2 missing-date shape against a provably unique synthetic calendar.
+const calendar = ds.calendars[ds.trips.find((t) => t.id === 'T1')!.serviceId]!;
+calendar.start = calendar.end = '20261104'; calendar.added = []; calendar.removed = [];
+const descriptor = { tripId: 'T1', routeId: '10' };
 const fake = (async (url: RequestInfo | URL, init?: RequestInit) => {
   // Validate outbound init with workerd's actual Request API, before the synthetic response.
   const request = new Request(url, init);

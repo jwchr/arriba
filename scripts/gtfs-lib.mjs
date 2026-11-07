@@ -106,7 +106,7 @@ export function interpolate(times) {
  * files: { [name]: string } with routes.txt, stops.txt, trips.txt, stop_times.txt and calendar.txt and/or calendar_dates.txt.
  * routeShortNames: which routes to include (the corridor).
  */
-export function buildDataset(files, { routeShortNames, feedVersion = 'unknown', builtAt = new Date().toISOString(), source = 'NJ Transit GTFS', splitVariants = false }) {
+export function buildDataset(files, { routeShortNames, feedVersion = 'unknown', builtAt = new Date().toISOString(), source = 'NJ Transit GTFS', splitVariants = false, scheduledOnly = false }) {
   const need = (n) => {
     if (files[n] === undefined) throw new Error(`missing ${n}`);
     return parseCsv(files[n]);
@@ -119,6 +119,8 @@ export function buildDataset(files, { routeShortNames, feedVersion = 'unknown', 
   const routeIds = new Set(routes.map((r) => r.route_id));
   const trips = need('trips.txt').filter((t) => routeIds.has(t.route_id));
   const tripIds = new Set(trips.map((t) => t.trip_id));
+  if (scheduledOnly && files['frequencies.txt'] && parseCsv(files['frequencies.txt']).some((f) => tripIds.has(f.trip_id)))
+    throw new Error('frequency-based corridor trips are unsupported by the exact-trip live pilot');
 
   const byTrip = new Map();
   if (files['stop_times.txt'] === undefined) throw new Error('missing stop_times.txt');
