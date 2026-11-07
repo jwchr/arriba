@@ -213,3 +213,62 @@ describe('bounded private NJ Transit client', () => {
     await vi.advanceTimersByTimeAsync(31); await checked; expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+describe('fixed secret-safe connection diagnostics', () => {
+  it('keeps configuration failure distinct and preserves its cause during cooldown', async () => {
+    let now = NOW;
+    const saved = new Map<string, unknown>();
+    const ctx = { storage: { get: async <T,>(k: string) => saved.get(k) as T | undefined, put: async (k: string, v: unknown) => { saved.set(k, structuredClone(v)); } }, blockConcurrencyWhile: async <T,>(f: () => Promise<T>) => f() };
+    const Feed = createFeedClass(ds, (async () => { throw new Error('must-not-call-without-credentials'); }) as typeof fetch, () => now);
+    const object = new Feed(ctx, { NJT_API_USERNAME: '', NJT_API_PASSWORD: '', FEED: { idFromName: () => '', get: () => object } });
+    const first = await (await object.fetch(request('/v1/status'))).json();
+    expect(first.connectionFailures.authentication).toEqual({ code: 'configuration-missing', at: NOW });
+    now += 31_000;
+    const retry = await (await object.fetch(request('/v1/status'))).json();
+    expect(retry.connectionFailures.authentication).toEqual(first.connectionFailures.authentication);
+    expect(retry.vehicles.state).toBe('unavailable');
+  });
+  it('distinguishes upstream authorization and rate-limit failures without leaking response content', async () => {
+    const ctx = { storage: { get: async <T,>() => undefined as T | undefined, put: async () => {} }, blockConcurrencyWhile: async <T,>(f: () => Promise<T>) => f() };
+    const Feed = createFeedClass(ds, (async (url: RequestInfo | URL) => {
+      if (String(url).endsWith('authenticateUser')) return Response.json({ Authenticated: true, UserToken: 'secret-token' });
+      return new Response('secret-token and password', { status: String(url).endsWith('getVehiclePositions') ? 403 : 429 });
+    }) as typeof fetch, () => NOW);
+    const object = new Feed(ctx, { ...creds, FEED: { idFromName: () => '', get: () => object } });
+    const text = await (await object.fetch(request('/v1/status'))).text();
+    expect(text).not.toContain('secret-token'); expect(text).not.toContain(creds.NJT_API_PASSWORD);
+    expect(JSON.parse(text).connectionFailures).toEqual({ vehicles: { code: 'access-denied', at: NOW }, updates: { code: 'rate-limited', at: NOW } });
+  });
+  it('retains endpoint failures through cooldown and cold restart, then clears only the successfully retried endpoint', async () => {
+    let now = NOW, recover = false;
+    const saved = new Map<string, unknown>();
+    const ctx = { storage: { get: async <T,>(k: string) => structuredClone(saved.get(k)) as T | undefined, put: async (k: string, v: unknown) => { saved.set(k, structuredClone(v)); } }, blockConcurrencyWhile: async <T,>(f: () => Promise<T>) => f() };
+    const Feed = createFeedClass(ds, (async (url: RequestInfo | URL) => {
+      if (String(url).endsWith('authenticateUser')) return Response.json({ Authenticated: true, UserToken: 'private-token' });
+      if (recover && String(url).endsWith('getVehiclePositions')) return new Response(new Uint8Array(gps()).buffer);
+      return new Response('private-error-body', { status: String(url).endsWith('getVehiclePositions') ? 403 : 429 });
+    }) as typeof fetch, () => now);
+    const env = { ...creds, FEED: { idFromName: () => '', get: () => object } };
+    const object = new Feed(ctx, env);
+    const first = await (await object.fetch(request('/v1/status'))).json();
+    expect(first.connectionFailures.vehicles).toEqual({ code: 'access-denied', at: NOW });
+    now += 31_000;
+    const cold = new Feed(ctx, env), cooling = await (await cold.fetch(request('/v1/status'))).json();
+    expect(cooling.connectionFailures.vehicles).toEqual(first.connectionFailures.vehicles);
+    expect(cooling.connectionFailures.updates).toEqual(first.connectionFailures.updates);
+    expect(cooling.connectionFailures.authentication.code).toBe('authentication-cooldown');
+    recover = true; now = NOW + 3600_000;
+    const text = await (await cold.fetch(request('/v1/status'))).text(), retry = JSON.parse(text);
+    expect(retry.connectionFailures.authentication).toBeUndefined();
+    expect(retry.connectionFailures.vehicles).toBeUndefined();
+    expect(retry.connectionFailures.updates).toEqual({ code: 'rate-limited', at: now });
+    expect(text).not.toContain('private-token'); expect(text).not.toContain('private-error-body');
+  });
+  it('allows only fixed NjtError categories and discards arbitrary error messages and codes', async () => {
+    const { safeNjtFailure, NjtError } = await import('../../worker/njt-client');
+    expect(safeNjtFailure(new Error('password-secret'))).toBe('unknown-error');
+    expect(safeNjtFailure(new NjtError('token-secret'))).toBe('unknown-error');
+    expect(safeNjtFailure(new NjtError('timed-out'))).toBe('timed-out');
+    expect(safeNjtFailure(new NjtError('network-error'))).toBe('network-error');
+  });
+});

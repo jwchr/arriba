@@ -5,6 +5,11 @@ export class NjtError extends Error {
   code: string;
   constructor(code: string) { super(code); this.code = code; }
 }
+const SAFE_FAILURES = new Set(['configuration-missing', 'authentication-cooldown', 'access-denied', 'rate-limited', 'http-error', 'empty-response', 'response-too-large', 'timed-out', 'network-error', 'invalid-token', 'invalid-response']);
+/** Never expose an exception message, upstream body or arbitrary error code in diagnostics. */
+export function safeNjtFailure(error: unknown): string {
+  return error instanceof NjtError && SAFE_FAILURES.has(error.code) ? error.code : 'unknown-error';
+}
 export async function njtRequest(endpoint: NjtEndpoint, fields: Record<string, string>, maxBytes: number, fetchImpl: typeof fetch = fetch, timeoutMs = 15_000): Promise<Uint8Array> {
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {

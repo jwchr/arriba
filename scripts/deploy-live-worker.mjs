@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { safeNjtFailure, NjtError } from '../worker/njt-client.ts';
 import { liveApiUrl, parseLiveSnapshot } from '../src/domain/liveBus.ts';
 let temporary;
 try {
@@ -35,6 +36,13 @@ try {
   if (!allowed.includes(v) || !allowed.includes(u) || profile.feedVersion !== ds.meta.feedVersion || !Number.isSafeInteger(profile.reportingBuses)) throw new Error('invalid-profile');
   console.log('Worker deployed and canonical schedule verified. No credentials, tokens or raw responses logged.');
   console.log(`Vehicle feed: ${v}; trip-update feed: ${u}; matched corridor buses: ${profile.reportingBuses}.`);
+  // Re-allowlist even the Worker's diagnostics before printing to a public Actions log.
+  for (const phase of ['authentication', 'vehicles', 'updates']) {
+    const failure = profile.connectionFailures?.[phase];
+    if (failure) {
+      console.log(`Connection failure (${phase}): ${safeNjtFailure(new NjtError(failure.code))}.`);
+    }
+  }
   if (!profile.example || v !== 'ok') {
     const safeCount = (n) => Number.isSafeInteger(n) && n >= 0 && n <= 1_000_000 ? n : 0;
     console.log(`Known static trips: ${safeCount(profile.vehicleDiagnostics?.knownTrips)}; corridor route reports: ${safeCount(profile.vehicleDiagnostics?.corridorRoutes)}; missing service dates: ${safeCount(profile.vehicleDiagnostics?.missingServiceDates)}; missing GPS timestamps: ${safeCount(profile.vehicleDiagnostics?.missingObservationTimes)}.`);
