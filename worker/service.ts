@@ -1,12 +1,13 @@
 import type { Dataset } from '../src/domain/types';
 import { isServiceActive } from '../src/domain/schedule';
 import { validServiceDate, validVehicleId, LIVE_SOURCE, type LiveBusSnapshot } from '../src/domain/liveBus';
-import { authenticate, njtRequest, NjtError, type Credentials } from './njt-client';
+import { authenticate, njtRequest, NjtError, safeNjtFailure, type Credentials } from './njt-client';
 import { createNormalizer, type NormalizedFeed } from './normalize';
 interface Storage { get<T>(key: string): Promise<T | undefined>; put(key: string, value: unknown): Promise<void> }
 interface State { storage: Storage; blockConcurrencyWhile<T>(fn: () => Promise<T>): Promise<T> }
 interface Env extends Credentials { FEED: { idFromName(name: string): unknown; get(id: unknown): { fetch(request: Request): Promise<Response> } } }
-interface Saved { feedVersion?: string; token?: { value: string; expiresAt: number }; authAt: number; pollAt: number; vehicles?: NormalizedFeed; updates?: NormalizedFeed }
+interface ConnectionFailures { authentication?: { code: string; at: number }; vehicles?: { code: string; at: number }; updates?: { code: string; at: number } }
+interface Saved { failures?: ConnectionFailures; feedVersion?: string; token?: { value: string; expiresAt: number }; authAt: number; pollAt: number; vehicles?: NormalizedFeed; updates?: NormalizedFeed }
 const unavailable = (): NormalizedFeed => ({ feed: { state: 'unavailable' }, observations: [], updates: [] });
 const POLL_MS = 30_000, AUTH_RETRY_MS = 3600_000;
 
@@ -33,25 +34,35 @@ export function createFeedClass(ds: Dataset, fetchImpl: typeof fetch = fetch, cl
       const now = clock(); this.saved.pollAt = now;
       // Persist the pace limit before I/O, so an eviction cannot multiply upstream requests.
       await this.ctx.storage.put('state-v1', this.saved);
+      this.saved.failures = { ...this.saved.failures };
       try {
         if (!this.saved.token || this.saved.token.expiresAt <= now) {
           if (now - this.saved.authAt < AUTH_RETRY_MS) throw new NjtError('authentication-cooldown');
           this.saved.authAt = now;
           await this.ctx.storage.put('state-v1', this.saved);
           this.saved.token = { value: await authenticate(this.env, fetchImpl), expiresAt: now + 20 * 3600_000 };
+          delete this.saved.failures.authentication;
           await this.ctx.storage.put('state-v1', this.saved);
         }
         const token = this.saved.token.value;
         const fetchFeed = async (endpoint: 'getVehiclePositions' | 'getTripUpdates', kind: 'vehicles' | 'updates') => {
+          // A cooldown is not a new endpoint attempt: retain the last failure until that feed retries.
+          delete this.saved.failures![kind];
           try { return normalize(await njtRequest(endpoint, { token }, 8 * 1024 * 1024, fetchImpl), kind, clock()); }
           catch (error) {
+            this.saved.failures![kind] = { code: safeNjtFailure(error), at: now };
             if (error instanceof NjtError && error.code === 'access-denied') this.saved.token = undefined;
             return unavailable();
           }
         };
         const [vehicles, updates] = await Promise.all([fetchFeed('getVehiclePositions', 'vehicles'), fetchFeed('getTripUpdates', 'updates')]);
         this.saved.vehicles = vehicles; this.saved.updates = updates;
-      } catch { this.saved.vehicles = unavailable(); this.saved.updates = unavailable(); }
+      } catch (error) {
+        // Preserve the original failure throughout authentication cooldown instead of hiding it.
+        if (!(error instanceof NjtError && error.code === 'authentication-cooldown' && this.saved.failures.authentication))
+          this.saved.failures.authentication = { code: safeNjtFailure(error), at: now };
+        this.saved.vehicles = unavailable(); this.saved.updates = unavailable();
+      }
       await this.ctx.storage.put('state-v1', this.saved);
     }
     async fetch(request: Request): Promise<Response> {
@@ -63,6 +74,7 @@ export function createFeedClass(ds: Dataset, fetchImpl: typeof fetch = fetch, cl
       // A successful fetch never refreshes the agency timestamps. Old retained data remains old.
       const age = (feed: NormalizedFeed) => ({ ...feed.feed, ...(feed.feed.timestamp && now - feed.feed.timestamp > 120_000 ? { state: 'stale' as const } : {}) });
       if (url.pathname === '/v1/status') return Response.json({ v: 1, source: LIVE_SOURCE, feedVersion: ds.meta.feedVersion,
+        connectionFailures: this.saved.failures ?? {},
         vehicles: age(vehicles), updates: age(updates), vehicleDiagnostics: vehicles.diagnostics, updateDiagnostics: updates.diagnostics, reportingBuses: new Set(vehicles.observations.filter((o) => now - o.observedAt <= 120_000).map((o) => o.vehicleId)).size,
         example: vehicles.observations.filter((o) => now - o.observedAt <= 120_000).sort((a, b) => b.observedAt - a.observedAt)[0],
       }, { headers: { 'cache-control': 'no-store' } });
