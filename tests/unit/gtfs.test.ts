@@ -84,6 +84,13 @@ describe('GTFS build', () => {
 
 
 describe('canonical live schedule eligibility', () => {
+  it('rejects corridor frequency trips for the exact-trip pilot, without rejecting unrelated routes', () => {
+    const options = { routeShortNames: ['165', '165T'], splitVariants: true, scheduledOnly: true };
+    for (const exact of ['0', '1']) {
+      expect(() => buildDataset({ ...files, 'frequencies.txt': 'trip_id,start_time,end_time,headway_secs,exact_times\nT1,07:00:00,09:00:00,600,' + exact }, options)).toThrow(/frequency-based/);
+    }
+    expect(() => buildDataset({ ...files, 'frequencies.txt': 'trip_id,start_time,end_time,headway_secs\nother,07:00:00,09:00:00,600' }, options)).not.toThrow();
+  });
   const asCsv = (rows: Record<string, string>[]) => {
     const keys = [...new Set(rows.flatMap((row) => Object.keys(row)))];
     return [keys.join(','), ...rows.map((row) => keys.map((key) => '"' + (row[key] ?? '').replaceAll('"', '""') + '"').join(','))].join('\n');

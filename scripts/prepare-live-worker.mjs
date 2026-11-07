@@ -13,11 +13,11 @@ try {
   phase = 'static-download';
   const bytes = await njtRequest('getGTFS', { token }, 128 * 1024 * 1024, fetch, 120_000);
   phase = 'zip-decode';
-  const needed = new Set(['agency.txt', 'routes.txt', 'stops.txt', 'trips.txt', 'stop_times.txt', 'calendar.txt', 'calendar_dates.txt']);
+  const needed = new Set(['agency.txt', 'routes.txt', 'stops.txt', 'trips.txt', 'stop_times.txt', 'calendar.txt', 'calendar_dates.txt', 'frequencies.txt']);
   const zip = unzipSync(bytes, { filter: (entry) => needed.has(entry.name.split('/').pop()) });
   const files = Object.fromEntries(Object.entries(zip).map(([name, value]) => [name.split('/').pop(), strFromU8(value)]));
   phase = 'corridor-validation';
-  const ds = buildDataset(files, { routeShortNames: ['163', '164', '165', '165T'], splitVariants: true,
+  const ds = buildDataset(files, { routeShortNames: ['163', '164', '165', '165T'], splitVariants: true, scheduledOnly: true,
     feedVersion: createHash('sha256').update(bytes).digest('hex').slice(0, 12), source: 'NJ Transit GTFS BUS G2' });
   ds.meta.realtime = { provider: 'njt-bus-g2' };
   parseDataset(ds);

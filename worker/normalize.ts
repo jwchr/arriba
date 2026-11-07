@@ -3,23 +3,35 @@ import { isServiceActive } from '../src/domain/schedule';
 import { validServiceDate, validVehicleId, LIVE_MAX_AGE_MS, type LiveFeed, type LivePrediction } from '../src/domain/liveBus';
 import { tripInstanceId, type Dataset, type Pattern } from '../src/domain/types';
 import type { VehicleObservation } from '../src/domain/lock';
+import { uniqueCalendarDate, dateContainsReport } from './service-date';
 type Descriptor = bindings.transit_realtime.ITripDescriptor;
 export interface NormalizedUpdate { tripInstanceId: string; observedAt: number; cancelled: boolean; predictions: LivePrediction[]; skippedStops: number[] }
 export interface FeedDiagnostics { entities: number; knownTrips: number; corridorRoutes: number; missingServiceDates: number; missingObservationTimes: number }
 export interface NormalizedFeed { diagnostics?: FeedDiagnostics; feed: LiveFeed; observations: VehicleObservation[]; updates: NormalizedUpdate[] }
-const seconds = (v: unknown) => { const n = Number(v); return Number.isSafeInteger(n) && n > 0 ? n * 1000 : undefined; };
+const seconds = (v: unknown) => { const n = Number(v), ms = n * 1000; return Number.isSafeInteger(n) && n > 0 && Number.isSafeInteger(ms) && Number.isFinite(new Date(ms).getTime()) ? ms : undefined; };
 
 export function createNormalizer(ds: Dataset) {
   const trips = new Map(ds.trips.map((t) => [t.id, t])), patterns = new Map(ds.patterns.map((p) => [p.id, p]));
   const routes = new Map(ds.routes.map((r) => [r.id, r]));
-  function identify(d: Descriptor | null | undefined): { id: string; pattern: Pattern } | undefined {
-    if (!d?.tripId || !d.startDate || !validServiceDate(d.startDate)) return;
+  const uniqueDates = new Map(Object.entries(ds.calendars).map(([id, cal]) => [id, uniqueCalendarDate(cal)]));
+  function identify(d: Descriptor | null | undefined, observedAt: number | undefined): { id: string; pattern: Pattern } | undefined {
+    if (!d?.tripId || !observedAt) return;
     const trip = trips.get(d.tripId), pattern = trip && patterns.get(trip.patternId), route = pattern && routes.get(pattern.routeId);
-    if (!trip || !pattern || !route || !isServiceActive(ds.calendars[trip.serviceId], d.startDate)) return;
+    if (!trip || !pattern || !route) return;
+    // Empty protobuf strings convey no date; a nonempty invalid date is never repaired.
+    const explicit = !!d.startDate;
+    if (d.startTime) {
+      const parts = /^(\d+):([0-5]\d):([0-5]\d)$/.exec(d.startTime);
+      const start = parts && Number(parts[1]) * 3600 + Number(parts[2]) * 60 + Number(parts[3]);
+      if (!Number.isSafeInteger(start) || start !== trip.times[0]) return;
+    }
+    const date = explicit ? d.startDate : uniqueDates.get(trip.serviceId);
+    if (!date || !validServiceDate(date) || !isServiceActive(ds.calendars[trip.serviceId], date)) return;
+    if (!explicit && (ds.meta.realtime?.provider !== 'njt-bus-g2' || ds.meta.demo || ds.meta.transcribed || !dateContainsReport(ds, trip, date, observedAt))) return;
     if (d.routeId && d.routeId !== (route.feedRouteId ?? route.id)) return;
     if (d.directionId != null && Object.hasOwn(d, 'directionId') && d.directionId !== pattern.directionId) return;
-    // Missing service dates, added/duplicated/unscheduled trips and mismatched variants are unknown, not guessed.
-    return { id: tripInstanceId(trip.id, d.startDate), pattern };
+    // Ambiguous/malformed dates and added/duplicated/unscheduled trips remain unknown.
+    return { id: tripInstanceId(trip.id, date), pattern };
   }
   return function normalize(bytes: Uint8Array, kind: 'vehicles' | 'updates', now: number): NormalizedFeed {
     const empty: NormalizedFeed = { feed: { state: 'invalid' }, observations: [], updates: [] };
@@ -41,14 +53,14 @@ export function createNormalizer(ds: Dataset) {
           }
         }
         if (kind === 'vehicles' && entity.vehicle) {
-          const vehicle = entity.vehicle, match = identify(vehicle.trip), observedAt = seconds(vehicle.timestamp), pos = vehicle.position;
+          const vehicle = entity.vehicle, observedAt = seconds(vehicle.timestamp), match = identify(vehicle.trip, observedAt), pos = vehicle.position;
           if (!match || !observedAt || observedAt > now || !validVehicleId(vehicle.vehicle?.id) || !pos
             || !Object.hasOwn(pos, 'latitude') || !Object.hasOwn(pos, 'longitude') || !Number.isFinite(pos.latitude) || !Number.isFinite(pos.longitude)
             || Math.abs(pos.latitude) > 90 || Math.abs(pos.longitude) > 180 || (vehicle.trip?.scheduleRelationship ?? 0) !== 0) continue;
           output.observations.push({ tripInstanceId: match.id, vehicleId: vehicle.vehicle.id, observedAt, lat: pos.latitude, lon: pos.longitude });
         }
         if (kind === 'updates' && entity.tripUpdate) {
-          const update = entity.tripUpdate, match = identify(update.trip), observedAt = seconds(update.timestamp);
+          const update = entity.tripUpdate, observedAt = seconds(update.timestamp), match = identify(update.trip, observedAt);
           if (!match || !observedAt || observedAt > now || ![0, 3].includes(update.trip.scheduleRelationship ?? 0)) continue;
           const normalized: NormalizedUpdate = { tripInstanceId: match.id, observedAt, cancelled: update.trip.scheduleRelationship === 3, predictions: [], skippedStops: [] };
           for (const stop of update.stopTimeUpdate ?? []) {
