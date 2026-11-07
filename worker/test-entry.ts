@@ -15,7 +15,7 @@ const fake = (async (url: RequestInfo | URL, init?: RequestInit) => {
   const name = new URL(request.url).pathname.split('/').pop();
   if (name === 'authenticateUser') return Response.json({ Authenticated: 'True', UserToken: 'local-test-token' });
   const entity = name === 'getVehiclePositions' ? [{ id: 'v', vehicle: { trip: descriptor, vehicle: { id: 'local-test-bus' }, timestamp: now / 1000 - 10, position: { latitude: 40.89, longitude: -74.04 } } }]
-    : name === 'getTripUpdates' ? [{ id: 'u', tripUpdate: { trip: descriptor, timestamp: now / 1000 - 10 } }] : undefined;
+    : name === 'getTripUpdates' ? [{ id: 'u', tripUpdate: { trip: descriptor, timestamp: now / 1000 - 10, stopTimeUpdate: [{ stopId: '2', departure: { time: now / 1000 + 300 } }] } }] : undefined;
   if (!entity) throw new Error('Unexpected endpoint in local test');
   const bytes = bindings.transit_realtime.FeedMessage.encode({ header: { gtfsRealtimeVersion: '2.0', timestamp: now / 1000 - 5 }, entity }).finish();
   return new Response(new Uint8Array(bytes).buffer);

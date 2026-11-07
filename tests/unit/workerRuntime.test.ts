@@ -43,5 +43,9 @@ it('serves real Worker requests through a SQLite object without exposing secrets
   const text = await response.text(); expect(text).not.toContain('local-test-token');
   const packet = JSON.parse(text); expect(packet.observations[0].vehicleId).toBe('local-test-bus');
   expect(packet.tripInstanceId).toBe('T1@20261104');
+  const query = encodeURIComponent(JSON.stringify([{ tripId: 'T1', serviceDate: '20261104', stopIndex: 1, toStopIndex: 2 }]));
+  const upcoming = await (await fetch(base + '/v1/departures?q=' + query)).json();
+  expect(upcoming.items[0].departure.stopIndex).toBe(1);
+  expect(upcoming.items[0].departure.at).toBe(Date.parse('2026-11-04T12:25:00Z'));
   expect((await fetch(base + '/v1/live?trip=unknown&date=20261104')).status).toBe(400);
 });

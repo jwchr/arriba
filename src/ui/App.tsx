@@ -28,6 +28,9 @@ import { liveApiUrl } from '../domain/liveBus';
 import { loadLiveSchedule } from '../data/liveSchedule';
 import { useLiveBus } from './useLiveBus';
 import { LiveBusStatus } from './LiveBusStatus';
+import { useLiveDepartures } from './useLiveDepartures';
+import { departureEvidence, departureKey, requestFor, type DepartureEvidence } from '../domain/liveDepartures';
+import { upcomingCandidates, selectUpcoming, type UpcomingSet } from '../domain/upcoming';
 import { LastReturnCard } from './LastReturnCard';
 import { PastReports } from './PastReports';
 
@@ -481,8 +484,19 @@ function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed
   onSearch: () => void; onGuide: () => void; onAllDay: (leg: Leg, title: string) => void; onDeparture: (d: Departure, leg: Leg) => void;
   onRescue: (leg: Leg, label: 'home' | 'other', usualRouteId?: string) => void;
 }) {
-  const { t } = ctx;
+  const { t, ds, now } = ctx;
   const [editing, setEditing] = useState(false);
+  const models = useMemo(() => favorites.map(f => {
+    const leg = legFor(ds, f, reversedIds.has(f.id));
+    return { leg, set: leg ? upcomingCandidates(ds, { stopId: leg.fromStopId, toStopId: leg.toStopId, routeIds: leg.routeIds }, now, count) : { ahead: [], candidates: [] } };
+  }), [favorites, reversedIds, ds, now, count]);
+  // One browser batch/poll for all cards; the private relay still fetches NJ Transit globally once.
+  const requests = models.flatMap(m => m.leg ? m.set.candidates.map(d => requestFor(d, m.leg!.toStopId)) : []);
+  const live = useLiveDepartures(ds, requests, LIVE_API, now);
+  const reports = new Map(live?.batch?.items.map(item => [departureKey(item.query), item]));
+  const evidence = (d: Departure, toStopId: string): DepartureEvidence | undefined => !live ? undefined
+    : live.state !== 'available' ? { kind: live.state === 'checking' ? 'checking' : 'unavailable' }
+    : departureEvidence(live.batch, reports.get(departureKey(requestFor(d, toStopId))), now);
   if (!favorites.length) {
     return (
       <section className="card hero-empty">
@@ -502,7 +516,7 @@ function Home({ ctx, favorites, count, setFavorites, reversedIds, toggleReversed
       <ol className="fav-list">
         {favorites.map((f, i) => (
           <li key={f.id}>
-            <FavoriteCard ctx={ctx} fav={f} count={count} editing={editing} rev={reversedIds.has(f.id)} onReverse={() => toggleReversed(f.id)} first={i === 0} last={i === favorites.length - 1}
+            <FavoriteCard ctx={ctx} fav={f} count={count} model={models[i]!.set} liveEnabled={!!live} evidence={evidence} editing={editing} rev={reversedIds.has(f.id)} onReverse={() => toggleReversed(f.id)} first={i === 0} last={i === favorites.length - 1}
               onMove={(dlt) => setFavorites((l) => moveFavorite(l, f.id, dlt))}
               onRemove={() => setFavorites((l) => removeFavorite(l, f.id))}
               onRename={(name) => setFavorites((l) => renameFavorite(l, f.id, name))}
@@ -540,8 +554,8 @@ function HighwayPlace({ place, label, end }: { place: { name: string; detail: st
   </div>;
 }
 
-function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, onMove, onRemove, onRename, onLeavePlan, onAllDay, onDeparture, onRescue }: {
-  ctx: Ctx; fav: Favorite; count: number; editing: boolean; rev: boolean; onReverse: () => void; first: boolean; last: boolean;
+function FavoriteCard({ ctx, fav, count, model, liveEnabled, evidence, editing, rev, onReverse, first, last, onMove, onRemove, onRename, onLeavePlan, onAllDay, onDeparture, onRescue }: {
+  ctx: Ctx; fav: Favorite; count: number; model: UpcomingSet; liveEnabled: boolean; evidence: (d: Departure, toStopId: string) => DepartureEvidence | undefined; editing: boolean; rev: boolean; onReverse: () => void; first: boolean; last: boolean;
   onMove: (d: -1 | 1) => void; onRemove: () => void; onRename: (s: string) => void; onLeavePlan: (p: LeavePlan | undefined) => void;
   onAllDay: (leg: Leg, title: string) => void; onDeparture: (d: Departure, leg: Leg) => void;
   onRescue: (leg: Leg, label: 'home' | 'other', usualRouteId?: string) => void;
@@ -549,10 +563,10 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
   const { ds, t, now, stopName } = ctx;
   const leg = legFor(ds, fav, rev);
   // More than the shown rows, so leave-by and arrive-by can look past them.
-  const ahead: LeaveOption[] = leg ? nextDepartures(ds, { stopId: leg.fromStopId, toStopId: leg.toStopId, routeIds: leg.routeIds }, now, 40)
-    .map((d) => { const arrives = arrivalAt(ds, d, leg.toStopId); return arrives ? { dep: d, arrives } : { dep: d }; }) : [];
-  const deps = ahead.slice(0, count).map((o) => o.dep);
-  const rows = ahead.slice(0, count).map((o) => ({ d: o.dep, arr: o.arrives }));
+  const ahead: LeaveOption[] = leg ? model.ahead.map((d) => { const arrives = arrivalAt(ds, d, leg.toStopId); return arrives ? { dep: d, arrives } : { dep: d }; }) : [];
+  const deps = leg && liveEnabled ? selectUpcoming(model, d => evidence(d, leg.toStopId), now, count) : ahead.slice(0, count).map(o => o.dep);
+  const rows = deps.map(d => ({ d, arr: leg ? arrivalAt(ds, d, leg.toStopId) : undefined, live: leg ? evidence(d, leg.toStopId) : undefined }));
+  const evidencePrefix = useId();
   const plan = fav.leave?.[rev ? 'back' : 'out'];
   const express = leg ? nextExpress(ds, { stopId: leg.fromStopId, toStopId: leg.toStopId, routeIds: leg.routeIds }, deps, now, plan?.walkMin) : undefined;
   const [planning, setPlanning] = useState(false);
@@ -560,7 +574,7 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
   const planButton = useRef<HTMLButtonElement>(null);
   const closedForm = useRef(false);
   useEffect(() => { if (!planning && closedForm.current) planButton.current?.focus(); closedForm.current = planning; }, [planning]);
-  const soonest = earliestArrival(ahead.slice(0, count), now, plan);
+  const soonest = liveEnabled ? undefined : earliestArrival(ahead.slice(0, count), now, plan);
   const anyEstimated = rows.some((r) => r.d.estimated || r.arr?.estimated);
   const title = leg ? `${stopName(leg.fromStopId)} → ${stopName(leg.toStopId)}` : '';
   const defaultLabel = `${stopName(fav.fromStopId)} → ${stopName(fav.toStopId)}`;
@@ -620,26 +634,32 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
             : plan && <LeaveBy ctx={ctx} plan={plan} options={ahead} onEdit={() => setPlanning(true)} editRef={planButton} />)}
           {!leg ? null : deps.length === 0 ? <p className="muted">{t.noMoreToday}</p> : (
             <ul className="deps">
-              {rows.map(({ d, arr }, i) => (
-                <li key={d.tripInstanceId}>
-                  <button className={`dep ${i === 0 ? 'dep-next' : ''}`} onClick={() => onDeparture(d, leg)}>
+              {rows.map(({ d, arr, live }, i) => {
+                const shown = live?.boarding?.at ?? d.departs;
+                const reasonId = `${evidencePrefix}-${d.tripInstanceId}`;
+                const reason = live && homeArrivalReason(ctx, d, live);
+                const observedAt = live?.boarding?.observedAt ?? live?.arrival?.observedAt;
+                return <li key={d.tripInstanceId} data-arrival-kind={live?.kind ?? 'scheduled'} data-trip-instance={d.tripInstanceId}>
+                  <button className={`dep ${i === 0 ? 'dep-next' : ''}`} aria-describedby={live ? reasonId : undefined} onClick={() => onDeparture(d, leg)}>
                     <RouteBadge ds={ds} routeId={d.route.id} />
                     <span className="dep-main">
-                      <span className="dep-time"><TimeText ctx={ctx} at={d.departs} estimated={d.estimated} /></span>
+                      <span className="dep-time"><TimeText ctx={ctx} at={shown} estimated={live?.boarding ? false : d.estimated} />{live?.boarding && localYmd(shown, ctx.tz) !== localYmd(now, ctx.tz) && <span className="small"> · {fmtYmd(localYmd(shown, ctx.tz), ctx.lang)}</span>}</span>
                       {soonest?.index === i && <span className="tag tag-first">{t.leave.arrivesFirst}</span>}
                       <span className="dep-subline">
-                        <span className="dep-sub">{arr ? <>{t.arrives} <TimeText ctx={ctx} at={arr.at} estimated={arr.estimated} /></> : d.pattern.headsign}</span>
-                        <span className="badge-sched">{t.scheduledOnly}</span>
+                        <span className="dep-sub">{live?.arrival ? <>{t.live.rows.arrivalLive} <TimeText ctx={ctx} at={live.arrival.at} estimated={false} /></> : arr ? <>{live ? t.live.rows.arrivalScheduled : t.arrives} <TimeText ctx={ctx} at={arr.at} estimated={arr.estimated} /></> : d.pattern.headsign}</span>
+                        <span className={live?.boarding ? 'badge-live' : 'badge-sched'}>{live?.boarding ? live.boarding.kind === 'arrival' ? t.live.rows.boardingArrival : t.live.rows.live : t.scheduledOnly}</span>
                       </span>
-                      {plan && !canWalkTo({ dep: d }, now, plan) && <span className="dep-toosoon">{t.leave.tooSoon}</span>}
+                      {live?.boarding && <span className="dep-original">{t.live.rows.scheduled} <TimeText ctx={ctx} at={d.departs} estimated={d.estimated} /></span>}
+                      {plan && !canWalkTo({ dep: { ...d, departs: shown } }, now, plan) && <span className="dep-toosoon">{t.leave.tooSoon}</span>}
                       {(() => { const g = departureGate(ds, d); return g && <span className="dep-gate" data-status={g.status}>{gateLine(t, g)}</span>; })()}
                     </span>
                     <span className="dep-right">
-                      <span className="dep-min">{t.inMin(minutesUntil(now, d.departs))}</span>
+                      <span className="dep-min">{live?.kind === 'cancelled' ? t.live.rows.cancelledShort : shown < now && live ? t.live.rows.timePassed : t.inMin(minutesUntil(now, shown))}</span>
                     </span>
                   </button>
-                </li>
-              ))}
+                  {live && <p id={reasonId} className="dep-evidence">{observedAt && <span>{t.live.rows.sourceAge(Math.max(0, Math.floor((now - observedAt) / 1000)))}{' · '}</span>}{reason}{live.gpsObservedAt && ['no-prediction', 'passed', 'stale', 'unavailable'].includes(live.kind) && <> {t.live.rows.gpsHint}</>}</p>}
+                </li>;
+              })}
             </ul>
           )}
           {express && <p className="next-express" data-testid="next-express">
@@ -661,6 +681,16 @@ function FavoriteCard({ ctx, fav, count, editing, rev, onReverse, first, last, o
       )}
     </article>
   );
+}
+
+function homeArrivalReason(ctx: Ctx, dep: Departure, evidence: DepartureEvidence): string {
+  const l = ctx.t.live.rows;
+  if (evidence.kind === 'no-prediction') {
+    const trip = ctx.ds.trips.find(t => t.id === dep.tripId)!;
+    const starts = tripStopTimes(ctx.ds, dep)[0]?.at;
+    if (trip && starts && starts > ctx.now) return l.notStarted(formatTime12(starts, ctx.tz, ctx.lang) + (localYmd(starts, ctx.tz) !== localYmd(ctx.now, ctx.tz) ? ' · ' + fmtYmd(localYmd(starts, ctx.tz), ctx.lang) : ''));
+  }
+  return l.reasons[evidence.kind];
 }
 
 /** Leave-by countdown and arrive-by line for one direction of a saved commute (issue #54). Scheduled times only. */

@@ -7,7 +7,7 @@ import { uniqueCalendarDate, dateContainsReport } from './service-date';
 type Descriptor = bindings.transit_realtime.ITripDescriptor;
 export interface NormalizedUpdate { tripInstanceId: string; observedAt: number; cancelled: boolean; predictions: LivePrediction[]; skippedStops: number[] }
 export interface FeedDiagnostics { entities: number; knownTrips: number; corridorRoutes: number; missingServiceDates: number; missingObservationTimes: number }
-export interface NormalizedFeed { diagnostics?: FeedDiagnostics; feed: LiveFeed; observations: VehicleObservation[]; updates: NormalizedUpdate[] }
+export interface NormalizedFeed { unresolvedDateTrips?: string[]; diagnostics?: FeedDiagnostics; feed: LiveFeed; observations: VehicleObservation[]; updates: NormalizedUpdate[] }
 const seconds = (v: unknown) => { const n = Number(v), ms = n * 1000; return Number.isSafeInteger(n) && n > 0 && Number.isSafeInteger(ms) && Number.isFinite(new Date(ms).getTime()) ? ms : undefined; };
 
 export function createNormalizer(ds: Dataset) {
@@ -40,7 +40,7 @@ export function createNormalizer(ds: Dataset) {
       if (!at || at > now || data.header.incrementality === 1) return empty;
       const diagnostics: FeedDiagnostics = { entities: data.entity.length, knownTrips: 0, corridorRoutes: 0, missingServiceDates: 0, missingObservationTimes: 0 };
       const feedRoutes = new Set(ds.routes.map((r) => r.feedRouteId ?? r.id));
-      const output: NormalizedFeed = { diagnostics, feed: { state: now - at > LIVE_MAX_AGE_MS ? 'stale' : 'ok', timestamp: at }, observations: [], updates: [] };
+      const output: NormalizedFeed = { unresolvedDateTrips: [], diagnostics, feed: { state: now - at > LIVE_MAX_AGE_MS ? 'stale' : 'ok', timestamp: at }, observations: [], updates: [] };
       for (const entity of data.entity) {
         if (entity.isDeleted) continue;
         const report = kind === 'vehicles' ? entity.vehicle : entity.tripUpdate;
@@ -48,6 +48,7 @@ export function createNormalizer(ds: Dataset) {
           if (feedRoutes.has(report.trip.routeId ?? '')) diagnostics.corridorRoutes++;
           if (trips.has(report.trip.tripId ?? '')) {
             diagnostics.knownTrips++;
+            if (!report.trip.startDate && !uniqueDates.get(trips.get(report.trip.tripId!)!.serviceId) && !output.unresolvedDateTrips!.includes(report.trip.tripId!)) output.unresolvedDateTrips!.push(report.trip.tripId!);
             if (!report.trip.startDate) diagnostics.missingServiceDates++;
             if (!seconds(report.timestamp)) diagnostics.missingObservationTimes++;
           }
