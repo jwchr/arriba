@@ -12,6 +12,7 @@ Read `docs/V1_CONTRACT.md` (what V1 is) and `docs/HANDOFF.md` (where things stan
 - Independent app: never use NJ Transit or Port Authority logos, or imply endorsement.
 
 ## Data and privacy
+- D51: bus API approval has arrived and the owner has set encrypted GitHub credentials. #87 checks authentication only; actual live app integration, private storage and rail access remain unfinished. A successful token request is not a live-arrival claim.
 - NJ Transit data terms apply (server-side storage, 40,000 requests/day per API, attribution, latency disclosure). The owner reported NJ Transit's OK for archiving on 2026-10-31; keep the archive corridor-only and private.
 - This repository is public. Never commit NJ Transit credentials, tokens, recorded feed responses, rider locations or personal data. Credentials live only in repository or Cloudflare secrets set by the owner.
 

@@ -90,7 +90,7 @@ Implemented as `src/domain/rideGuide.ts` and `RideMode` (issue #34). After "I bo
 
 ## Data and release gates
 
-The existing hold on NJ Transit collection/integration remains in force until developer approval/access is available. No new service, package, credential or paid plan is introduced here. The existing planned Worker is the integration point; its deployed storage, validation and privacy controls are not supplied by a static GitHub Pages build. A geographic map also needs verified geometry and the previously required tile-provider decision.
+D51 satisfies the approval hold for the approved bus APIs; actual authentication, validated matching and private backend readiness still gate live integration. Rail access remains pending. No new service, package, credential or paid plan is introduced here. The existing planned Worker is the integration point; its deployed storage, validation and privacy controls are not supplied by a static GitHub Pages build. A geographic map also needs verified geometry and the previously required tile-provider decision.
 
 ## Verification
 

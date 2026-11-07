@@ -39,4 +39,4 @@ The bus guide already in the app remains the source for detailed 165 payment ins
 - Known override: https://www.njtransit.com/portalcutover publishes temporary schedules effective 10/11–11/14/26. The provided regular Penn connection rows differ. A planned return to regular service is not confirmation. #80 must handle this before offering a current train-versus-bus arrival ranking.
 - Bus holiday instructions refer the rider to the website; they do not provide all holiday departure times. Do not invent them. All printed schedules need a source/issued-date notice and an explicit unknown end date when absent.
 
-Original documents and personal paths are not committed. Publication of a checked transcription is the bounded D49 exception; API credentials, live recordings and private backend work remain held.
+Original documents and personal paths are not committed. Publication of a checked transcription is the bounded D49 exception; D51 subsequently confirms bus API approval; credentials must stay in owner-set secrets. Authentication and the private backend are unfinished, no live recordings have started, and rail access remains pending.
